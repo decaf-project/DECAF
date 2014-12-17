@@ -5,7 +5,7 @@ DECAF(short for Dynamic Executable Code Analysis Framework) is a binary analysis
 
 **PUBLICATIONS**
 
-1. "Make it work, make it right, make it fast: building a platform-neutral whole-system dynamic binary analysis platform", Andrew Henderson, Aravind Prakash, Lok Kwong Yan, Xunchao Hu, Xujiewen Wang, Rundong Zhou, and Heng Yin, to appear in the International Symposium on Software Testing and Analysis (ISSTA'14), San Jose, CA, July 2014.*(If you wish to cite DECAF, please cite this paper)*
+1. "Make it work, make it right, make it fast: building a platform-neutral whole-system dynamic binary analysis platform", Andrew Henderson, Aravind Prakash, Lok Kwong Yan, Xunchao Hu, Xujiewen Wang, Rundong Zhou, and Heng Yin, to appear in the International Symposium on Software Testing and Analysis (ISSTA'14), San Jose, CA, July 2014.**(If you wish to cite DECAF, please cite this paper)**
 
 2. Lok Kwong Yan, Andrew Henderson, Xunchao Hu, Heng Yin, and Stephen McCamant?.On soundness and precision of dynamic taint analysis. Technical Report SYR-EECS-2014-04, Syracuse University, January 2014.
 
