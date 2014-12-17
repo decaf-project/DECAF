@@ -1,0 +1,18 @@
+llconf (0.4.5-1) unstable; urgency=low
+
+  * making ready for ITP.
+
+ -- Oliver Kurth <oku@debian.org>  Thu, 11 May 2006 15:43:36 -0700
+
+llconf (0.3-1) unstable; urgency=low
+
+  * new upstream.
+
+ -- Oliver Kurth <oku@debian.org>  25 Feb 2005 11:04:55 -0800
+
+llconf (0.2-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Oliver Kurth <oku@debian.org>  Fri, 11 Feb 2005 13:00:25 -0800
+

@@ -1,0 +1,104 @@
+The @stake Sleuth Kit (TASK) contains some changes from The Coroner's
+Toolkit (TCT) and TCTUTILs.  
+
+Some changes exist because of a new naming convention.  To make it easier
+to remember which tools do what, a layered model was used.  Each tool 
+corresponds to either the file system, data, inode, or file name layer.
+All tools in a given layer begin with the same letters (fs, d, i, f) and
+end with 'ls' for listing tools, 'stat' for status tools, 'find' for
+mapping tools, or 'cat' for display tools.  The most major renaming is 
+from 'unrm' to 'dls'.  
+
+
+All Tools:
+-f:  The '-f' flag specifies the file system type.  In TCT and
+     TCTUTILs this flag existed, but did not do anything.  Well,
+     it now does.  Currently, the following values are supported:
+
+        bsdi (BSDi FFS)
+        fat (auto-detect FAT)
+        fat12 (FAT12)
+        fat16 (FAT16)
+        fat32 (FAT32)
+        freebsd (FreeBSD FFS)
+        linux-ext2 (both 2.2+ structures and pre 2.2 kernel EXT2FS)
+		ntfs 
+        openbsd (OpenBSD FFS)
+        solaris (Solaris FFS)
+
+
+-V:  The '-V' flag displays the version of the tool being used.  In
+     TCT, this produced verbose output to stdout.  The '-v' flag
+     still exists to print verbose output to stderr.
+
+
+
+fls & istat:
+-z:  The 'fls' and 'istat' programs in TCTUTILs took an integer argument 
+     with the '-z' flag to specify how many hours difference there were
+     between the original compromise site and the analysis site.  This 
+     can get messy due to day light savings, so the argument is now the
+     string that the operating system uses for time zones (EST5EDT for example).
+
+
+fls:
+-F:  The 'fls' program in TCTUTILs used to have a '-f' argument to specify
+     that only files should be displayed.  This conflicts with the '-f'
+     flag for file system type, so it has been changed to '-F'.
+-m:  The 'fls' program in TCTUTILs used to only print the status of
+     deleted files when using the '-m' option.	It now prints whatever
+     is described by the other flags.  So, with no other options it displays
+     all allocated and deleted files and directories within the specified
+     directory.  Or for the previous behavior, use the '-m', '-r', and 
+	 '-d' flags.  
+
+
+
+ils:
+-m:	The '-m' flag was added to produce output in the 'mactime' format.
+    This replaces the need of the extras/ils2mac script in TCT.  
+
+
+
+unrm:
+Is now called dls as it lists the contents of the data layer.  
+-l: This flag was added to list the details about each addressable unit
+    in time machine format.
+
+
+
+mactime:
+This version of mactime is heavily based on mac_daddy from Rob Lee
+(incident-response.org).  There are several differences than the one from 
+TCT:
+- If password and group files are not given, the Id is displayed (not
+  the local names).
+- Body file can also be given via STDIN instead of only '-b' (useful for
+  using pipes).
+- There are no gathering options.  All input data must be gathered by
+  using 'fls' and 'ils' in TASK, 'mac-robber' stand-alone tool (on 
+  www.atstake.com/research/tools), or grave-robber in TCT.
+- The output format also includes a column for the inode value.  This
+  makes it easier to identify the 'fls' entries for deleted files.
+- The '-z' argument specifies the time zone that the data is from.  This 
+  name of this value is system dependent, but a listing can usually be 
+  found in /usr/share/zoneinfo.
+
+find_file:
+find_file now called ffind as it finds items in the file naming layer.
+
+find_inode:
+find_inode is now called ifind as it finds items in the inode / meta layer.
+
+block_calc:
+block_calc is now called dcalc.
+
+fsstat:
+fsstat is a new tool that displays the details about a file system.  
+
+dstat: 
+dstat is a new tool that displays the details about a given data unit.
+
+
+Brian Carrier
+March 2002

@@ -1,0 +1,58 @@
+Compiling TEMU and the tracecap plugin
+
+0. Follow the instructions in the TEMU install file, 
+  using 'tracecap' as the project name in step 5
+
+  In a nutshell, this is the process explained in the TEMU install file,
+    assuming that all dependencies have been installed previously
+    (i.e., that you have installed and run TEMU with another plugin before)
+  In case on any discrepancy, the TEMU install file is the 
+    authoritative version
+
+    0.1. Configure TEMU with tracecap plugin 
+      cd TEMU_TRUNK
+      ./configure --target-list=i386-softmmu --proj-name=tracecap
+
+    0.2. Build llconf
+      cd TEMU_TRUNK/shared/llconf
+      ./configure --prefix=`pwd`/install
+      make
+      make install
+
+    0.3. Compile sleuthkit
+      cd TEMU_TRUNK/shared/sleuthkit
+      make
+
+    0.4. Compile TEMU and tracecap
+      cd TEMU_TRUNK
+      make
+
+    This step should create two binary files in TEMU_TRUNK/tracecap: 
+      temu and tracecap.so
+
+1. Make sure that TEMU_TRUNK/tracecap/ is included in your LD_LIBRARY_PATH 
+   environment variable. 
+   Alternatively, create a symbolic link from /usr/lib to 
+   TEMU_TRUNK/tracecap/tracecap.so
+   This is needed because the plugin is dynamically loaded using the 
+   'load_plugin' command in the TEMU monitor, and TEMU will look only in 
+   the standard directories such as /usr/lib and maybe /usr/local/lib
+
+
+Configuring TEMU's network (tap) interface
+==========================================
+Create a script /etc/qemu-ifup, including the following lines:
+#!/bin/sh
+sudo /sbin/ifconfig $1 <ip_address> up
+
+where <ip_address> is the address used by the host machine
+
+This should allow you to run the tap interface as *root*
+
+Start TEMU
+==========
+1. $sudo chmod 666 /dev/net/tun
+2. temu -kernel-kqemu -snapshot -net nic,vlan=0 -net tap,vlan=0,script=/etc/qemu-ifup -monitor stdio <image_file>
+
+where <image_file> is an absolute path to the image (i.e. OS) to be run by TEMU
+

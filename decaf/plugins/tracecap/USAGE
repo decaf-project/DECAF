@@ -1,0 +1,38 @@
+This instructions assume temu is properly installed, otherwise check INSTALL.
+
+Instructions for collecting a trace using tracecap 
+
+0. Start TEMU
+
+1. Load tracecap plugin
+(qemu) load_plugin /path/tracecap.so
+
+2. Enable emulation
+(qemu) enable_emulation
+
+2. Specify received network data as a taint source.
+(qemu) taint_nic 1
+
+3. Identify the PID of the process to trace. 
+   To list all running processes:
+     a) in a Windows image: (qemu) guest_ps
+     b) in a Linux image: (qemu) linux_ps
+
+4. Start tracing the victim process.
+(qemu) <pid_of_victim_process> <trace_filename>
+
+5. After the experiment, stop tracing and collect the trace.
+(qemu) trace_stop
+(qemu) stop_emul
+
+
+Tracing a process from the start
+================================
+If you want to trace a process from the start, then the PID is unknown. 
+To trace, then replace steps 3. and 4. above with:
+
+(qemu) tracebyname <process_name> <trace_filename>
+
+For example: 
+(qemu) tracebyname named.exe "/tmp/tmp.trace"
+

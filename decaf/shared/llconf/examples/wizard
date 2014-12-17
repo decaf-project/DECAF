@@ -1,0 +1,137 @@
+#!/bin/bash
+# really need bash?
+
+llconf=../src/llconf
+eni_file=./etc/interfaces
+rsv_file=./etc/resolv.conf
+hostname_file=./etc/hostname
+llc="$llconf ifupdown -f $eni_file"
+llc_dom="$llconf pair -f $rsv_file"
+
+ifaces=$($llc list iface)
+
+echo "Select an Interface:"
+echo $ifaces
+read iface
+
+[ -z $iface ] && exit 0
+
+if ! $llc exists iface/$iface ; then
+    $llc add . .empty=
+    $llc add . ".comment=# added by wizard"
+    $llc add . iface/$iface
+    $llc add iface/$iface method=dhcp
+    $llc add iface/$iface family=inet
+    savestate=new
+else
+    # ifstate looks like a shell script...
+    # FIXME: does not work for virtual interfaces like eth0=eth0-foo
+    if $llconf shell -i /etc/network/ifstate exists $iface ; then
+	savestate=up
+	echo "calling ifdown $iface"
+	echo "(not really. This is a test script)"
+    else
+	savestate=down
+    fi
+fi
+
+method=$($llc get iface/$iface/method)
+
+echo "Method (static dhcp) [$method]"
+read tmp
+[ -z $tmp ] || method=$tmp
+
+if [ x$method = x"static" ] ; then
+	$llc set iface/$iface/method static
+
+	$llc exists iface/$iface/address || $llc add iface/$iface address=192.168.1.1
+	address=$($llc get iface/$iface/address)
+	echo "IP Address [$address]:"
+	read tmp
+	[ -z $tmp ] || address=$tmp
+	$llc set iface/$iface/address $address
+
+	$llc exists iface/$iface/netmask || $llc add iface/$iface netmask=255.255.255.0
+	netmask=$($llc get iface/$iface/netmask)
+	echo "Netmask [$netmask]:"
+	read tmp
+	[ -z $tmp ] || netmask=$tmp
+	$llc set iface/$iface/netmask $netmask
+
+	gateway=$($llc get iface/$iface/gateway || echo none)
+	echo "Gateway (type 'none' for no gateway) [$gateway]:"
+	read tmp
+	[ -z $tmp ] || gateway=$tmp
+
+	if [ $gateway = "none" ] ; then
+	    $llc exists iface/$iface/gateway && $llc del iface/$iface/gateway
+	else
+	    gateway=$tmp
+	    if $llc exists iface/$iface/gateway ; then
+		$llc set iface/$iface/gateway $gateway
+	    else
+		$llc add iface/$iface gateway=$gateway
+	    fi
+	fi
+
+	# we assume that if this is the interface to the
+	# outside world, we need hostname and domain:
+	# (this is a testing script, nitpickers!)
+	if $llc exists iface/$iface/gateway ; then
+
+	    hostname=$(cat $hostname_file)
+	    echo "Hostname: "
+	    read tmp
+	    hostname=$tmp
+	    [ -z $hostname ] || echo $hostname > $hostname_file
+
+	    if $llc_dom exists domain ; then
+		domain=$($llc_dom get domain)
+		domsrc="domain"
+	    elif $llc_dom exists search ; then
+		domain=$($llc_dom get search)
+		domsrc="search"
+	    else
+		domsrc="none"
+	    fi
+
+	    echo "Domain [$domain]:"
+	    read tmp
+	    [ -z $tmp ] || domain=$tmp
+
+	    if [ $domsrc = "domain" ] ; then
+		$llc_dom set domain $domain
+	    elif [ $domsrc = "search" ] ; then
+		$llc_dom set search $domain
+	    else
+		$llc_dom add domain=$domain
+	    fi
+
+	    nameserver=$($llc_dom get nameserver) || nameserver=$($llc get iface/$iface/gateway)
+	    echo "Nameserver [$nameserver]:"
+	    read tmp
+	    [ -z $tmp] || nameserver=$tmp
+
+	    if [ ! -z $tmp ] ; then
+		if $llc_dom exists nameserver ; then
+		    $llc_dom set nameserver $nameserver
+		else
+		    $llc_dom add nameserver=$nameserver
+		fi
+	    fi
+	fi
+
+else
+	$llc set iface/$iface/method dhcp
+	$llc del iface/$iface/address || true
+	$llc del iface/$iface/netmask || true
+	$llc del iface/$iface/broadcast || true
+	$llc del iface/$iface/gateway || true
+fi
+
+if [ $savestate = 'up' ] ; then
+    echo "calling ifup $iface"
+    echo "(not really. This is a test script)"
+fi
+
+exit 0

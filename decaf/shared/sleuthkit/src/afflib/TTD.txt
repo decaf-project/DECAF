@@ -1,0 +1,57 @@
+Open Issues:
+2. Aimage doesn't properly report free space on capture drive. 
+3. Aimage doesn't properly capture serial number of capture USB drive with
+   many external USB adapters. (Make this work with firelite drive and we will
+   get many of them.)
+
+   Planned solution: Move all of the os-specific stuff to a new class,
+   os.cpp.  Make aimage use the "du" command to calcuate free space 
+   (du works). (This means that you need to have du on any bootable disk
+   that uses aimage.)  Fall back on OS-calls if du isn't present.
+
+5. The new release system system needs to make the tar file, unpack it
+   in another directory, build the tools, and successfully run the
+   validation program on them, before uploading the release to
+   afflib.org.
+
+9. aimage needs to give a warning when the capture drive fills up.
+
+10. MD5 and SHA1 files calcualted for AFD files appear to be
+    incorrect.
+    -> get this working with AFD files first.
+    -> Then verify that it is working with AFD captured by aimage.
+
+11. afinfo needs to report MD5 and SHA1 values in hex, not binary
+
+12. afinfo needs a batch validate feature to validate many files at
+    once.
+
+
+Things to do:
+
+* Have each segment individually hashed and signed, for security. 
+
+lib:
+* AFD needs to use same badflag for all of the files.
+* Make sure that popen and fopen works with raw files still.
+
+aimage:
+ * Keep a log of everything imaged, # of bad blocks, MD5, etc.
+ * Image from an SSL tcp connection.
+ * Always write an AFF file, and when writing raw, put the data in a second, raw file.
+ * notify user of kernel error messages.
+ * Graceful quit
+ * Digitally sign the AFFs
+ * Check for disk full (0.2)
+ * Checksum every AFF segment.
+
+afconvert:
+ * Need a "-p" (preen) option that will remove all of the blank spaces
+   in the file and recompress every section to the maximum compression.
+
+
+afcat:
+ * option - BADFLAG or BLANK errors
+
+afcompare:
+ * properly process BADFLAG

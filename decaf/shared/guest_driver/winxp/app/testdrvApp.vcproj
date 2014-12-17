@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding = "Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="testdrvApp"
+	ProjectGUID="{01480974-4D6B-4C35-A46A-CB2B1EBC54C7}"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Win32 Checked|Win32"
+			OutputDirectory="objchk/i386"
+			IntermediateDirectory="objchk/i386"
+			ConfigurationType="1"
+			CharacterSet="1">
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories="$(TARGET_INC_PATH),$(CRT_INC_PATH),$(ATL_INC_PATH)\atl30"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;_X86_=1;i386=1;STD_CALL;CONDITION_HANDLING=1;NT_INST=0;WIN32=100;_NT1X_=100;WINNT=1;WIN32_LEAN_AND_MEAN=1;DEVL=1;FPO=0;NDEBUG;DBG=1;DEPRECATE_DDK_FUNCTIONS;_WIN32_WINNT=$(_WIN32_WINNT);WINVER=$(WINVER);_WIN32_IE=$(_WIN32_IE);NTDDI_VERSION=$(NTDDI_VERSION)"
+				ExceptionHandling="FALSE"
+				BasicRuntimeChecks="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="FALSE"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+				DisableSpecificWarnings="4311;4312"
+				CallingConvention="2"
+				CompileAs="0"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="/ignore:4010,4037,4039,4065,4070,4078,4087,4089,4221,4210 "
+				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib libcmtd.lib advapi32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib ntdll.lib $(NOINHERIT)"
+				AdditionalLibraryDirectories="$(TARGET_LIB_PATH);$(CRT_LIB_PATH)"
+				OutputFile="$(OutDir)/testdrvApp.exe"
+				IgnoreAllDefaultLibraries="TRUE"
+				GenerateDebugInformation="TRUE"
+				ProgramDatabaseFile="$(OutDir)/testdrvApp.pdb"
+				SubSystem="2"
+				ImportLibrary="$(OutDir)/testdrvApp.lib"
+				TargetMachine="1"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="$(CRT_INC_PATH),$(MFC_INCLUDES)"/>
+		</Configuration>
+		<Configuration
+			Name="Win32 Free|Win32"
+			OutputDirectory="objfre/i386"
+			IntermediateDirectory="objfre/i386"
+			ConfigurationType="1"
+			CharacterSet="1">
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				InlineFunctionExpansion="1"
+				OmitFramePointers="TRUE"
+				AdditionalIncludeDirectories="$(TARGET_INC_PATH),$(CRT_INC_PATH),$(ATL_INC_PATH)\atl30"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;_X86_=1;i386=1;STD_CALL;CONDITION_HANDLING=1;NT_INST=0;WIN32=100;_NT1X_=100;WINNT=1;WIN32_LEAN_AND_MEAN=1;DEVL=1;FPO=0;NDEBUG;_WIN32_WINNT=$(_WIN32_WINNT);WINVER=$(WINVER);_WIN32_IE=$(_WIN32_IE);NTDDI_VERSION=$(NTDDI_VERSION)"
+				ExceptionHandling="FALSE"
+				BasicRuntimeChecks="0"
+				RuntimeLibrary="0"
+				EnableFunctionLevelLinking="TRUE"
+				BufferSecurityCheck="FALSE"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+				DisableSpecificWarnings="4311;4312"
+				CallingConvention="2"
+				CompileAs="0"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="/ignore:4010,4037,4039,4065,4070,4078,4087,4089,4221,4210 "
+				AdditionalDependencies="setupapi.lib kernel32.lib user32.lib libcmt.lib advapi32.lib comctl32.lib ole32.lib oleaut32.lib uuid.lib ntdll.lib $(NOINHERIT)"
+				AdditionalLibraryDirectories="$(TARGET_LIB_PATH);$(CRT_LIB_PATH)"
+				OutputFile="$(OutDir)/testdrvApp.exe"
+				IgnoreAllDefaultLibraries="TRUE"
+				SubSystem="2"
+				ImportLibrary="$(OutDir)/testdrvApp.lib"
+				TargetMachine="1"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="$(CRT_INC_PATH),$(MFC_INCLUDES)"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm">
+			<File
+				RelativePath="testdrvApp.cpp">
+			</File>
+			<File
+				RelativePath="testdrvIorw.cpp">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc">
+			<File
+				RelativePath="testdrvApp.h">
+			</File>
+			<File
+				RelativePath="resource.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe">
+			<File
+				RelativePath="testdrvApp.rc">
+			</File>
+		</Filter>
+		<File
+			RelativePath="makefile">
+		</File>
+		<File
+			RelativePath="sources">
+		</File>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

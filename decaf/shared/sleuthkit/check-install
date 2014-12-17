@@ -1,0 +1,66 @@
+#!/bin/sh
+
+echo '';
+echo 'Checking Tools';
+
+if (test -x "bin/md5") then
+  blah=1;
+else
+  echo "ERROR: Missing hash algorithm tools";
+fi
+
+if (test -x "bin/hfind") then
+  blah=1;
+else
+  echo "ERROR: Missing hash database tools";
+fi
+
+if (test -x "bin/fsstat") then
+  blah=1;
+else
+  echo "ERROR: Missing file system tools";
+fi
+
+if (test -x "bin/icat") then
+  blah=1;
+else
+  echo "ERROR: Missing file system tools";
+fi
+
+if (test -x "bin/mmls") then
+  blah=1;
+else
+  echo "ERROR: Missing media management tools";
+fi
+
+if (test -x "bin/srch_strings") then
+  blah=1;
+else
+  echo "ERROR: Missing strings tool";
+fi
+
+if (test -x "bin/disk_stat") then
+  blah=1;
+else
+  echo "ERROR: Missing diskstat tool";
+fi
+
+if (test -x "bin/file") then
+  blah=1;
+else
+  echo "ERROR: Missing 'file' command";
+fi
+
+if (test -x "bin/mactime") then
+  blah=1;
+else
+  echo "ERROR: Missing mactime tool";
+fi
+
+if (test -x "bin/sorter") then
+  blah=1;
+else
+  echo "ERROR: Missing sorter tool";
+fi
+
+echo 'Done';

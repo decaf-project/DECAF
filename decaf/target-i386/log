@@ -1,0 +1,196 @@
+cpu.h:    target_ulong base;
+cpu.h:    target_ulong regs[CPU_NB_REGS];
+cpu.h:    target_ulong eip;
+cpu.h:    target_ulong eflags; /* eflags register. During CPU emulation, CC
+cpu.h:    target_ulong cc_src;
+cpu.h:    target_ulong cc_dst;
+cpu.h:    target_ulong cr[5]; /* NOTE: cr1 is unused */
+cpu.h:    target_ulong cc_tmp; /* temporary for rcr/rcl */
+cpu.h:    target_ulong sysenter_esp;
+cpu.h:    target_ulong sysenter_eip;
+cpu.h:    target_ulong lstar;
+cpu.h:    target_ulong cstar;
+cpu.h:    target_ulong fmask;
+cpu.h:    target_ulong kernelgsbase;
+cpu.h:    target_ulong exception_next_eip;
+cpu.h:    target_ulong dr[8]; /* debug registers */
+cpu.h:                                          target_ulong base,
+cpu.h:                            target_ulong *base, unsigned int *limit,
+cpu.h:void cpu_x86_fsave(CPUX86State *s, target_ulong ptr, int data32);
+cpu.h:void cpu_x86_frstor(CPUX86State *s, target_ulong ptr, int data32);
+cpu.h:int cpu_x86_handle_mmu_fault(CPUX86State *env, target_ulong addr,
+cpu.h:void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3);
+cpu.h:static inline void cpu_clone_regs(CPUState *env, target_ulong newsp)
+cpu.h:static inline void cpu_get_tb_cpu_state(CPUState *env, target_ulong *pc,
+cpu.h:                                        target_ulong *cs_base, int *flags)
+helper.c:        target_ulong base = env->segs[R_CS].base + env->eip;
+helper.c:        target_ulong offs = MIN(env->eip, DUMP_CODE_BYTES_BACKWARD);
+helper.c:void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
+helper.c:int cpu_x86_handle_mmu_fault(CPUX86State *env, target_ulong addr,
+helper.c:int cpu_x86_handle_mmu_fault(CPUX86State *env, target_ulong addr,
+helper.c:    target_ulong pde_addr, pte_addr;
+helper.c:    target_ulong vaddr, virt_addr;
+helper.c:        target_ulong pdpe_addr;
+helper.c:target_phys_addr_t cpu_get_phys_page_debug(CPUState *env, target_ulong addr)
+helper.c:    target_ulong pde_addr, pte_addr;
+helper.c:        target_ulong pdpe_addr;
+helper.c:    target_ulong dr6;
+helper.c:                            target_ulong *base, unsigned int *limit,
+helper.c:    target_ulong ptr;
+helper_template.h:#define SIGN_MASK (((target_ulong)1) << (DATA_BITS - 1))
+helper_template.h:    of = ((CC_DST & DATA_MASK) == ((target_ulong)SIGN_MASK - 1)) << 11;
+helper_template.h:target_ulong glue(helper_rcl, SUFFIX)(target_ulong t0, target_ulong t1)
+helper_template.h:    target_ulong src;
+helper_template.h:        res = (t0 << count) | ((target_ulong)(eflags & CC_C) << (count - 1));
+helper_template.h:target_ulong glue(helper_rcr, SUFFIX)(target_ulong t0, target_ulong t1)
+helper_template.h:    target_ulong src;
+helper_template.h:        res = (t0 >> count) | ((target_ulong)(eflags & CC_C) << (DATA_BITS - count));
+kvm.c:static void kvm_getput_reg(__u64 *kvm_reg, target_ulong *qemu_reg, int set)
+kvm.c:    target_ulong addr;
+kvm.c:static int find_hw_breakpoint(target_ulong addr, int len, int type)
+kvm.c:int kvm_arch_insert_hw_breakpoint(target_ulong addr,
+kvm.c:                                  target_ulong len, int type)
+kvm.c:int kvm_arch_remove_hw_breakpoint(target_ulong addr,
+kvm.c:                                  target_ulong len, int type)
+op_helper.c:static inline floatx80 helper_fldt(target_ulong ptr)
+op_helper.c:static inline void helper_fstt(floatx80 f, target_ulong ptr)
+op_helper.c:void helper_write_eflags(target_ulong t0, uint32_t update_mask)
+op_helper.c:target_ulong helper_read_eflags(void)
+op_helper.c:    target_ulong ptr;
+op_helper.c:    target_ulong tss_base;
+op_helper.c:    target_ulong ptr;
+op_helper.c:        target_ulong ptr;
+op_helper.c:        target_ulong ptr;
+op_helper.c:target_ulong helper_inb(uint32_t port)
+op_helper.c:target_ulong helper_inw(uint32_t port)
+op_helper.c:target_ulong helper_inl(uint32_t port)
+op_helper.c:    target_ulong ptr, ssp;
+op_helper.c:static inline target_ulong get_rsp_from_tss(int level)
+op_helper.c:                           target_ulong next_eip, int is_hw)
+op_helper.c:    target_ulong ptr;
+op_helper.c:    target_ulong old_eip, esp, offset;
+op_helper.c:    offset = ((target_ulong)e3 << 32) | (e2 & 0xffff0000) | (e1 & 0x0000ffff);
+op_helper.c:    target_ulong ptr, ssp;
+op_helper.c:                              target_ulong next_eip)
+op_helper.c:    target_ulong ptr;
+op_helper.c:                             target_ulong next_eip, int is_hw)
+op_helper.c:                target_ulong ptr;
+op_helper.c:    target_ulong sm_state;
+op_helper.c:    target_ulong sm_state;
+op_helper.c:void helper_divb_AL(target_ulong t0)
+op_helper.c:void helper_idivb_AL(target_ulong t0)
+op_helper.c:void helper_divw_AX(target_ulong t0)
+op_helper.c:void helper_idivw_AX(target_ulong t0)
+op_helper.c:void helper_divl_EAX(target_ulong t0)
+op_helper.c:void helper_idivl_EAX(target_ulong t0)
+op_helper.c:void helper_cmpxchg8b(target_ulong a0)
+op_helper.c:void helper_cmpxchg16b(target_ulong a0)
+op_helper.c:void helper_enter_level(int level, int data32, target_ulong t1)
+op_helper.c:    target_ulong ssp;
+op_helper.c:void helper_enter64_level(int level, int data64, target_ulong t1)
+op_helper.c:    target_ulong esp, ebp;
+op_helper.c:    target_ulong ptr;
+op_helper.c:            env->ldt.base |= (target_ulong)e3 << 32;
+op_helper.c:    target_ulong ptr;
+op_helper.c:            env->tr.base |= (target_ulong)e3 << 32;
+op_helper.c:    target_ulong ptr;
+op_helper.c:void helper_ljmp_protected(int new_cs, target_ulong new_eip,
+op_helper.c:    target_ulong next_eip;
+op_helper.c:void helper_lcall_real(int new_cs, target_ulong new_eip1,
+op_helper.c:    target_ulong ssp;
+op_helper.c:void helper_lcall_protected(int new_cs, target_ulong new_eip, 
+op_helper.c:    target_ulong ssp, old_ssp, next_eip;
+op_helper.c:            target_ulong rsp;
+op_helper.c:    target_ulong ssp;
+op_helper.c:    target_ulong ssp, sp, new_eip, new_esp, sp_mask;
+op_helper.c:target_ulong helper_read_crN(int reg)
+op_helper.c:void helper_write_crN(int reg, target_ulong t0)
+op_helper.c:void helper_movl_drN_T0(int reg, target_ulong t0)
+op_helper.c:target_ulong helper_read_crN(int reg)
+op_helper.c:    target_ulong val;
+op_helper.c:void helper_write_crN(int reg, target_ulong t0)
+op_helper.c:void helper_movl_drN_T0(int reg, target_ulong t0)
+op_helper.c:void helper_lmsw(target_ulong t0)
+op_helper.c:void helper_invlpg(target_ulong addr)
+op_helper.c:target_ulong helper_lsl(target_ulong selector1)
+op_helper.c:target_ulong helper_lar(target_ulong selector1)
+op_helper.c:void helper_verr(target_ulong selector1)
+op_helper.c:void helper_verw(target_ulong selector1)
+op_helper.c:void helper_fldt_ST0(target_ulong ptr)
+op_helper.c:void helper_fstt_ST0(target_ulong ptr)
+op_helper.c:void helper_fbld_ST0(target_ulong ptr)
+op_helper.c:void helper_fbst_ST0(target_ulong ptr)
+op_helper.c:    target_ulong mem_ref, mem_end;
+op_helper.c:void helper_fstenv(target_ulong ptr, int data32)
+op_helper.c:void helper_fldenv(target_ulong ptr, int data32)
+op_helper.c:void helper_fsave(target_ulong ptr, int data32)
+op_helper.c:void helper_frstor(target_ulong ptr, int data32)
+op_helper.c:void cpu_x86_fsave(CPUX86State *s, target_ulong ptr, int data32)
+op_helper.c:void cpu_x86_frstor(CPUX86State *s, target_ulong ptr, int data32)
+op_helper.c:void helper_fxsave(target_ulong ptr, int data64)
+op_helper.c:    target_ulong addr;
+op_helper.c:void helper_fxrstor(target_ulong ptr, int data64)
+op_helper.c:    target_ulong addr;
+op_helper.c:void helper_mulq_EAX_T0(target_ulong t0)
+op_helper.c:void helper_imulq_EAX_T0(target_ulong t0)
+op_helper.c:target_ulong helper_imulq_T0_T1(target_ulong t0, target_ulong t1)
+op_helper.c:void helper_divq_EAX(target_ulong t0)
+op_helper.c:void helper_idivq_EAX(target_ulong t0)
+op_helper.c:void helper_monitor(target_ulong ptr)
+op_helper.c:void helper_boundw(target_ulong a0, int v)
+op_helper.c:void helper_boundl(target_ulong a0, int v)
+op_helper.c:void tlb_fill(CPUState *env1, target_ulong addr, int is_write, int mmu_idx,
+op_helper.c:    target_ulong addr;
+op_helper.c:    target_ulong addr;
+op_helper.c:    target_ulong addr;
+op_helper.c:    target_ulong addr;
+op_helper.c:target_ulong helper_bsf(target_ulong t0)
+op_helper.c:    target_ulong res;
+op_helper.c:target_ulong helper_lzcnt(target_ulong t0, int wordsize)
+op_helper.c:    target_ulong res, mask;
+op_helper.c:    mask = (target_ulong)1 << (TARGET_LONG_BITS - 1);
+op_helper.c:target_ulong helper_bsr(target_ulong t0)
+ops_sse.h:void glue(helper_maskmov, SUFFIX) (Reg *d, Reg *s, target_ulong a0)
+ops_sse.h:target_ulong helper_crc32(uint32_t crc1, target_ulong msg, uint32_t len)
+ops_sse.h:    target_ulong crc = (msg & ((target_ulong) -1 >>
+ops_sse.h:#define POPMASK(i)     ((target_ulong) -1 / ((1LL << (1 << i)) + 1))
+ops_sse.h:target_ulong helper_popcnt(target_ulong n, uint32_t type)
+translate.c:    target_ulong pc; /* pc = eip + cs_base */
+translate.c:    target_ulong cs_base; /* base of CS segment */
+translate.c:static void gen_jmp(DisasContext *s, target_ulong eip);
+translate.c:static void gen_jmp_tb(DisasContext *s, target_ulong eip, int tb_num);
+translate.c:static inline void gen_movtl_T0_im(target_ulong val)
+translate.c:static inline void gen_movtl_T1_im(target_ulong val)
+translate.c:#define REG_B_OFFSET (sizeof(target_ulong) - 1)
+translate.c:#define REG_H_OFFSET (sizeof(target_ulong) - 2)
+translate.c:#define REG_W_OFFSET (sizeof(target_ulong) - 2)
+translate.c:#define REG_L_OFFSET (sizeof(target_ulong) - 4)
+translate.c:#define REG_LH_OFFSET (sizeof(target_ulong) - 8)
+translate.c:static inline void gen_jmp_im(target_ulong pc)
+translate.c:static void gen_check_io(DisasContext *s, int ot, target_ulong cur_eip,
+translate.c:    target_ulong next_eip;
+translate.c:static int gen_jz_ecx_string(DisasContext *s, target_ulong next_eip)
+translate.c:                                 target_ulong cur_eip, target_ulong next_eip) \
+translate.c:                                   target_ulong cur_eip,                      \
+translate.c:                                   target_ulong next_eip,                     \
+translate.c:    target_ulong mask;
+translate.c:    target_ulong mask;
+translate.c:    target_ulong mask;
+translate.c:static inline void gen_goto_tb(DisasContext *s, int tb_num, target_ulong eip)
+translate.c:    target_ulong pc;
+translate.c:                           target_ulong val, target_ulong next_eip)
+translate.c:static void gen_movl_seg_T0(DisasContext *s, int seg_reg, target_ulong cur_eip)
+translate.c:gen_svm_check_intercept_param(DisasContext *s, target_ulong pc_start,
+translate.c:gen_svm_check_intercept(DisasContext *s, target_ulong pc_start, uint64_t type)
+translate.c:static void gen_exception(DisasContext *s, int trapno, target_ulong cur_eip)
+translate.c:                          target_ulong cur_eip, target_ulong next_eip)
+translate.c:static void gen_debug(DisasContext *s, target_ulong cur_eip)
+translate.c:static void gen_jmp_tb(DisasContext *s, target_ulong eip, int tb_num)
+translate.c:static void gen_jmp(DisasContext *s, target_ulong eip)
+translate.c:static void gen_sse(DisasContext *s, int b, target_ulong pc_start, int rex_r)
+translate.c:static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
+translate.c:    target_ulong next_eip, tval;
+translate.c:            target_ulong offset_addr;
+translate.c:    target_ulong pc_ptr;
+translate.c:    target_ulong pc_start;
+translate.c:    target_ulong cs_base;

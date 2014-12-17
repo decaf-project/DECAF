@@ -1,0 +1,133 @@
+Waiting for BSD make version of AFFLIB
+
+mmstat man page to HTML
+
+
+=========================================================================
+                         GENERAL
+=========================================================================
+- Windows version 
+- Convert docs to docbook?
+
+
+=========================================================================
+                      DISK TOOLS
+=========================================================================
+- diskstat: Use 48-bit commands -- support USB / Firewire devices
+- Add DCO detection
+
+
+=========================================================================
+                         FILE SYSTEM
+=========================================================================
+GENERAL:
+- SQL Patch
+- fsstat
+  - stats on number of things free
+  - UNIX bitmaps per group 
+  - List bad blocks (done for FAT)
+- New line of 'f' tools that utilize 'ifind' code:
+  - fstat (istat from path)
+  - fcat
+- Need jfind code to find entries based on FS block number
+- Use backup copy of boot sector if primary fails.
+- output data of ils
+- Incorporate the FS_FLAG_DATA_BAD flag into operation
+- Make flag in dls to extract only allocated.
+- Incorporate HFS
+
+
+---------------------------------------------------------------
+FAT: 
+- Running ffind on a lfn FAT directory entry results in an "ORPHAN"
+entry because the LFN entries are not sent via inode_walk...  perhaps
+make a new flag or a special FAT function. (BUG: 1326007)
+- could add a check to alert a file that has VOL_NAME set in non-root dir
+- Maybe fatfs_dent_walk should only check the times for the first
+entry and not be so strict.  0's can be used if the time is invalid.
+
+
+---------------------------------------------------------------
+FFS:
+- HP Support
+- Display disk labels in fsstat
+
+---------------------------------------------------------------
+EXTxFS:
+
+---------------------------------------------------------------
+NTFS: 
+- Make (realloc) appear on NTFS because of sequence numbers being off....
+- figure out a better way that $BADCLUS does not screw things up
+if it has a value in the first run.
+- deleted ADS
+- Read the Security Attributes
+- BAAD 
+- when doing a timeline in NTFS: do three time machine entries:
+  - time in parent directory
+  - time in STD_INFO
+  - time in $FNAME
+- Compressed attributes...
+
+---------------------------------------------------------------
+UFS:
+
+
+
+=========================================================================
+                         HASH TOOLS
+=========================================================================
+- hls
+- extended output for NSRL 
+
+
+=========================================================================
+                         IMAGE LAYER
+=========================================================================
+
+- need an img_integ tool that will verify the ingetrigy of an image
+ (will require the hash to be passed for raw and split files)
+
+
+=========================================================================
+                      MEDIA MANAGEMENT
+=========================================================================
+- Add status flags to mac mmls
+- Add bootable flag to mm code for DOS
+- mmls in recursive does not always print location relative to start
+of disk i.e. intel solaris disk offsets are relative to start of
+solaris partition and not disk - should this be modified?
+- show unpartitioned area at end of disk (using size from img)
+- add sanity checks based on image size to determine if values are valid
+
+
+=========================================================================
+                         SEARCHING
+=========================================================================
+- indexing
+- sstrings and Locale:
+  http://lidn.sourceforge.net/articles/unicode_programming/l-linuni.html
+- Incorporate grep or basic regexp to search files
+
+
+=========================================================================
+                         SORTER
+=========================================================================
+- minimum size for files
+- add extension to files that do not have one based on their file type.
+- check for ADS of 'dead' NTFS files from ils
+- should filter through the ils and fls entries so that only one
+entry for each unallocated file is shown.
+
+
+=========================================================================
+                         TIMELINES
+=========================================================================
+- scripts to incorporate logs and such into mactime
+- make 'mactime' able to run with '-w'
+- simplify date code with 'mactime' and get rid of the library
+- should filter through the ils and fls entries so that only one
+entry for each unallocated file is shown.
+- comma delimited version should have seperate column for deleted status
+(suggested by Keith Wood)
+

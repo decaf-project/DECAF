@@ -1,0 +1,26 @@
+
+
+[hook plugins] 
+; this section specifies what .so files to load 
+
+group_time.so = no
+group_network.so = no
+group_hostname.so = no
+group_registry.so = no
+group_file.so = no
+group_str_fs.so = no
+group_alloc.so = no
+group_sys.so = no
+group_process.so = no
+project_browser.so = no
+project_bot.so = no
+project_apeg.so = no
+project_bots_gheg.so = no
+project_adobe.so = no
+
+
+[functions]
+; this section specifies what functions to hook or not to hook
+
+*::* = yes
+

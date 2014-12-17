@@ -1,0 +1,19 @@
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testdrv", "driver\testdrv.vcproj", "{7097B175-F8F0-4AA5-91E7-1172DC420673}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Win32 Checked|Win32 = Win32 Checked|Win32
+		Win32 Free|Win32 = Win32 Free|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7097B175-F8F0-4AA5-91E7-1172DC420673}.Win32 Checked|Win32.ActiveCfg = Win32 Checked|Win32
+		{7097B175-F8F0-4AA5-91E7-1172DC420673}.Win32 Checked|Win32.Build.0 = Win32 Checked|Win32
+		{7097B175-F8F0-4AA5-91E7-1172DC420673}.Win32 Free|Win32.ActiveCfg = Win32 Free|Win32
+		{7097B175-F8F0-4AA5-91E7-1172DC420673}.Win32 Free|Win32.Build.0 = Win32 Free|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,31 @@
+# /etc/network/interfaces -- configuration file for ifup(8), ifdown(8)
+
+iface lo inet loopback
+
+mapping eth0
+	script /usr/bin/guessnet
+	map 192.168.10.152 00:02:B3:CE:96:F8 192.168.10.1 eth0-cyde
+	map 192.168.46.243 00:04:23:91:30:7E 192.168.44.1 eth0-cyus
+	map 10.0.0.118 00:50:E8:00:03:B5 10.0.0.4 eth0-crawford
+
+iface eth0-cyde inet dhcp
+	name cyclades
+
+iface eth0-cyus inet dhcp
+	name gmx
+
+iface eth0-crawford inet dhcp
+	name gmx
+
+iface eth0-none inet dhcp
+
+iface wlan0 inet dhcp
+	name gmx
+
+iface tap0 inet static
+	tunctl_user uml-net
+	address 192.168.14.1
+	netmask 255.255.255.0
+
+# added by wizard
+iface eth1 inet dhcp

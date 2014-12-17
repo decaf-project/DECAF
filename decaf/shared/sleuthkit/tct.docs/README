@@ -1,0 +1,204 @@
+This doc was in the original Coroners Toolkit, by Farmer and Venema.
+
+
+Investigations and Forensic Analysis
+-------------------------------------
+
+Remarkably, after over ten years of working on Internet investigations,
+we see people using the same tired tools and techniques... the same ones
+that were used at the time that the Internet worm made security a concern 
+to system administrators on the net.  Why hasn't more progress been made?
+
+Certainly it's a difficult task.  However, we feel that it's high time
+that more people knew about (and how to effectively utilize) MAC times,
+the possibilities of exploring - and recovering - Unix files that were
+removed or destroyed, capturing processes and their associated information
+and a fair bit more besides.  If nothing else, we hope that when a Unix system 
+has been broken into that the owner of the computer would have a chance 
+of capturing (if not understanding) much of the crucial forensics data 
+that is needed in order to understand what has happened on that system.
+
+To do any real sort of analysis of a system you'd like to be able to 
+examine fairly extensively the contents of - at least - its:
+
+	o	disk
+	o	memory
+	o	network
+
+In addition you'll require a host of commands that will tell you what 
+sort of system it is, what the OS is, patches, startup files, etc.
+While there is no software that can replace someone who knows their 
+systems very well, we hope that this software - The Coroner's Toolkit
+(TCT) might be at least a start of what one needs to start an adequate
+analysis.  With almost no existing tools available (the amazing lsof
+aside), most of the programs here perform data gathering rather than
+analysis.  We hope to provide more analysis tools in time, as well
+as improve the fairly poor internal architecture of the program.
+
+
+The Coroner's Toolkit (TCT)
+----------------------------
+
+TCT is a collection of tools - some large, some small, some in perl,
+some in C (but with complete source code provided, as with all reasonable
+software) - that are all either oriented towards gathering or analyzing
+data on a Unix system.  There is no single task or ultimate goal that they
+are directed to, but if there was a theme it'd be the reconstruction of
+the past - determining as much as possible what happened with a static
+snapshot of a system.  And, as with all of our work we hope that we can
+educate and inspire people as well (but obviously that is a much more
+difficult goal to accomplish).
+
+You might ask why would you use this at all rather than simply "dd"'ing
+the hard drive or simply sending the entire system to someone for
+analysis?  The primary reasons are that most systems cannot be simply
+dismantled, the raw data is far too voluminous to easily ship around,
+and that most people - even experienced system administrators - simply
+don't know how to do any of this with forensics in mind.
+
+So the toolkit has been designed primarily for people in the trenches -
+systems administrators, security response teams, security investigators,
+etc.  However we hope that people are not only able to utilize this to
+assist in ongoing investigations but for an aid to better understand
+how systems operate and how better to defend themselves versus security
+incidents in the future.
+
+There are currently four major parts to TCT:
+
+	o	grave-robber
+	o	the C tools (ils, icat, pcat, file, etc.)
+	o	unrm & lazarus
+	o	mactime
+
+Each has its own man page as well as additional documentation.  The
+C tools are generally run by the grave-robber, but also can be used
+manually.
+
+If there is activity going on on the system involved - files changed,
+processes started and lost, etc. - it will never be noticed by TCT.
+IT IS A STATIC ANALYSIS TOOL.  Care must be taken to isolate the system
+from outside forces while collecting data.
+
+At the end of the data collection all data should be moved to safety.
+At the very least MD5 or PGP signatures should be taken off line so
+that you can validate the results in the future.  We further recommend 
+that you use PGP to sign the data.  To sign with PGP, you generally do:
+
+    		% pgp -bs foo.tar.gz
+
+	The resulting signature file is "foo.tar.gz.sig".
+
+	To verify, you can:
+
+		% pgp foo.tar.gz
+
+	Depending on how smart your PGP version is it will either 
+	find foo.tar.gz.sig and foo.tar.gz, or it will ask some questions.
+
+Obviously you must have a previously known/generated PGP key for this.
+
+
+Grave Robbing and Electronic Dumpster Diving for Fun and Profit
+----------------------------------------------------------------
+
+The "grave-robber" tool is at the heart of much of TCT.  It is little
+more than a data capturing tool, mostly running various commands 
+in an attempt to gather the basic system information and to save some
+of the files on the system that are necessary to analyze it.
+
+For most investigations simply *getting* the raw, pristine data in a
+somewhat timely manner is more than the battle.  In our own efforts
+we've found that automation is simply the only way to reliably capture
+all the necessary information.
+
+TCT attempts to capture as much data as is both useful and pragmatic
+(and as time goes on it will hopefully become more comprehensive).  There 
+are two log files of general interest that are generated by the 
+grave-robber - "coroner.log" and "error.log".  The first logs all the 
+commands and when they were executed, the error log lists all the 
+output going to stderr, which is often, but not always, of some interest.
+
+HOWEVER, one should note - due to the extreme complexities of modern 
+systems, for the most part (except for MAC times and unallocated data)
+little effort has been made to *interpret* data, simply collect it.
+
+The grave robber is most useful when run over an entire system, capturing
+as much information as possible.  Point it at the root file system if space
+permits.  And, while TCT doesn't need to be run as root, running it
+from an unprivileged account will prevent you from capturing files and 
+processes that the account doesn't own (much of it potentially useful data).
+
+The last thing the grave-robber does is create MD5 signatures of all
+the output that was created during its latest run, in a file named
+"data/hostname/MD5_all".  If you can't take all the output of TCT off
+the system (you should always try this!) it would be a good idea to at 
+least keep the MD5 output off-line so the results can be validated later.
+
+Read the grave-robber.README file and the grave-robber manual page
+("man/man1/grave-robber.1") for more information about this tool.
+
+*** You may or may not wish to run the grave-robber with the -p flag; this
+*** grabs all the process memory, which can crash a system.  Test it
+*** out before using it in a real emergency!
+
+
+MAC times - the Ghost in the Shell(s)
+--------------------------------------
+
+Mtimes, atimes, and ctimes (or MAC times) are properties of a file that,
+if not intentionally modified or obfuscated, combine to be one of the most
+useful tools in forensic analysis.  The mtime contains the last time the 
+file was modified, the atime holds the last access time (for reading or 
+execution), and the ctime is the last time the file status has been 
+changed (status is the meta data that is typically changed by a chown, chmod,
+etc. command).
+
+Unfortunately MAC times are easily modified and are extremely ephemeral -
+the next time someone accesses or modifies a file in some way the prior
+values are lost, so haste must be exercised when collecting this 
+information (typically gotten with a lstat (2v) function call - the
+grave-robber program collects this on all directories it traverses).
+
+However, if you are reasonably certain that the MAC times have not been
+distorted in some way, they are perhaps the surest way to find out what
+has been happening on a system.  See "mactime.README" and the mactime
+man page for more information.
+
+
+Unrm & Lazarus, or Bringing the Dead to Life
+---------------------------------------------
+
+Many people think that destroyed or lost data - typically thought to 
+be lost in Unix systems - can essentially never be recovered, either in 
+whole or in part.  We are here to tell you something different.
+
+It is important to note that UNRM & LAZARUS ARE NOT RUN IN THE 
+GRAVE-ROBBER!  You need to run these separately.
+
+Unrm and Lazarus work together for the forces of sloth and extreme
+wasting of disk space.  Unrm is a C program that is essentially an 
+electronic dumpster diving tool - it roots out all information on 
+a Unix file system that is not currently allocated.
+
+That means if you have a 10 GB disk and you're currently using 2,
+unrm would generate 8 gigabytes of data.  Since UNIX tends to allocate
+file system blocks for different files in different places you must
+save this resulting data on a separate disk or you will destroy
+(overwrite) your potential forensic data.
+
+Lazarus takes the data from unrm (or, actually, from any data source,
+such as RAM, swap space, etc.) and attempts to bring some order into
+what is generally perceived of as garbage.  Perhaps it is most useful
+when the HTML output option is used and a click-able map is generated
+that allows browsing of the interpreted data.
+
+Of course if someone really wants data deleted they can overwrite the
+information with zeros or random garbage.  Most data loss is not
+done intentionally, however, plus *CURRENTLY* intruders that attempt
+to destroy data are not that careful, however (this will presumably
+change, and perhaps quickly), and a significant amount of information
+or data can at times be recovered.
+
+Read the lazarus.README file and their respective man pages for more 
+information about these two programs.
+

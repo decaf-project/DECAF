@@ -1,0 +1,6 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\testdrv]
+"Type"=dword:00000001
+"Start"=dword:00000001
+"ErrorControl"=dword:00000001

@@ -1,0 +1,261 @@
+So you've deleted an important file(s), or perhaps been broken into and
+have your file system smashed by a vindictive system cracker, or some
+other disaster has struck.  You need that file back, but Unix has no
+way to recover lost data that hasn't been backed up.  You hunt around
+for help, answers, anything, and perhaps run across this software or
+had heard about it in the back of your mind.
+
+To begin with, your data is *possibly* still out there somewhere -
+TCT cannot help you if the data wasn't saved to disk first, however,
+and it will take some time to hunt for data.
+
+The following are problems for data recovery:
+
+o	you do not have root privileges on the machine
+
+o	you're inexperienced with Unix
+
+o	you're in a hurry
+
+o	the file is anything but small (say, greater than 15-20K).
+	It's still possible to recover larger files, but can be a
+	lot more difficult.
+
+If you've lost email - especially a lot of it - you might look
+at the "rip-mail" program in the "lazarus/post-processing" subdir.
+
+We'd *HIGHLY* suggest you practicing on a few dummy files.  Go
+ahead, remove some test files and follow the instructions below.
+It's not that hard.
+
+What you need in order to recover a deleted file:
+
+o       A bit of knowledge about your system.
+
+o	Spare disk space.  If not on your system, then on another system
+	that you can hook the original disk up to.  You'll need at least
+	*220%* of the free disk space of the file system that the file
+	was lost in.  The 220% is needed by:
+
+		100% = The unallocated blocks that you'll be recovering
+
+		120% = Roughly the space lazarus will consume.  It'll
+		       be at least 100% + some additional space.
+
+o	At least a few hours of time (much of this will not be you doing 
+	any work, but the programs involved are slow).
+
+
+CLIFF NOTES
+------------
+
+The quick version is this:
+
+	Use "unrm" to recover the data, from the file system with
+	the lost file, to another file system; run lazarus, and
+	comb through the results until you find your data.
+
+
+UNABRIDGED VERSION
+-------------------
+
+OK, you have the will, the time, and the disk space.  What now?
+Reconstructing data is a two step process - recovering the data from
+the unallocated section of the media with unrm and then reconstructing
+it with lazarus.  You might try to read the man pages for unrm & lazarus,
+or the file "lazarus.README", which will go on and on about how lazarus
+and unrm work.  Failing that, this is a perhaps kindler and gentler
+approach to the problem.
+
+
+#1.  Determine the file system the lost file was on.  For those not
+	familiar with this concept, try typing (the "%" is the prompt -
+	"#" is used when it must be done by root):
+
+		% df /directory/where/file/was
+
+	("/bin/df -k" or "/usr/ucb/df" for solaris users)
+
+This will return something like:
+
+	Filesystem           1k-blocks      Used Available Use% Mounted on
+	/dev/sda1              1008872    246788    710836  26% /
+
+(Note - the "available column actually lies.  It has about 10% *MORE* than 
+this available.  This is because Unix keeps a bit of space (typically 10% of 
+the drive's capacity) in reserve (writable only by root) for performance 
+and safety reasons.)
+
+The first column ("/dev/sda1" in this case), is what we're interested in.
+With the mantra "you need 220% of the free space available somewhere else"
+in mind, if you have this 1GB disk with 710MB free, you'd want a second 
+disk with at least 710MB x 220%, or some 1.6 GB free. If that space
+is not available locally, perhaps you can find a machine elsewhere
+on the network that has the space.
+
+
+#2.  Save the unallocated blocks of that Filesystem - use the "unrm" tool
+for this.  This may sound foolish, but UNDER NO CIRCUMSTANCES SHOULD YOU 
+RECOVER DATA TO THE SAME FILE SYSTEM IT WAS LOST ON!!!!  If this isn't 
+clear to you, consider; your data is in that free area out there somewhere.
+You'd be filling up that free space with itself, essentially at random 
+locations.  There'd be a more than significant chance you'd blow away your 
+lost file before you got it.
+
+Anyway, let's say you have two file systems, /dev/sda1 & /dev/sda2,
+and you want to recover a file from the first.  As root you would...
+
+	a) Decide where on /dev/sda2 that you'll keep the results of
+	   the experiment.  I'll call this "/path/to/TCT" (for simplicity,
+	   this is also where TCT is installed).
+
+	b) type:
+
+		% cd /path/to/TCT
+
+	   and:
+
+		# bin/unrm /dev/sda1  >  /path/to/TCT/unrm_ouput
+
+You'll probably need to wait several minutes, depending on how big the
+disk is that you're unrm'ing from.
+
+That's it, you've recovered your file!  Well, if it was on the disk
+it's in that big file you just created ("/path/to/TCT/unrm_ouput").
+You can, if you wish, try to scrounge through that binary thing to
+recover your data.  Or you can move on to #3.  (Sometimes the former
+is what you want to do; it really depends on your experience and the
+situation.  If unsure, proceed onwards.)
+
+
+#3.  Run Lazarus on the output of unrm.  Typically this is done like:
+
+	% bin/lazarus -h unrm_output
+
+The -h flag generates HTML output, which we can view with a browser.
+Lazarus splits that big binary file into many smaller chunks.  It creates
+two directories, one of which is called "blocks" and has *lots* of files
+in it.  Hopefully your data is in there (if it was on the disk and unrm
+recovered it, it's there.)
+
+
+#4.  Now the hard part.  If you know what your file looks like, and it
+has some unusual words or something in it, then you can try method A.
+If not, go to method B below.
+
+Method A
+---------
+
+Let's say you lost the last letter that your Dad wrote to you before
+he died, and all you really remember is that he wrote something about a
+Studebaker automobile he had as a kid.  "Studebaker" is a great word to
+search for because the odds are that not a lot of files have that word
+in it.
+
+So you use your best friend "grep" on the blocks that were saved:
+
+	% grep -il studebaker blocks/* > matching_files
+
+(-i ignores case, -l lists the file names)
+
+If you see a match, examine the file(s) listed with a good pager that
+can handle binary data, such as "less".  If you find it, congrats!
+
+The above approach may fail with an error like "Argument list too
+long" when there are many files. In that case, try the more robust
+but more verbose version:
+
+	% find blocks -type f -print | xargs grep -il studebaker >matching_files
+
+If you're looking for something that isn't so unique, think of keywords
+that might help you out (like your name, employers, etc.)  You could
+then do something like:
+
+	% egrep -il 'keyword1|keyword2|...' blocks/*.txt > matching_files
+
+Images are likewise easy to examine; simply do something like ("xv" is a 
+fine Unix image viewer/editor, "gimp" and others can also be used):
+
+	% xv blocks/*.gif blocks/*.jpg
+
+Text based log files (syslog, message, etc.), even though they will 
+often be spread out all over the disk because of the way they are written
+(a few records at a time), are actually potentially easy to recover -
+and in the correct order - because of the wonderful time stamp on each
+line; the simplest way (until a better log analyzer is written) is to
+(the tr(1) is in there to remove nulls; commands such as sort don't
+like nulls in the files they work with!):
+
+	% cat blocks/*.l.txt | tr -d '\000' | sort -u > all-logs
+
+And then browse through them.  A few bits and pieces will probably
+be lost (due to the fragmentation at block and fragment boundaries),
+but it's a good way to start.
+
+Some data, like C source code, is very easy to confuse with other
+types of program files and text, so a combined arms approach that
+uses grep & the browser is sometimes useful (more on the browser 
+approach in a bit).
+
+Another good way to find source code is if you know of a specific #include
+file that the code uses or a specific output line that the program emits -
+a simple:
+
+	% grep -l rpcsvc/sm_inter.h blocks/*.[cpt].txt
+
+Will find any files that have rpcsvc/sm_inter.h in them (not a lot,
+probably! ;-))	This sort of brute force approach can be quite useful.
+
+Beware of concatenating lots of recovered blocks/files together and 
+performing text based searches or operations on them (sort, grep, 
+uniq, etc.), because text tools will often perform badly when 
+encountering binary data that is often in the lazarus output.
+
+
+Method B
+---------
+
+Browsin' time.  The browser approach, while much nicer looking, is
+not so great when you're looking for that one lost file. However,
+a browser can be helpful when you're looking for interesting files
+in general.  To start up the browser just have it open up the main
+HTML file you created previously with lazarus - it'll have a name
+like "unrm_output.frame.html" if the original data was called
+"unrm_output".
+
+If done correctly you'll see large map of your disk made up from
+letters, and a small HTML frame that shows what all the letters in
+the large map mean.  You can use your browser's internal search
+function or simply browse through the map looking for things of
+interest.  Clicking on a link will display the data in that file
+(unless it has unprintable data).
+
+Some data - like C source code - is hard for lazarus to distinguish
+from other types of program files and text, so a combined arms approach 
+that uses grep & the browser can be useful.  For instance, if you
+have a section of data that looks like thus on the disk map:
+
+	....CccPpC..Hh....
+
+The first three recognized text types - C, P, and C - might all be
+the same type of text (C).  Finding the block # by simply putting
+your mouse over the link and then concatenating the files or
+examining them manually is great.
+
+The browser based approach can be especially useful if you have 
+lots of files on a disk.  Because Unix file systems often will have a
+strong sense of locality that is tied to the directories that the
+files were once in, you can use the graphical browser to locate
+an interesting looking section of the disk and try to hunt either
+using the browser or via standard Unix tools on the saved blocks
+once you've found an area that looks promising.
+
+
+As you can see (if you've read this far), this is *far* from being
+an automated process.  However, you really can recover stuff.  In the
+future the process will hopefully become less arduous, either if we
+put some of the features we've been thinking about (being able to search
+from the browser, displaying all data irrespective of its printability,
+etc.) or if others work on this important problem.
+
+Good luck recovering your data!

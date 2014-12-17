@@ -1,0 +1,20 @@
+#
+# Global CFLAGS and CXXFLAGS. 
+# These should be = and not :=
+# so that INCDIRS and DEFINES can be updated
+
+RM = /bin/rm -rf
+
+CFLAGS   = -g -Wall -fPIC  $(INCDIRS) $(DEFINES)
+CXXFLAGS = -g -Wall -fPIC $(INCDIRS) $(DEFINES)
+
+
+# Global defines
+
+INCDIRS  = -I/usr/sfw/include -I. -Ilib
+LIBDIRS  = -I/usr/sfw/lib -L.
+LIBS     = -lz -lcrypto 
+
+
+.cpp.o:
+	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) -o $@ $<

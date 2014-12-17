@@ -1,0 +1,45 @@
+#!/bin/bash
+
+#gcc -nostdlib -nostdinc host.s -o hostfile
+#strip hostfile
+VerifyDefsFile="TraceProcessorX86VerifyDefs.h"
+
+echo "//AUTO GENERATED" > $VerifyDefsFile
+echo "//TODO:THESE ARE HARDCODED --- MUST CHANGE TO CONFIGURE SCRIPT" >> $VerifyDefsFile
+echo '#define BAP_HOST_FILE "hostfile"' >> $VerifyDefsFile
+echo '#define BAP_TOIL "bap-0.7/utils/toil"' >> $VerifyDefsFile
+echo '#define BAP_TEMP_FILE "temptemp"' >> $VerifyDefsFile
+
+result=`readelf -S hostfile | grep .text | awk '{ print $6 }'`
+if [ $result ]; then
+  echo "#define BAP_HOST_FILE_TEXT_START 0x$result" >> $VerifyDefsFile
+else
+  echo "COULD NOT FIND THE START OF THE HOSTFILE"
+  exit -1
+fi
+
+#this one is a little bit trickier - the idea is to identify the kind of file - either ELF or ELF64
+# and based on the answer, we will have to figure out where the .text section is
+#NEED TO HANDLE THE CASE WHEN THESE THINGS FAIL
+# like to make sure its a number
+elfclass=`readelf -a hostfile | grep "Class" | awk '{print $2}'`
+sectionstart=`readelf -a hostfile | grep "Start of section headers" | awk '{print $5}'`
+sectionsize=`readelf -a hostfile | grep "Size of section headers" | awk '{print $5}'`
+textnumber=`readelf -a hostfile | grep "\[.*\] \.text" | sed -e 's/\[\(.*\)\]/\1/g' | awk '{print $1}'`
+
+addressoffset=$(expr $sectionstart + $sectionsize \* $textnumber)
+
+#the ELF section header contains 3 4-byte fields prior to the address
+#in 64bit ELF the address is 8bytes long - since we only use the lowest 4 bytes
+# and things are stored in little-endian (I HOPE) we ignore the highest
+# 4 bytes by adding another 4 bytes
+if [ $elfclass == "ELF32" ]; then
+  addressoffset=$(expr $addressoffset + 12)
+elif [ $elfclass == "ELF64" ]; then 
+  addressoffset=$(expr $addressoffset + 16)
+else
+  echo "COULD NOT IDENTIFY THE ELF CLASS"
+  exit -1
+fi
+printf "#define BAP_HOST_FILE_TEXT_ADDR 0x%x\n" $addressoffset >> $VerifyDefsFile
+

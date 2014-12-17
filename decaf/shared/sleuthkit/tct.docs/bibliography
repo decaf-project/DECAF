@@ -1,0 +1,58 @@
+
+Online
+-------
+
+Ullman, Ellen, The Dumbing-down of Programming, Salon Magazine, May 12, 1998.
+	http://www.salon.com/21st/feature/1998/05/cov_12feature.html
+
+Slides of our forensics class & the latest version of the TCT toolkit:
+
+        http://www.fish.com/forensics/
+        http://www.porcupine.org/forensics/
+
+CERT's (Computer Emergency Response Team) home page, chock-full of
+information about how to report & respond to incidents:
+
+        http://www.cert.org/
+
+AUSCERT's (Australian CERT) nice Unix checklist about removing common 
+security vulnerabilities:
+
+	ftp://ftp.auscert.org.au/pub/auscert/papers/unix_security_checklist
+
+
+Papers
+-------
+
+McKemmish, Rodney, Forensic Computing, 1998 Donald MacKay Churchill 
+	Fellowship Report. (http://www.aic.gov.au/publications/)
+
+McVoy, L.W. & Kleiman, S.R., Extent-like Performance from a UNIX File System, 
+	Winter '91 USENIX.
+
+
+Books
+------
+
+Jon Bentley, Programming Pearls, Addison-Wesley Pub Co., October, 1999
+        (first edition December 1985; a better book, but out of date.)
+
+Drake, Chris & Brown, Kimberley, Panic!  Unix System Crash Dump Analysis, 
+	1995, SunSoft Press, Prentice Hall.
+
+Garfinkle, Simson & Spafford, Gene, Practical Unix & Internet Security, 
+	O'Reilly & Associates, Inc., 1996
+
+Goff, M. Lee, A Fly for the Prosecution : How Insect Evidence Helps Solve
+	Crimes, Harvard University Press, 2000.
+
+Roueche', Berton, The Medical Detectives, Truman Talley Books, 1947/1991.
+
+Saferstein, Richard, Criminalistics, An Introduction to Forensic Science,
+	Prentice-Hall, 1998.
+
+Stevens, W. Richard, TCP/IP Illustrated, Volume 1, Addison-Wesley, 1994.
+
+Stoll, Cliff, The Cuckoo's Egg: Tracking a Spy Through the Maze of Computer
+	Espionage, Pocket Books, New York, 1990.
+

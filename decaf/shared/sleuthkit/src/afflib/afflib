@@ -1,0 +1,280 @@
+#ifndef _AFFLIB_H_
+#define _AFFLIB_H_ 
+
+#define AFF_VERSION "1.1"
+#define AFF_SECTOR_SIZE 512
+
+/* Horrible lossage stuff for largefile support under Linux */
+#ifdef linux
+#define _LARGEFILE_SOURCE 1
+#define _FILE_OFFSET_BITS 64
+#endif
+
+/* 64-bit types Types */
+
+#ifdef WIN32                            
+typedef unsigned _int64 uint64;
+typedef          _int64  int64;
+#define uint64_defined
+#define I64d      "I64d"
+#define I64u      "I64u"
+
+/* Funcitons that Microsoft forgot */
+int64   ftello(FILE *stream);
+int     fseeko(FILE *stream,int64 offset,int whence);
+#endif
+
+#ifdef UNIX
+#define I64d "qd"
+#define I64u "qu"
+#ifdef __FreeBSD__
+typedef unsigned long long uint64;
+typedef long long int64;
+#define uint64_defined
+#endif
+#ifdef __APPLE__
+/* Apple is a whole lot like FreeBSD */
+typedef unsigned long long uint64;
+typedef long long int64;
+#define uint64_defined
+#endif
+#ifdef linux
+typedef unsigned long long uint64;
+typedef long long  int64;
+#define uint64_defined
+#endif
+#ifndef uint64_defined
+/* Probably Solaris or System V */
+typedef u_longlong_t uint64;
+typedef int64_t int64;
+#endif
+#endif // UNIX                                                                                          
+
+#include <stdio.h>
+
+typedef struct _AFFILE {
+    /* For Raw files */
+    FILE *raw;				// if it is a raw file
+    int raw_popen;			// opened with popen
+
+    /* For AFF Segment Files */
+    FILE *aseg;
+
+    /* For extended logging */
+    FILE *logfile;
+    int   log_mask;
+
+
+    char *fname;			// Filename of file...
+    char error_str[64];			// what went wrong
+
+    /* Image information */
+    unsigned long image_datasegsize;  // the size of image data segments in this file
+    uint64 imagesize;	// how big is the disk image
+    unsigned char badflag[AFF_SECTOR_SIZE];		// bad sector flag
+
+    /* Implement a stream abstraction */
+    int64    segnum;			// -1 means no segment loaded 
+    unsigned char *segbuf;		// where the data is
+    size_t   segbytes;			// number of bytes that were loaded from disk
+    uint64 pos;		// location in stream
+
+    /* additional support for writing. */
+    unsigned int dirty:1;		// is buffer dirty?
+    unsigned int writing:1;		// is file open for writing?
+    unsigned int segs_written;		// segments written
+    unsigned int csegs_written;		// compressed segments written
+    uint64 imagesize_orig;	// see if it was changed...
+    unsigned int compression_type;	// 0 is no compression
+    int compression_level;	// 0 is no compression
+
+    void (*compression_callback)(int bytes_uncompressed,
+				 int bytes_compressed);
+    // called at start and end of compression.
+
+    struct af_dir_mem *dir;			// optional directory
+    int	dir_count;				// number of directory elements
+
+    int last_command;			// 1 for probe, 2 for put
+    int debug;				// for debugging, of course
+} AFFILE;
+
+/* AFF Log Mask */
+#define AF_LOG_af_seek  0x0001
+#define AF_LOG_af_write 0x0002
+#define AF_LOG_af_close 0x0004
+
+/* Utility Functions */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __never_defined__
+}
+#endif
+
+/****************************************************************
+ ***
+ *** Intended user AFF interface
+ ***
+ ****************************************************************/
+
+/* af_file stream functions */
+AFFILE *af_open(const char *filename,int flags,int mode);
+AFFILE *af_freopen(FILE *file);		// reopen file as an AFFILE
+AFFILE *af_popen(const char *command,const char *type);	// no need to use pclose(); af_close() is fine
+
+/* navigating within the data segments as if they were a single file */
+int	af_eof(AFFILE *af);		// is the virtual file at the end?
+int	af_read(AFFILE *af,unsigned char *buf,int count);
+uint64  af_seek(AFFILE *af,uint64 pos,int whence); // returns new position
+uint64  af_tell(AFFILE *af);
+int	af_close(AFFILE *af);
+
+/* Additional routines for writing */
+int	af_enable_writing(AFFILE *af,int flag);	// set true to enable writing; returns old value
+void	af_enable_compression(AFFILE *af,int type,int level,
+			      void (*cb)(int,int)); // set/gunset compression for writing
+int	af_write(AFFILE *af,unsigned char *buf,int count);
+const unsigned char *af_badflag(AFFILE *af); // return the 512-byte pattern used to identify bad blocks
+
+
+/* Misc. Functions */
+const char *af_filename(AFFILE *af);	// returns the filename of an open stream.
+int	af_identify(const char *filename);  // 1 = yes, 0 = no, -1 = error (no file)
+int	af_is_aff(AFFILE *af);		// returns 1 if af is actually an AFFILE (and not raw)
+
+const char *af_errorstr(AFFILE *af);	// returns the printable string of the AF error
+
+
+/****************************************************************
+ * Functions for manipulating the AFFILE as if it were a name/value database.
+ ****************************************************************/
+
+/* get functions:
+ * get the named segment.
+ * If arg!=0, set *arg to be the segment's flag.
+ * If data!=0, allocate space for the data and set *data to the buffer.
+ * (Free with free()).
+ * If datalen!=0, set *datalen to be the length of the segment.
+ */
+
+int	af_get_seg(AFFILE *af,const char *name,unsigned long *flag,
+		    unsigned char *data,size_t *datalen);
+
+int	af_get_segq(AFFILE *af,const char *name,uint64 *quad);
+
+int	af_get_next_seg(AFFILE *af,char *segname,size_t segname_len,
+			 unsigned long *arg, unsigned char *data, size_t *datalen);
+int	af_get_image_segment(AFFILE *af,int segnum,unsigned char *data,size_t *bytes);
+
+int	af_seg_eof(AFFILE *af);		// we have gotten to the end of the AF Segments and there are none left to get
+
+
+
+/*
+ * af_update_seg() should be your primary routine for writing new values.
+ * if append==0, then the value will not be written if the segment doesn't
+ * already exist. If append!=0, then the segment will be appended to the end
+ * of the file if it is not there already.
+ */
+
+/* This one writes arbitrary name/value pairs */
+int	af_update_seg(AFFILE *af,const char *name,unsigned long arg,
+		       const void *value,unsigned int vallen,int append);
+/* This one writes 8-byte data */
+int	af_update_segq(AFFILE *af,const char *name,unsigned long long quad,int append);
+
+
+/* Delete functions */
+
+int	af_del_seg(AFFILE *af,const char *name); // complete delete of first name
+                                                 // returns 0 if success, -1 if seg not found
+
+/****************************************************************/
+
+
+/* Metadata access */
+
+
+/* Compression #defines */
+#define AF_COMPRESSION_NONE 0
+#define AF_COMPRESSION_ZLIB 1
+#define AF_COMPRESSION_MIN  1
+#define AF_COMPRESSION_DEFAULT -1
+#define AF_COMPRESSION_MAX 9
+#define AF_COMPRESSION_MIN 1
+
+
+/****************************************************************
+ *** AF segment names that you might be interested in...
+ ****************************************************************/
+
+
+#define AF_IGNORE       ""		// ignore segments with 0-length name
+#define AF_DIRECTORY    "dir"		// the directory
+#define AF_SEGSIZE	"segsize"	// segment data size
+#define AF_IMAGESIZE	"imagesize"	// overall size of the image; 8-bytes
+#define AF_BADSECTORS	"badsectors"	// number of bad sectors
+#define AF_BADFLAG      "badflag"	// data used to mark a bad sector
+#define AF_SEG          "seg%d"		// arg=1 means it is compressed with zlib
+#define AF_BLANKSECTORS "blanksectors"	// all NULs; 8-bytes
+
+
+/* AFF Flags */
+
+#define AF_SEG_COMPRESSED 0x0001
+#define AF_SEG_QUADWORD   0x0002	// interpert this as a quadword
+#define AF_MD5  "md5"			// stores image md5
+#define AF_SHA1 "sha1"			// stores image sha1
+
+/* segment names: imaging */
+#define AF_CASE_NUM		"case_num"      // case number
+#define AF_IMAGE_GID		"image_gid"      // 128-bit unique number
+#define AF_IMAGING_ISO_COUNTRY  "imaging_iso_country" // ISO country code
+#define AF_IMAGING_COMMAND_LINE "imaging_commandline" // actual command line used to create the image
+#define AF_IMAGING_DATE		"imaging_date" // YYYY-MM-DD HH:MM:SS TZT
+#define AF_IMAGING_NOTES	"imaging_notes" // notes made while imaging
+#define AF_IMAGING_DEVICE	"imaging_device" // device used to do the imaging
+#define AF_IMAGING_ELAPSED_TIME "imaging_elapsed_time" // In seconds, stored in arg
+
+/* segment names: device hardware */
+
+#define AF_DEVICE_MANUFACTURER  "device_manufacturer"
+#define AF_DEVICE_MODEL		"device_model"	// string for ident from drive
+#define AF_DEVICE_SN		"device_sn"	// string of drive capabilities
+#define AF_DEVICE_FIRMWARE	"device_firmware"	// string of drive capabilities
+#define AF_DEVICE_SOURCE        "device_source" // string
+#define AF_CYLINDERS		"cylinders" // quad with # cylinders
+#define AF_HEADS		"heads"	// quad with # heads
+#define AF_SECTORS_PER_TRACK	"sectors/track"	// quad with # sectors/track
+#define AF_LBA_SIZE		"lbasize"
+#define AF_HPA_PRESENT          "hpa_present"   // flag = 1 or 0
+#define AF_HCO_PRESENT          "dco_present"   // flag = 1 or 0
+#define AF_LOCATION_IN_COMPUTER "location_in_computer" // text, where it was found
+#define AF_DEVICE_CAPABILITIES	"device_capabilities" // string; human-readable
+
+#define AF_MAX_NAME_LEN 64		// segment names should not be larger than this
+
+
+/* AFF error codes */
+#define AF_ERROR_EOF -1
+#define AF_ERROR_DATASMALL -2
+#define AF_ERROR_TAIL  -3		// no tail, or error reading tail
+#define AF_ERROR_SEGH  -4		// no head, or error reading head
+#define AF_ERROR_NAME  -5		// segment name invalid
+#define AF_ERROR_INVALID_ARG -6		// argument invalid
+
+
+/****************************************************************
+ *** Internal implementation details below.
+ ****************************************************************/
+
+
+#ifdef __never_defined__
+{
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif

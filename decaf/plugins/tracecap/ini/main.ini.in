@@ -1,0 +1,107 @@
+; Main configuration file for tracecap
+
+[general]
+
+; Set to 'yes' if you want to start logging instructions to the trace file 
+;   only after some tainted data has been received by the process
+trace_only_after_first_taint = no
+
+; Set to 'yes' if you want to generate a file that contains all functions
+;   being called by the traced process, instead of a trace file
+;   Because no trace file is written, this is usually fast
+log_external_calls = no
+
+; When set to 'yes' the operands that are both read and written are split
+;   into two separate operands in the instruction.
+;   Also, the value of the operands that are written is taken after the 
+;   instruction has executed, rather than before
+write_ops_at_insn_end = no
+
+; Set to 'yes' if you want a memory snapshot of the process to be taken 
+;   just after the first trace instruction is collected
+save_state_at_trace_start = no
+
+; Set to 'yes' if you want a memory snapshot of the process to be taken 
+;   when the trace is stopped
+save_state_at_trace_stop = no
+
+[tracing]
+
+; Set to 'no' if you want to disable taint propagation on memory lookups
+;   with a tainted index
+tracing_table_lookup = yes
+
+; Set to 'yes' if you want to write only tainted instructions into the 
+;   trace file
+tracing_tainted_only = no
+
+; Set to 'yes' if you want to write only instructions from the same thread
+; into the trace file. The first instruction in the trace decides which
+; thread we are recording.
+tracing_single_thread_only = no
+
+; Set to 'yes' if you want to include kernel instructions into the 
+;   trace file. By default only user-level instructions are included
+tracing_kernel = no
+
+; Set to 'yes if you want to include kernel instructions that access
+;   user memory into the trace
+tracing_kernel_partial = no
+
+; Set to 'yes' if you want to include tainted kernel instructions
+;   into the trace
+tracing_kernel_tainted = no
+
+[detect]
+
+; Set to 'yes' to detect if a memory exception (i.e., KiUserExceptionDispatcher)
+;   is raised
+detect_memory_exception = no
+
+; Set to 'yes' to detect if a null pointer is dereferenced
+detect_null_pointer = no
+
+; Set to 'yes' to detect if the traced process exits
+detect_process_exit = no
+
+; Set to 'yes' to detect if the EIP register becomes tainted
+detect_tainted_eip = no
+
+; Action to take when any of the above conditions is detected
+; Allowed values are:
+;   'stoptracing' to stop the trace
+;   'stopvm' to stop the VM
+;   'terminate' to quit TEMU
+; Any other value is interpreted as no action needs to be taken
+detect_action = none
+
+[network]
+
+; Set to 'yes' if you want received dns packets not to be tainted
+ignore_dns = no
+
+; Filter options are used to taint only a subset of the data received 
+;   over the network, rather than all data 
+
+; Transport protocol. Has to be 'tcp' or 'udp'
+filter_transport = 
+
+; Source port. Needs filter_transport to be set
+filter_sport = 
+
+; Destination port. Needs filter_transport to be set 
+filter_dport = 
+
+; Source address
+filter_saddr = 
+
+; Destination address
+filter_daddr = 
+
+[function hooks]
+;file to use for hook configuration
+plugin_ini = SRC_PATH/tracecap/ini/hook_plugin.ini
+
+; directory containing hook files
+plugin_directory = SRC_PATH/shared/hooks/hook_plugins
+

@@ -1,0 +1,62 @@
+
+
+        NOTE: If you've just been broken into and are desperate for help,
+              read the "help-when-broken-into" file.  If you've deleted
+              a file and want to recover it, read "help-recovering-file".
+
+The Coroner's Toolkit (TCT) - a Brief Introduction
+
+TCT is a collection of tools - some large, some small, some in perl,
+some in C - that are all either oriented towards gathering or analyzing
+forensic data on a Unix system.  There is no single task or ultimate
+goal that they are directed to, but if there was a theme it'd be an
+effort towards the reconstruction of the past - determining as much
+as possible what happened with a static snapshot of a system.  Most of
+the tools are oriented towards data collection rather than analysis -
+a good use of the toolkit could be for a relative neophyte in Unix
+forensic security to send the data to someone who does know something and
+can further analyze the output.  (Do NOT send it to us, however!  ;-))
+Note that by default we don't gather *ALL* data - unallocated blocks of
+disks (let alone the entire contents of your media!) and raw memory are
+not touched by default... where would you put the results, for starters?
+
+So, as a general overview:
+
+A quick start for the impatient may be found in the "quickstart" file.
+
+The most current version of TCT may be found at both:
+
+	http://www.fish.com/forensics/
+
+	http://www.porcupine.org/forensics/
+
+To install TCT read the "INSTALL" file.
+
+A list of the contents of TCT may be found in the "MANIFEST" file.
+
+A copyright notice is in the "COPYRIGHT" file; additional copyrights
+might be included in individual source code files (especially look at
+the C source code files, which are mostly covered by IBM's open source
+license, in the file "LICENSE".)
+
+A general overview of the toolkit may be found in the "README" file
+in the "docs" subdirectory.  More about TCT's design methodology and 
+philosophy can be found in the "design-notes" file in the same directory.
+
+We hope that you enjoy this and find our work useful to you!
+
+Dan Farmer & Wietse Venema
+
+August 1st, 2000
+
+
+p.s.  There's a mailing list (with on-line archive) for sharing
+experiences. To subscribe, send a message to majordomo@porcupine.org
+with body (not subject): subscribe tct-users. The list will reject mail
+from non-members so it is unlikely to catch UCE. To unsubscribe, send
+mail with as body (not subject): unsubscribe tct-users.
+
+p.p.s. Some unpolished, unfinished, and perhaps not very useful tools 
+and notes are in the "extras" subdirectory; feel free to check them out,
+but caveat emptor.
+

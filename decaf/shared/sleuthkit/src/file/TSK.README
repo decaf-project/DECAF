@@ -1,0 +1,7 @@
+From: ftp://ftp.astron.com/pub/file/
+
+This is basically just the normal file tar file with the install
+and clean scripts added to it.  To compile for The Sleuth Kit, use
+'sh TSK.install' and later 'sh TSK.clean' instead of directly using configure
+and make.  Doing it directly will result in the required files
+being installed in /usr/local instead of the TSK directory.

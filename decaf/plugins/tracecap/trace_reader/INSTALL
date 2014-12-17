@@ -1,0 +1,21 @@
+Building trace_reader_cpp
+-------------------------
+
+*trace_reader_cpp requires binutils-multiarch
+
+0) Install binutils-multiarch
+In Ubuntu: $sudo apt-get install binutils-multiarch
+
+1) Make sure that the linker uses the multiarch version of binutils, 
+For example:
+$sudo mv /usr/lib/libbfd.so /usr/lib/libbfd.so.bk
+$sudo mv /usr/lib/libopcodes.so /usr/lib/libopcodes.so.bk
+$sudo ln -s /usr/lib/libbfd-2.22-multiarch.so /usr/lib/libbfd.so
+$sudo ln -s /usr/lib/libopcodes-2.22-multiarch.so /usr/lib/libopcodes.so
+
+2) Configure
+$./configure
+
+3) Build
+$make
+

@@ -1,0 +1,98 @@
+                        The Sleuth Kit
+
+                http://www.sleuthkit.org/sleuthkit
+                 http://sleuthkit.sourceforge.net
+
+                    Installation Instructions
+
+
+REQUIREMENTS
+=============================================================================
+Tested Platform:
+- FreeBSD 2-6.*
+- Linux 2.*
+- OpenBSD 2-3.*
+- Mac OS X
+- SunOS 4-5.*
+
+
+System:
+- C compiler
+- GNU make
+- OpenSSL Libraries (www.openssl.org)
+
+
+Optional Programs:
+- Autopsy 2.05: Provides a graphical HTML-based interface to The
+Sleuth Kit (which makes it much easier to use).  Install this AFTER
+installing The Sleuth Kit.
+
+    Available at: http://www.sleuthkit.org/autopsy
+
+
+INSTALLATION NOTES
+=============================================================================
+- If you are planning on using the Autopsy Forensic Browser with
+The Sleuth Kit, then it is recommended that you make a symbolic
+link from the specific install directory (i.e. sleuthkit-1.00) to a
+generic directory (i.e. sleuthkit) and use that location for the Autopsy
+configuration file.  For example:
+
+    $ ln -s /usr/local/sleuthkit-1.00 /usr/local/sleuthkit
+
+
+INSTALLATION
+=============================================================================
+
+The Sleuth Kit  uses basically the same installation scripts that were
+written for TCT.  The process should happen automatically by typing:
+
+    $ make
+
+If an error occurs about not using GNU make, then either install GNU
+make or type in 'gmake' if you have both GNU and BSD make installed.
+
+The script attempts to identify if certain items on the system.  If the
+script says that it can not find something, then it does not necessarily
+mean that it is an error.
+
+If you get a 'gcc: not found' error, then the compiler can not be
+found (the GNU compiler is used by default).  If you only have 'cc'
+installed, use the following line:
+
+    $ make CC=cc
+
+Or if you have gcc installed, but not you your path, use something like:
+
+    $ make CC=/usr/local/bin/gcc
+
+If you do not have Perl, then you can use:
+
+    $ make no-perl
+
+If you only want the mactime tool (i.e. the file systems tools do not
+support your OS), then you can use:
+
+    $ make mactime
+
+
+
+All tools will be compiled into the 'bin' directory.  All manual pages
+are located in the 'man' directory.  To always have access to the
+manual pages, add the directory to your MANPATH environment variable.
+If you would like the binaries to be placed in a common directory,
+such as /usr/local/bin, then it must be done manually.
+
+
+REFERENCES
+=============================================================================
+As much of the installation process is from The Coroners Toolkit (TCT),
+much of this file is based on the original INSTALL file.
+
+
+-----------------------------------------------------------------------------
+Brian Carrier
+carrier@sleuthkit.org
+May 11, 2006
+
+CVS Date: $Date: 2006-08-24 10:45:33 -0400 (Thu, 24 Aug 2006) $

@@ -1,0 +1,348 @@
+
+So you've been broken into, and you're in a bit of a panic about what
+to do.  You hunt around for help, answers, anything, and perhaps run
+across this software or had heard about it in the back of your mind.
+
+Since there's no way we can think of telling you that will soften the
+blow, let us simply say it outright -  you're out of luck.  This set 
+of forensic tools probably won't help you out unless you've already 
+looked at it, played with it, and know what the tools do as well as
+what to expect from them.  The tools will run for a long time, give
+no immediate results, and at the end you'll quite possibly be none 
+the wiser (and perhaps ticked off at wasting your time on our lame and
+so-called security tools).
+
+However, since a vast percentage of all security-related actions are in
+fact knee-jerk reactions to negative security incidents, we'll assume,
+without recrimination, that's why you're here (and, if not,
+congratulations!  ;-)).  If it comforts you to know, it doesn't really
+matter how good or careful you are - everyone's systems are at risk at
+being compromised, and most long-term Internet denizens have experienced
+this negative thrill first-hand (we certainly didn't write this in a
+hypothetical vacuum)  And while yet another book could easily be written
+about dealing with intrusions and security incidents, here's a few quick
+pointers and a small bibliography.  We'll hope that you at least know the
+system fairly well, what it does, what sort of valuable stuff is there
+(if anything), and if the system is connected or trusted by any other,
+perhaps even more critical systems.
+
+You might skip to the bibliography sections for more detailed ways of
+handling troubles and for additional resources.
+
+
+What to expect
+---------------
+
+Running the toolkit (see below) is going to take a lot of time. But 
+that's nothing compared to the time that people can spend on an incident.
+You may get away with a few hours with a "restore service as usual"
+response.  The more fanatical can spend days or even months in a
+virtual pursuit of the intruder(s).
+
+Your basic goal is predicting the past based on the evidence you
+gather; as you uncover what happened in the past life of a machine
+you can often expect to stumble over evidence of additional break-ins
+as well!  This is because it is rare to detect a compromise the first 
+time it happens - more typically a system is compromised several 
+times before it is found out. In one case we found traces of past 
+break-ins dating back more than a year, apparently by completely
+different parties.
+
+Note that in the course of an investigation - especially when working on
+systems with multiple users - you'll frequently come across information
+that you'll have no "right" to examine.  The legal ramifications are
+problematic enough, but the ethical ones are just as - if not more -
+serious.  Personal correspondence, private notes, and web surfing
+patterns are a small sampling of some of the highly sensitive bits of
+information stored on computers today.  Since even deleted files can
+be examined it is imperative that you remain highly scrupulous about
+your dealings with such information.  If uncertain how to act *always*
+err on the side of caution.  Never, under any circumstances, use the
+information gleaned from an investigation to your or other's personal
+advantage.
+
+
+What you'll need
+-----------------
+
+	o	A pad of paper
+	o	Something to write with
+	o	A secure, *OFF-LINE* location to store information
+
+A second computer that could talk to the network would be a welcome, but 
+not necessary, aide.  A laptop can be used to store results, notes, 
+and data, but be cautious about who has access to the second system.
+Ideally it will only be accessible from you.
+
+Discretion is another fine thing to have.  Do not email others about
+what is going on (and if you do, at least encrypt it!), don't keep logs
+or records of your activities where the wrong people can see it, etc.
+
+On the other hand, strongly consider initiating a dialogue (initially via
+the telephone) with an emergency response team (if your own organization
+doesn't have a security group or incident response team you can contact
+CERT, CIAC, and other FIRST groups) Since by definition a break-in
+involves the network, you aren't alone - you can get (or provide) valuable
+help if others have encountered the same intruder(s) or type of problem.
+
+
+What to do
+-----------
+
+The first 3 basic steps to handling a "situation" (roughly taken from
+the wonderful Criminalistics, An Introduction to Forensic Science, by
+Saferstein (see the "bibliography" file) are:
+
+	o	Secure and isolate the scene
+	o	Record the scene
+	o	Conduct a systematic search for evidence
+
+And while speed is of the essence, attempt to stay calm and don't panic.
+
+And do *NOT* touch the keyboard or the computer yet unless you absolutely
+have to.
+
+We repeat.  Do *NOT* touch the keyboard or the computer yet.
+
+Did you hear us?   STAY AWAY FROM THE COMPUTER!  Anything you do will 
+destroy evidence, so simply don't touch it for now, or do as little as 
+possible and don't start looking for damage yet.
+
+And while you might get lucky and find all the damage and evidence and
+perpetrator immediately, don't get your hopes up too much, this is still
+not an exact science, and almost every case has more than its share of 
+disappointments.
+
+
+Secure & Isolate
+-----------------
+
+If possible, a good first step is to simply disconnect the system from
+the network.  Pull out the network cable, turn off the wireless NIC, 
+whatever.  Unless you're the one breaking into your own system there's
+usually not much an intruder will or can do to harm you when your system
+can't talk to anyone.  A poor substitute for this is to disable as many
+network services as you can (inetd, sendmail, httpd, etc.)  This all
+serves to isolate the scene of the crime.
+
+
+Record
+-------
+
+Next, pull out a notebook (you know, those old paper things, not a laptop!)
+and take stock of the situation.   What system is being affected?  Note
+the time, date, who discovered the problem and how you were made aware of
+it.  From now on every time you do something try to make a note of the
+situation describing what actions were taken, what results were found, and
+when & where it all took place.
+
+
+Evidence
+---------
+
+The systematic search for evidence is where the TCT comes into play.
+Ideally it would be on a CDROM or other immutable media, ready
+for action, or perhaps built and ready to go on another, duplicate,
+system clone ready for NFS mounting, or at least close facsimile to the 
+affected system, or perhaps even on a spare disk lying around somewhere.
+
+Failing all that, having it already precompiled on the system is barely
+acceptable; while the intruder could have messed with your toolkit, they
+would have had ample opportunity to do a lot more than that prior to your
+running it.  At the very least know how to get it, drag it down from the
+network and get it ready (preferably on a *different* system than the
+affected one!)
+
+The easiest way to get started from scratch with the TCT is to type:
+
+	make
+
+And hope that there are no grevious errors.  Compiling the program after 
+a break-in is a bad idea (it'll potentially destroy valuable forensic 
+information), but sometimes there is no help for that.
+
+Once you have the TCT, you'll want to type something like:
+
+	script
+	grave-robber -v /
+
+(The "script" command saves everything that appears or is typed into
+a terminal window; type "exit" or "logout" to escape.  The "grave-robber"
+is the main forensic data collecting agent that TCT has, and the -v
+flag gives a verbose listing of what the program does as it runs.)
+
+Have some disk space available (a few hundred megabytes at least) and wait 
+a long time (30 minutes to several hours) for something to happen.  The
+-v flag gives you some sense of what is going on, the "script" command
+creates a record of what is typed, which is good.
+
+When the grave robber says:
+
+	Finished preprocessing your toolkit... you may now use programs or
+	examine files in the above directories
+
+You should now start to read the TCT documentation.  Hopefully you'll
+be done before time the program stops.  At a minimum read the file 
+"README.FIRST", as well as everything in the "docs" subdirectory.
+
+By the time the TCT ends its run of data collection, at least a bare-bones 
+set of data will have been collected and ready to analyze.
+
+
+More evidence
+--------------
+
+After the initial data gathering you should start the analysis of what
+it all means, as well as gathering additional information based on that
+data.  This is the hard part, without a doubt, and, unfortunately, beyond
+the scope of this simple document (this is one of the things we knew you 
+wouldn't like to read here) but you can find additional help at:
+
+	http://www.cert.org
+	(Good general information)
+
+	Practical Unix & Internet Security, Garfinkle & Spafford; O'Reilly
+	(The best book on Unix & Internet security out there, some good
+	 tips on intrusions and other topics.)
+
+One of the more difficult things to judge is how much effort to put
+into the analysis.  Oftimes the more analytical sweat you emit the
+more clarity and understanding you have of the situation.  That said,
+at times the intruders are more careful and/or skilled than others, and
+unfortunately you never know prior to the break-in what to expect.
+Indeed, the truly skilled intruders could easily try to fool you 
+into thinking they're novices by placing some simple blunders that 
+will easily be caught, obfuscating the real damage or mischief.  The
+truth is you'll never absolutely, positively know that you've found
+all that you can.  Experience will be your only guide here.
+
+
+What next?
+-----------
+
+At this point you hopefully have at least some idea of what the extent
+of the problem is.  It's now time to decide what course of action to
+take.  Remember all throughout this process to keep your brain in gear -
+it doesn't help anyone, least of all yourself, to take uninformed or
+ill-though out actions.
+
+While setting your goals - do you want to simply get back to work and
+forget about it, catch the miscreant and string them up, monitor the
+situation but keep things running, etc. - you'll also need to consider
+how much time it will take to accomplish them.  As a completely 
+non-scientific WAG, we came up with this chart:
+
+   ACTION                   EXPERTISE REQUIRED           TIME CONSUMED
+   -------                  -------------------          --------------
+   Go back to work          None                         Almost none
+   Minimal effort           Installing system software   1/2 - 1 day
+   Minimum Recommended      Jr. system administrator     1-2 days+
+   Serious effort           Sr. SA                       2+ days - weeks
+   Fanaticism               Expert SA                    days - months+
+
+A tremendous amount of time can be consumed taking care of the problem
+at hand, but as a rule of thumb if you don't expend at least a day or
+two you're probably short changing yourself and your system - so much
+can be done to subvert a system once compromised you owe it to yourself
+to put in some time to at least prevent a recurrence.
+
+Many modern organizations now have internal security or response teams,
+which should ALWAYS be contacted in the case of security incidents, no
+matter how trivial they may initially seem.  And while legal counsel
+should be sought whenever appropriate, we would highly advise contacting
+one of the many free (and often publically funded) incident teams about
+the incident.  They're very discreet and can often lend significant
+technical assistance.  The local police and governmental agencies (such
+as the FBI and Secret Service in the US) are also increasing the number
+of specialized personnel that can lend assistance if the incident is 
+serious enough.
+
+After performing damage control to any serious bleeding wounds, unless
+you're interested in setting a trap or tracking the intruder you should 
+immediately start securing your system.  There are many documents about
+this on the Internet (see our bibliography), and many of the operating 
+system vendors will have a guide on their web sites.  In general you'll
+want to:
+
+	o	Create a security policy.  This can be the most important
+		thing you can do - detail what you *want* the systems to
+		look like so you can actually do it!  Documenting the
+		changes you made to secure your system can be an excellent
+		start to such a document.
+
+	o	Install any and all vendor security patches that you can
+		find on your operating system vendor WWW site.
+
+	o	Turn off all network services that you don't use, use
+		one-time passwords (logdaemon and s/key), encrypted 
+		login sessions (ssh), and run security/auditing tools
+		on your system.
+
+	o	Learn your system better.  Spend more time learning the
+		ins and outs of your computers, including (especially?)
+		the capabilities that you don't use.
+
+	o	Turn on logging & accounting.  Almost all systems can be
+		modified or configured to create more records.  Do this -
+		and look at them!
+
+	o	Create a baseline.  Create backups, run MD5's on your
+		system files, save the output of a TCT run, etc., and
+		keep them in a secure place to compare against later on
+		when you have troubles.
+
+	o	Regularly audit or at least examine your systems.  Need
+		we say more?
+
+
+Deleted Data
+-------------
+
+Sometimes data will be loss through malice, chance, or simple mistakes.
+Unlike PC's the Unix file system is optimized for performance and stability -
+but at a price.  Files deleted in Unix have a hard time coming back to
+life unless a good backup strategy was previously implemented.
+
+TCT has a pair of programs that can potentially help - "unrm" and
+"lazarus" - but they are far from being a good, general purpose solution.
+Nonetheless they can potentially recover valuable data that was either
+left behind by the intruder(s) (break-in tools, files of interest, clues,
+etc.) or that were removed.  See the individual "unrm" and "lazarus" 
+documentation for more on these tools.
+
+
+The Future
+-----------
+
+It's rarely entertaining to go through the process of recovering from
+a break-in.  Our main advice is that you keep your eyes open and learn
+from your mistakes - both in the investigative process and the mistakes
+that got you in this situation in the first place.
+
+Good, recoverable backups are, without a doubt, your best defense 
+against computerized disasters of almost any sort.  Watch over your
+system and be alert, and, most of all, hope you don't have to go
+through any of this again!
+
+
+Bibliography
+-------------
+
+[More information can be found in our "bibliography" file.]
+
+Slides of our forensics class & the TCT toolkit - relatively sketchy,
+but perhaps of some use:
+
+	http://www.fish.com/forensics/
+	http://www.porcupine.org/forensics/
+
+CERT's (Computer Emergency Response Team) home page, chock-full of
+information about how to report & respond to incidents:
+
+	http://www.cert.org/
+
+AUSCERT's (Australian CERT) nice Unix checklist about removing common 
+security vulnerabilities:
+
+        ftp://ftp.auscert.org.au/pub/auscert/papers/unix_security_checklist
+

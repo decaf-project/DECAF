@@ -1,0 +1,3 @@
+To Build trace_reader_cpp, multi-arch versions of bfd and binutils need to be installed. 
+Moreover, if /usr/lib/libopcodes and /usr/lib/libbfd are not already pointing to the multi-arch versions, links need to be created to point to the multi-arch versions.
+

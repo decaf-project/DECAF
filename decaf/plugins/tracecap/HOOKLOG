@@ -1,0 +1,161 @@
+This file introduces function hooks and how to interpret the hooklog file
+
+Hooks
+=====
+TEMU allows to define a callback to be executed when a certain value 
+of the program counter (EIP) is reached.
+We usually call such callback a hook
+
+Function hooks are a special case of hooks where the entry point of 
+some function is hooked.
+TEMU provides functionality to allow hooking a function by name, 
+rather than by the first address in the function.
+This is useful because a module can be loaded at different locations 
+by the loader, thus the starting offset of the function can change.
+This functionality is only available if the function to be hooked 
+is exported by name (and currently only under Windows).
+
+A user can define its own function hooks, but
+Tracecap has some predefined functions hooks that can be enable through
+the hooks configuration file.
+Although each function hook might differ in functionality, the most 
+common one does the following:
+  1) read the function's parameters from the stack
+  2) return if no parameters are tainted
+  3) log the information about the parameters to file
+  4) read the return address from the stack and hook it
+  5) log information about the return value to file
+
+The function hooks used by Tracecap are located in: 
+TEMU_TRUNK/shared/hooks/hook_plugins/group*
+
+The string function hooks available in group_str_fs.c log the information
+about the calls in hooklog file.
+The structure of the hooklog file is described next.
+
+Hook file syntax 
+================
+In the hooklog file each line represents one string function called 
+by the traced program.
+The syntax description uses the Augmented BNF syntax:
+http://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html#sec2
+
+HookFile = 1*Line
+
+Line = FunctionClass SP StringClass SP ModuleName SP FunctionName SP 
+  NumParameters SP ParameterInfoList SP ReturnInfo EOF
+
+FunctionClass = "strstr" | "strcmp" | "strcasecmp" | "strncmp" | "strtok" | 
+  "sscanf" | "strlen" | "strrchr" | "strchr" | "strcpy" | "strncpy" | 
+  "strncasecmp" | "comparestring" | "memchr" | "cfequal"
+
+StringClass = "A" | "U"
+ModuleName = TEXT
+FunctionName = TEXT
+NumParameters = INTEGER
+
+ParameterInfoList = "P" SP ParamIsTainted SP ParamLength SP 
+  ParamTaintOrigin SP ParamTaintStartOffset SP ParamHexValue
+
+ParamIsTainted = BOOL
+ParamLength = INTEGER
+ParamTaintOrigin = INTEGER
+ParamTaintStartOffset = INTEGER
+ParamHexValue = HEXSTR
+
+ReturnInfo = "R" SP CallNumber SP ReturnTaintOrigin SP 
+  ReturnTaintStartOffset SP ReturnLength 
+
+CallNumber = INTEGER
+ReturnTaintOrigin = INTEGER
+ReturnTaintStartOffset = INTEGER
+ReturnLength = INTEGER
+
+INTEGER = <a 32-bit integer>
+HEXSTR = 1*(HEX HEX)
+HEX = "A" | "B" | "C" | "D" | "E" | "F"
+    | "a" | "b" | "c" | "d" | "e" | "f" | DIGIT
+BOOL = ZERO | ONE
+EOL = LF | CR LF
+ZERO = <ascii character zero, octet 48>
+ONE = <ascii character one, octet 49>
+CHAR = <any US-ASCII character (octets 0 - 127)>
+CTL = <any US-ASCII control character (octets 0 - 31) and octet 127>
+DIGIT = <any US-ASCII digit "0".."9">
+TEXT = <any CHAR except CTLs>
+SP = <US-ASCII SP, space (32)>
+CR = <US-ASCII CR, carriage return (13)>
+LF = <US-ASCII LF, linefeed (10)>
+
+
+Hook file semantics
+===================
+Here we describe the semantics for the terminals of the
+above grammar using the following line of a hooklof file, 
+which represents a call to msvcr80.dll::_strnicmp
+
+strncasecmp A msvcr80.dll _strnicmp 3 P 1 32 5020 0 00 
+  P 0 6 0 -1 3c3f786d6c20 P 0 4 0 -1 06 R 0 1010 0 4
+
+FunctionClass: 
+  The strig function class. Multiple functions can map to the same class
+  For example libc-2.2.5.so::strncmp and ntdll.dll::strncmp both map to 
+  the strncmp class
+
+StringClass: 
+  Whether the string function operates on Ascii ("A") or Unicode ("U")
+    parameters
+
+ModuleName: 
+  The name of the module that the function belongs to
+
+FunctionName:
+  The name of the function
+  The complete description of the function is given by ModuleName::FunctionName
+
+NumParameters:
+  The number of parameters that the function takes
+
+ParamIsTainted:
+  Whether the parameter was tainted
+  NOTE: At least one of the parameters should always be tainted
+
+ParamLength: 
+  The length of the parameter in bytes
+
+ParamTaintOrigin: 
+  The origin of the taint information for the parameter
+  If the parameter is not tainted the value is zero ("0")
+  NOTE: The origin is the same for all bytes in the parameter
+
+ParamTaintStartOffset: 
+  The starting offset of the taint information for the parameter
+  If the parameter is not tainted the value is minus one ("-1")
+  NOTE: The offset increments by one for each byte in the parameter
+
+ParamHexValue:
+  If the parameter is tainted this value is "00"
+  Otherwise it is a hexadecimal string representing the value of the paramter
+  For example 3c3f786d6c20 represents "<?xml"
+
+CallNumber:
+  Counter that represents the number of times that this function class has been called
+  Can be ignored
+
+ReturnTaintOrigin:
+  The taint origin that was assigned to the return value
+
+ReturnTaintStartOffset: 
+  The first taint offset that was assigned to the return value
+  If there are two consecutives calls to msvcr80.dll::_strnicmp
+    (with at least one parameter tainted in each of them)
+    then the taint origin is the same for both calls but the 
+    starting offset should be different by 4.
+    That is the starting offset will be zero for the first call 
+    and four for the second, because the return value has 4 bytes
+
+ReturnLength:
+  The number of bytes in the return value. 
+  Currently this is always four
+
+

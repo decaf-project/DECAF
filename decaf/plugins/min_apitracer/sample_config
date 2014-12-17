@@ -1,0 +1,316 @@
+#/*
+# * sample_config
+# *
+# *  Created on: Jun 8, 2012
+# *      Author: Aravind Prakash (arprakas@syr.edu)
+# */
+ 
+# Sample configuration file to hold the api's that need to be traced.
+# Any line starting with a '#' is a comment
+
+	
+	
+#	NTSTATUS NtCreateFile(
+#  __out     PHANDLE FileHandle,
+#  __in      ACCESS_MASK DesiredAccess,
+#  __in      POBJECT_ATTRIBUTES ObjectAttributes,
+#  __out     PIO_STATUS_BLOCK IoStatusBlock,
+#  __in_opt  PLARGE_INTEGER AllocationSize,
+#  __in      ULONG FileAttributes,
+#  __in      ULONG ShareAccess,
+#  __in      ULONG CreateDisposition,
+#  __in      ULONG CreateOptions,
+#  __in      PVOID EaBuffer,
+#  __in      ULONG EaLength
+#  );
+
+api {
+	modname		= ntdll.dll
+	apiname		= NtCreateFile
+	numberargs	= 11
+	iskernel	= no
+	returntype	= u32
+	returnstr	= NTSTATUS
+	returnhandler 	= default 
+	convention	= STDCALL
+	arg {
+		name	= FileHandle
+		type	= u32
+		spec	= out
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= DesiredAccess
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= ObjectAttributes
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= IoStatusBlock
+		type	= u32
+		spec	= out
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= AllocationSize
+		type	= IGNORE
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= FileAttributes
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= ShareAccess
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= CreateDisposition
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= CreateOptions
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= EaBuffer
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= EaLength
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+}
+
+#BOOL WINAPI ReadFile(
+#  __in         HANDLE hFile,
+#  __out        LPVOID lpBuffer,
+# __in         DWORD nNumberOfBytesToRead,
+# __out_opt    LPDWORD lpNumberOfBytesRead,
+#  __inout_opt  LPOVERLAPPED lpOverlapped
+#);
+
+api {
+	modname 	= Kernel32.dll
+	apiname		= ReadFile
+	numberargs	= 5
+	iskernel	= no
+	returntype	= u32
+	returnstr	= BOOL
+	returnhandler 	= default 
+	convention	= STDCALL
+	arg {
+		name	= hFile
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}	
+	arg {
+		name	= lpBuffer
+		type	= u32
+		spec	= out
+		handler	= default
+	}
+	arg {
+		name	= nNumberOfBytesToRead
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= lpNumberOfBytesRead
+		type	= u32
+		spec	= out
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name  	= lpOverlapped
+		type 	= IGNORE
+		size	= 4
+	}
+}
+
+#LONG WINAPI RegCreateKeyEx(
+#  __in        HKEY hKey,
+#  __in        LPCTSTR lpSubKey,
+#  __reserved  DWORD Reserved,
+#  __in_opt    LPTSTR lpClass,
+#  __in        DWORD dwOptions,
+#  __in        REGSAM samDesired,
+#  __in_opt    LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+#  __out       PHKEY phkResult,
+#  __out_opt   LPDWORD lpdwDisposition
+#);	
+	
+api {
+	modname 	= Advapi32.dll
+	apiname		= RegCreateKeyExA
+	numberargs	= 9
+	iskernel	= no
+	returntype	= u32
+	returnstr	= LONG
+	returnhandler 	= default 
+	convention	= STDCALL
+	arg {
+		name	= hKey
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= lpSubKey
+		type	= CSTR
+		spec	= in
+		handler	= default
+	}
+	arg {
+		name	= Reserved
+		type	= IGNORE
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= lpClass
+		type	= CSTR
+		spec	= in
+		handler	= default
+	}
+	arg {
+		name	= dwOptions
+		type	= u32
+		spec 	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= samDesired
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= lpSecurityAttributes
+		type	= IGNORE
+		size	= 4
+	}
+	arg {
+		name	= phkResult
+		type	= u32
+		spec	= out
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= lpdwDisposition
+		type	= IGNORE
+		size	= 4
+	}
+}
+
+#LONG WINAPI RegCloseKey(
+#  __in  HKEY hKey
+#);
+
+api {
+	modname 	= Advapi32.dll
+	apiname		= RegCloseKey
+	numberargs	= 1
+	iskernel	= no
+	returntype	= u32
+	returnstr	= LONG
+	returnhandler 	= default 
+	convention	= STDCALL
+	arg {
+		name	= hKey
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+}
+
+#LONG WINAPI RegOpenKeyEx(
+#  __in        HKEY hKey,
+#  __in_opt    LPCTSTR lpSubKey,
+#  __reserved  DWORD ulOptions,
+#  __in        REGSAM samDesired,
+#  __out       PHKEY phkResult
+#);
+
+api {
+	modname 	= Advapi32.dll
+	apiname		= RegOpenKeyExA
+	numberargs	= 5
+	iskernel	= no
+	returntype	= u32
+	returnstr	= LONG
+	returnhandler 	= default 
+	convention	= STDCALL
+	arg {
+		name	= hKey
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= lpSubKey
+		type	= CSTR
+		spec	= in
+		handler	= default
+	}
+	arg {
+		name 	= ulOptions
+		type	= IGNORE
+		size 	= 4
+	}
+	arg {
+		name	= samDesired
+		type	= u32
+		spec	= in
+		handler	= default
+		size	= 4
+	}
+	arg {
+		name	= phkResult
+		type	= u32
+		spec	= out
+		handler	= default
+		size	= 4
+	}
+}
+

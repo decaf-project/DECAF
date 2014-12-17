@@ -1,0 +1,32 @@
+Source: llconf
+Priority: optional
+Maintainer: Oliver Kurth <oku@debian.org>
+Build-Depends: debhelper (>= 4.0.0)
+Standards-Version: 3.6.1
+
+Package: llconf
+Section: utils
+Architecture: any
+Depends: libllconf0 (= ${Source-Version})
+Description: loss less configuration file parser
+ A utility to access and modify different system configuration
+ files with a uniform interface.
+
+Package: libllconf-dev
+Section: libdev
+Architecture: any
+Depends: libllconf0 (= ${Source-Version})
+Description: loss less configuration file parser library
+ A C library to access and modify different system configuration
+ files with a uniform interface.
+ .
+ This is the development package that contains the header
+ files and the static version.
+
+Package: libllconf0
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: loss less configuration file parser library
+ A C library to access and modify different system configuration
+ files with a uniform interface.

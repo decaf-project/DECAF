@@ -1,0 +1,77 @@
+BIN_DIR='../../bin/';
+LIB_DIR_BACK='/../../lib/';
+LIB_DIR_NORM='/lib/';
+BASE='mactime.base';
+PROG='mactime';
+
+
+# Directories to search in
+dirs='/usr/local/bin/ /usr/bin/ /usr/ccs/bin/ /bin/ /usr/ucb/bin/ /sbin/ /usr/sbin/ /usr/local/sbin/ /usr/pkg/bin/'
+
+# Find Perl
+found=0;
+# Try 5.6.0 first
+for d in $dirs
+  do if (test -x ${d}perl5.6.0) then
+    if (test -n "`${d}perl5.6.0 -v 2> /dev/null | awk '/This is perl/ {print $0}
+'`")
+then
+      echo "perl found: ${d}perl5.6.0";
+      echo "#!${d}perl5.6.0" > $BIN_DIR$PROG;
+      found=1;  
+      break;
+    fi;
+  fi;
+done
+
+# Now try perl
+if (test $found -eq 0) then
+  for d in $dirs
+    do if (test -x ${d}perl) then
+      if (test -n "`${d}perl -v 2> /dev/null | awk '/This is perl/ {print $0}'`")
+  then
+        echo "perl found: ${d}perl";
+        echo "#!${d}perl" > $BIN_DIR$PROG;
+        found=1;
+        break;
+      fi;
+    fi;
+  done
+fi;
+
+# If it wasn't found, then prompt for it.
+if (test $found -eq 0) then
+  echo 'ERROR: perl not found';
+  while (test 1 -eq 1)
+    do echo 'Enter Location:';
+    read perlexe;
+    if (test -x $perlexe) then
+      if (test -n "`$perlexe -v 2> /dev/null | awk '/This is perl/ {print $0}'`"
+)       then
+    	echo "#!$perlexe" > $BIN_DIR$PROG;
+        break;
+      else
+        echo "Perl found, but is not working.  Try another";
+      fi;
+    else
+      echo "file not found";
+    fi
+  done
+fi
+
+
+# Print the installed location of the lib directory
+# This is not the best fix, but it works
+if (test -z "`echo "$PWD" | awk '/\/src\/timeline/ {print $0}'`") then
+  echo "use lib '$PWD/$LIB_DIR_NORM';" >> $BIN_DIR$PROG;
+else
+  echo "use lib '$PWD/$LIB_DIR_BACK';" >> $BIN_DIR$PROG;
+fi
+
+
+# Print the current version
+echo "\$VER = \"`cat ../../patchlevel`\";" >> $BIN_DIR$PROG;
+
+# Copy in the rest of the program and make it exec
+cat $BASE >> $BIN_DIR$PROG;
+chmod 0755 $BIN_DIR$PROG;

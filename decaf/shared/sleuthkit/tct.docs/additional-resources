@@ -1,0 +1,47 @@
+
+------ Required ------
+
+Perl - need we say more?
+		http://www.perl.org
+
+------ Almost required, you're a fool if you don't have this ;-) ------
+
+lsof - a phenomenal tool, absolute must for any digital detective!
+		ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/
+
+------ Desired ------
+
+AntiSniff - tries to detect sniffers on a network:
+		http://www.l0pht.com
+
+netcat - a network concatenation tool that can be very useful in shuttling
+	data from system to system:
+		http://www.l0pht.com/~weld/netcat/
+
+nmap - port scanner, OS detector, etc.  A fine, if a bit amoral, scanner:
+		http://www.insecure.org/nmap/
+
+strace - a fairly portable process tracer.  Very useful for looking at 
+	binaries.  Some sites:
+
+		ftp://ftp.std.com/pub/jrs/
+		http://www.wi.leidenuniv.nl/~wichert/strace/
+
+	Digital Unix:
+		ftp://ftp.mindspring.com/users/ahobson/
+		ftp://ftp.iastate.edu/pub/unix/osf1/trace/
+
+top - lists the top CPU eating processes:
+	ftp://ftp.groupsys.com:/pub/top/
+
+unstrip - restores symbol table to stripped binaries:
+        	http://www.squirrel.com/squirrel/sun-stuff.html (solaris &sunos)
+
+------ commercial stuff ------
+
+An undeletion tool for AIX:
+	http://www.compunix.com/
+
+AIX version of strace:
+		http://www.tkg.com/sctrace/ (commercial tool)
+

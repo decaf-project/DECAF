@@ -1,0 +1,10 @@
+The imgtools work as a set of layers so that we can have multiple
+formats.  The IMG_INFO that is returned by img_open is the highest
+layer.  It corresponds to the last name in the list (i.e. raid in
+"split,raid").  Any request that it recieves it calculates where
+the data should exist and then passes that address to the next
+layer.  The lowest layer knows where the actual image files are and
+reads the data.
+
+There are some limitations:
+- the split layer cannot have any layers below it. 

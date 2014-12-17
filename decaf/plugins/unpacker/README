@@ -1,0 +1,17 @@
+1. go to decaf directory and make llconf.
+  cd DECAF/shared/llconf
+  ./configure
+  make
+
+2. go to unpacker directory.
+  ./configure --decaf-path= ..
+   make
+
+3. start DECAF and load unpacker plugin.
+
+   trace_by_name "sample program name"
+   start your sample program.
+   stop_unpack
+
+
+

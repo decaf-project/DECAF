@@ -1,0 +1,11 @@
+You have to install this kernel driver into the guest Windows system, in
+order to get OS-level information from the guest Windows system.
+
+1. Copy testdrv.sys into %SYSTEM32%\drivers 
+2. Add testdrv.reg into the registry, by simply double clicking this file in the
+explorer. 
+3. Restart the guest Windows
+
+If you see guest.log in your current working directory after running TEMU, you
+can make sure this driver is working properly.
+

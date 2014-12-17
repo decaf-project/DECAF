@@ -1,0 +1,21 @@
+Supported Host OSes: Ubuntu 32 and 64-bit 10.04 and onwards. 
+Other Linux distributions may work too, but not they are tested.
+
+Supported Guests:
+Architecture: i386
+OS: Windows XP, Windows 7, Linux 
+
+1. First install dependent packages:
+   zlib1g-dev, libglib2.0-dev, binutils-dev
+   freeglut3-dev (or libsdl1.2-dev)
+
+   $ sudo apt-get install zlib1g-dev libglib2.0-dev binutils-dev
+   freeglut3-dev
+
+2. Build DECAF
+   $ ./configure & make
+
+3. Build a plugin:
+   $ cd /path/to/plugin
+   $ ./configure --decaf-path=/path/to/decaf
+   $ make
