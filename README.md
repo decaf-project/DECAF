@@ -3,6 +3,13 @@ DECAF
 
 DECAF(short for Dynamic Executable Code Analysis Framework) is a binary analysis platform based on QEMU.  This is also the home of the DroidScope dynamic Android malware analysis platform. DroidScope is now an extension to DECAF.
 
+**PUBLICATIONS**
+1. "Make it work, make it right, make it fast: building a platform-neutral whole-system dynamic binary analysis platform", Andrew Henderson, Aravind Prakash, Lok Kwong Yan, Xunchao Hu, Xujiewen Wang, Rundong Zhou, and Heng Yin, to appear in the International Symposium on Software Testing and Analysis (ISSTA'14), San Jose, CA, July 2014.*(If you wish to cite DECAF, please cite this paper)*
+
+2. Lok Kwong Yan, Andrew Henderson, Xunchao Hu, Heng Yin, and Stephen McCamant?.On soundness and precision of dynamic taint analysis. Technical Report SYR-EECS-2014-04, Syracuse University, January 2014.
+
+3. DroidScope: Seamlessly Reconstructing OS and Dalvik Semantic Views for Dynamic Android Malware Analysis", Lok-Kwong Yan and Heng Yin, in the 21st USENIX Security Symposium, Bellevue, WA, August 8-10, 2012.
+
 1. Introduction
 ======
 
@@ -10,6 +17,7 @@ DECAF(Dynamic Executable Code Analysis Framework) is the successor to the binary
 
 
 ![alt tag](http://sycurelab.ecs.syr.edu/image/overall_decaf.jpg)
+
 Fig 1 the overall architecture of DECAF
 
 Fig 1 illustrates the overall architecture of DECAF. DECAF is a platform-agnostic whole-system dynamic binary analysis framework. It provides the following key features.
@@ -37,5 +45,5 @@ To reduce runtime overhead, the instrumentation code is inserted into the transl
 2. Help Documents
 ======
 
-Please refer to https://code.google.com/p/decaf-platform/wiki/DECAF for help document.
+Please refer to https://code.google.com/p/decaf-platform/wiki/DECAF for help documents.
 
