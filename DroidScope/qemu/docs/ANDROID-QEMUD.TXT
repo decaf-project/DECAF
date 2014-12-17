@@ -1,0 +1,275 @@
+                    THE ANDROID "QEMUD" MULTIPLEXING DAEMON
+
+I. Overview:
+------------
+
+The Android system image includes a small daemon program named "qemud"
+which is started at boot time. Its purpose is to provide a multiplexing
+communication channel between the emulated system and the emulator program
+itself.
+
+Its goal is to allow certain parts of the system to talk directly to the
+emulator without requiring special kernel support; this simplifies a lot of
+things since it does *not* require:
+
+- writing/configuring a specific kernel driver
+- writing the corresponding hardware emulation code in hw/goldfish_xxxx.c
+- dealing with device allocation and permission issues in the emulated system
+
+The emulator provides 'services' to various parts of the emulated system.
+Each service is identified by a name and serves a specific purpose. For
+example:
+
+   "gsm"       Used to communicate with the emulated GSM modem with
+               AT commands.
+
+   "gps"       Used to receive NMEA sentences broadcasted from the
+               emulated GPS device.
+
+   "sensors"   Used to list the number of emulated sensors, as well as
+               enable/disable reception of specific sensor events.
+
+   "control"   Used to control misc. simple emulated hardware devices
+               (e.g. vibrator, leds, LCD backlight, etc...)
+
+
+II. Implementation:
+-------------------
+
+Since the "cupcake" platform, this works as follows:
+
+- A 'qemud client' is any part of the emulated system that wants to talk
+  to the emulator. It does so by:
+
+  - connecting to the /dev/socket/qemud Unix domain socket
+  - sending the service name through the socket
+  - receives two bytes of data, which will be "OK" in case of
+    success, or "KO" in case of failure.
+
+  After an OK, the same connection can be used to talk directly to the
+  corresponding service.
+
+
+- The /dev/socket/qemud Unix socket is created by init and owned by the
+  'qemud' daemon started at boot by /system/etc/init.goldfish.rc
+
+  The daemon also opens an emulated serial port (e.g. /dev/ttyS1) and
+  will pass all messages between clients and emulator services. Thus,
+  everything looks like the following:
+
+
+     emulator <==serial==> qemud <---> /dev/socket/qemud <-+--> client1
+                                                           |
+                                                           +--> client2
+
+  A very simple multiplexing protocol is used on the serial connection:
+
+           offset    size    description
+
+               0       2     2-char hex string giving the destination or
+                             source channel
+
+               2       4     4-char hex string giving the payload size
+
+               6       n     the message payload
+
+  Where each client gets a 'channel' number allocated by the daemon
+  at connection time.
+
+  Note that packets larger than 65535 bytes cannot be sent directly
+  through the qemud channel. This is intentional; for large data
+  communication, the client and service should use a fragmentation
+  convention that deals with this.
+
+  Zero-sized packets are silently discard by qemud and the emulator and
+  should normally not appear on the serial port.
+
+  Channel 0 is reserved for control messages between the daemon and the
+  emulator. These are the following:
+
+    - When a client connects to /dev/socket/qemud and sends a service
+      name to the daemon, the later sends to the emulator:
+
+        connect:<service>:<id>
+
+      where <service> is the service name, and <id> is a 2-hexchar string
+      giving the allocated channel index for the client.
+
+
+    - The emulator can respond in case of success with:
+
+        ok:connect:<id>
+
+      or, in case of failure, with:
+
+        ok:connect:<id>:<reason>
+
+      where <reason> is a liberal string giving the reason for failure.
+      It is never sent to clients (which will only receive a "KO") and
+      is used strictly for debugging purposes.
+
+    - After a succesful connect, all messages between the client and
+      the corresponding emulator service will be passed through the
+      corresponding numbered channel.
+
+      But if the client disconnects from the socket, the daemon will
+      send through channel 0 this message to the emulator:
+
+        disconnect:<id>
+
+    - If an emulator service decides, for some reason, to disconnect
+      a client, the emulator will send to the daemon (on channel 0):
+
+        disconnect:<id>
+
+      The daemon deals with this gracefully (e.g. it will wait that the
+      client has read all buffered data in the daemon before closing the
+      socket, to avoid packet loss).
+
+    - Any other command sent from the daemon to the emulator will result
+      in the following answer:
+
+        ko:bad command
+
+- Which exact serial port to open is determined by the emulator at startup
+  and is passed to the system as a kernel parameter, e.g.:
+
+        android.qemud=ttyS1
+
+
+- The code to support services and their clients in the emulator is located
+  in android/hw-qemud.c. This code is heavily commented.
+
+  The daemon's source is in $ROOT/development/emulator/qemud/qemud.c
+
+  The header in $ROOT/hardware/libhardware/include/hardware/qemud.h
+  can be used by clients to ease connecting and talking to QEMUD-based
+  services.
+
+  This is used by $ROOT/developement/emulator/sensors/sensors_qemu.c which
+  implements emulator-specific sensor support in the system by talking to
+  the "sensors" service provided by the emulator (if available).
+
+  Code in $ROOT/hardware/libhardware_legacy also uses QEMUD-based services.
+
+
+- Certain services also implement a simple framing protocol when exchanging
+  messages with their clients. The framing happens *after* serial port
+  multiplexing and looks like:
+
+           offset    size    description
+
+               0       4     4-char hex string giving the payload size
+
+               4       n     the message payload
+
+  This is needed because the framing protocol used on the serial port is
+  not preserved when talking to clients through /dev/socket/qemud.
+
+  Certain services do not need it at all (GSM, GPS) so it is optional and
+  must be used depending on which service you talk to by clients.
+
+
+III. Legacy 'qemud':
+--------------------
+
+The system images provided by the 1.0 and 1.1 releases of the Android SDK
+implement an older variant of the qemud daemon that uses a slightly
+different protocol to communicate with the emulator.
+
+This is documented here since this explains some subtleties in the
+implementation code of android/hw-qemud.c
+
+The old scheme also used a serial port to allow the daemon and the emulator
+to communicate. However, the multiplexing protocol swaps the position of
+'channel' and 'length' in the header:
+
+           offset    size    description
+
+               0       4     4-char hex string giving the payload size
+
+               4       2     2-char hex string giving the destination or
+                             source channel
+
+               6       n     the message payload
+
+Several other differences, best illustrated by the following graphics:
+
+    emulator <==serial==> qemud <-+--> /dev/socket/qemud_gsm <--> GSM client
+                                  |
+                                  +--> /dev/socket/qemud_gps <--> GPS client
+                                  |
+                                  +--> /dev/socket/qemud_control <--> client(s)
+
+Now, for the details:
+
+ - instead of a single /dev/socket/qemud, init created several Unix domain
+   sockets, one per service:
+
+        /dev/socket/qemud_gsm
+        /dev/socket/qemud_gps
+        /dev/socket/qemud_control
+
+   note that there is no "sensors" socket in 1.0 and 1.1
+
+ - the daemon created a de-facto numbered channel for each one of these
+   services, even if no client did connect to it (only one client could
+   connect to a given service at a time).
+
+ - at startup, the emulator does query the channel numbers of all services
+   it implements, e.g. it would send *to* the daemon on channel 0:
+
+        connect:<service>
+
+   where <service> can be one of "gsm", "gps" or "control"
+
+   (Note that on the current implementation, the daemon is sending connection
+   messages to the emulator instead).
+
+ - the daemon would respond with either:
+
+        ok:connect:<service>:<hxid>
+
+   where <service> would be the service name, and <hxid> a 4-hexchar channel
+   number (NOTE: 4 chars, not 2). Or with:
+
+        ko:connect:bad name
+
+
+This old scheme was simpler to implement in both the daemon and the emulator
+but lacked a lot of flexibility:
+
+  - adding a new service required to modify /system/etc/init.goldfish.rc
+    as well as the daemon source file (which contained a hard-coded list
+    of sockets to listen to for client connections).
+
+  - only one client could be connected to a given service at a time,
+    except for the GPS special case which was a unidirectionnal broadcast
+    by convention.
+
+The current implementation moves any service-specific code to the emulator,
+only uses a single socket and allows concurrent clients for a all services.
+
+
+IV. State snapshots:
+--------------------
+
+Support for snapshots relies on the symmetric qemud_*_save and qemud_*_load 
+functions which save the state of the various Qemud* structs defined in
+android/hw-qemud.c. The high-level process is as follows.
+
+When a snapshot is made, the names and configurations of all services are
+saved. Services can register a custom callback, which is invoked at this point
+to allow saving of service-specific state. Next, clients are saved following
+the same pattern. We save the channel id and the name of service they are
+registered to, then invoke a client-specific callback.
+
+When a snapshot is restored, the first step is to check whether all services
+that were present when the snapshot was made are available. There is currently
+no functionality to start start missing services, so loading fails if a service
+is not present. If all services are present, callbacks are used to restore
+service-specific state.
+
+Next, all active clients are shut down. Information from the snapshot is used
+to start new clients for the services and channels as they were when the
+snapshot was made. This completes the restore process.

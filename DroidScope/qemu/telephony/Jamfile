@@ -1,0 +1,13 @@
+Main telephony : telephony.c ;
+
+Library  sysdeps : sysdeps_posix.c ;
+Library  android_modem : android_modem.c sim_card.c ;
+
+for prog in test1 test2 {
+    Main          $(prog) : $(prog).c ;
+    LinkLibraries $(prog) : sysdeps ;
+}
+
+Main           simulator : simulator.c ;
+LinkLibraries  simulator : sysdeps android_modem ;
+

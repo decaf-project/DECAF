@@ -1,0 +1,263 @@
+This tries to document the mess that is DisplayState in QEMU.
+See "console.h" for the main definitions, and below for some
+explanations:
+
+
+DISPLAY STATE OBJECTS:
+======================
+
+A DisplayState holds state for stuff to be displayed on QEMU. More
+precisely:
+
+ - A DisplayState owns a 'DisplaySurface' which is nothing more than a
+   pixel buffer with specific dimensions, pitch and format plus bytes
+   to carry its content.
+
+ - A DisplayState also holds a 'DisplayAllocator' which allows it to
+   allocate its surface through a proper API. For example, this is
+   used in the upstream sdl UI backend to allocate the surface pixels
+   through SDL_SetVideoMode(). The default allocator simply uses
+   'malloc' to do the allocation (with 32-bits/pixel).
+
+ - A DisplayState also holds a list of DisplayChangeListener object.
+   Each listener contains a small set of callbacks that will be called
+   whenever an "event" happens on the display state. Events examples
+   are:
+
+      dpy_update:  a rectangular portion of the surface has been updated.
+      dpy_resize:  the hardware decided to resize the framebuffer.
+      dpy_refresh: called periodically by the GUI timer.
+      dpy_copy:    the hardware performed a rectangular copy operation.
+      dpy_fill:    the hardware performed a rectangular fill operation.
+      dpy_setdata: the hardware decided to change the framebuffer address.
+      dpy_text_cursor: the hardware placed the text cursor at a given (x,y).
+
+   NOTE: dpy_setdata is essentially the same than dpy_resize except that
+         there is a guarantee that the size didn't change.
+
+   More on DisplayChangeListeners below.
+
+ - The file "console.h" provides many helper functions to call all listeners
+   registered for a given DisplayState. For example, dpy_update(ds,x,y,w,h)
+   will call the 'dpy_update' callback of all listeners for the display
+   state 'ds'.
+
+
+CONSOLES:
+=========
+
+A "console" is something that can write pixels into a DisplayState.
+There are two kinds of consoles, and they're fairly different in usage.
+
+  GRAPHICAL CONSOLE:
+  ------------------
+
+  A "Graphical console" creates and owns a DisplayState. It is used when one
+  needs to write directly to the DisplaySurface pixel buffer. A typical
+  hardware framebuffer emulator (e.g. hw/vga-pic.c) will call the
+  function graphic_console_init() to create the DisplayState. Note that
+  this functions accepts several callbacks and is defined as:
+
+        typedef void (*vga_hw_update_ptr)(void *);
+        typedef void (*vga_hw_invalidate_ptr)(void *);
+        typedef void (*vga_hw_screen_dump_ptr)(void *, const char *);
+        typedef void (*vga_hw_text_update_ptr)(void *, console_ch_t *);
+
+        DisplayState *graphic_console_init(vga_hw_update_ptr update,
+                                        vga_hw_invalidate_ptr invalidate,
+                                        vga_hw_screen_dump_ptr screen_dump,
+                                        vga_hw_text_update_ptr text_update,
+                                        void *opaque);
+
+  The update/invalidate/screen_dump/text_update functions must be provided
+  by the hardware framebuffer emulation, and will be called under various
+  circumstances:
+
+      'update' is called periodically to check for any hw framebuffer
+      updates (and then copy them to the DisplayState, to finally send
+      them through dpy_update() to the listeners).
+
+      'invalidate' is called to indicate that the next call to 'update'
+      should send the content of _all_ the framebuffer, instead of only
+      the smallest possible update.
+
+      'screen_dump' is called to force a screen dump (i.e. print the
+      content of the framebuffer to a ppm file, which name is passed as
+      a parameter).
+
+      'text_update' is called to display one single character. XXX: Code is
+      not very clear, but probably related to text console.
+
+
+  TEXT CONSOLES:
+  --------------
+
+  A "Text console" attaches to an existing DisplayState, and is able to
+  take over its rendering in order to display a text *terminal*. It's not
+  sure whether this emulates VT101 or something else (see the code inside
+  the console_putchar() for all the gory details), but the main idea is
+  that you create a console with a call to:
+
+        CharDriverState*  text_console_init(const char* p);
+
+  The function returns a CharDriverState* (see docs/CHAR-DEVICES.TXT) that
+  will be connected to a host device identified by the string in 'p'. This
+  allows you, for example, to connect the console to stdio.
+
+  The text console code is capable of producing a bitmap each time you update
+  its content (i.e. it includes code to manage fixed-size font rendering,
+  scrolling, escape sequences, color, blinking cursor, etc...).
+
+  - By default, the graphics console writes to its DisplayState, but you can
+    use console_select() to change that at runtime. This function can be used
+    to force switching between virtual terminals and the graphics display.
+    There can be several text consoles associated to a single DisplayState
+    object.
+
+
+DISPLAY CHANGE LISTENERES:
+==========================
+
+There QEMU sources provide the implementation for various
+DisplayChangeListeners, most notables are the following:
+
+ - In sdl.c: This one uses the SDL library to display the content of a
+   DisplaySurface through a SDL_Window. The implementation also supports
+   zooming the output to an arbitrary size (using SDL functions).
+
+ - In vnc.c: This listener implements a VNC Server that can be used to
+   display the DisplaySurface remotely through the RDP protocol.
+
+ - In curses.c: This listener is used to display text consoles through the
+   "curses" library on Unix systems. It cannot be used to display any
+   graphics though.
+
+NOTE: The initialization sequence in vl.c only allows for a single listener
+on the main display state, but the rest of the code deals with several
+listeners per DisplayState just fine.
+
+Each DisplayChangeListener can specify a refresh period (e.g. every 1/60th
+of second). QEMU will then create a timer that will be programmed to called
+the listener's 'dpy_refresh' callback periodically. The point of this
+callback is to perform the following:
+
+- poll for new user input events from the underlying UI (e.g. from the SDL
+  event loop, or from the network for VNC). These should be translated into
+  guest event codes with functions like 'kbd_put_keycode' or 'kbd_mouse_event'.
+
+- call the global vga_hw_update() function. It will, if the graphics console
+  is being displayed, call the 'update' callback that was passed to
+  graphic_console_init(). If a text console is being displayed, the does
+  nothing.
+
+- eventually call the global vga_hw_invalidate() to indicate that the whole
+  framebuffer content should be resent as an update. This can happen when a
+  UI window was minimized and is made visible again, for example.
+
+
+INITIALIZATION AND RUNTIME EXECUTION:
+=====================================
+
+Initialization happens in the qemu main() function in the vl.c source file.
+
+First, the hardware machine is initialized. The hardware fraembuffer emulation
+shall call graphic_console_init() to create a new DisplayState. Note that the
+object returned by this function has a default DisplaySurface of 640x480 pixels
+allocated through malloc(). In other words, the hardware emulation does not
+set the size of the display state by default!
+
+After that, the listener's initialization function (e.g. sdl_display_init)
+is called. It is passed the DisplayState object and can replace the
+corresponding DisplaySurface with another one with proper dimensions, and
+eventually created with a different DisplayAllocator. It also registers a
+DisplayChangeListener to receive later state changes.
+
+Note that the VNC listener doesn't change the dimension of the DisplayState
+surface it is initialized with. However, it will react to dpy_resize events
+accordingly.
+
+NOTE: dpy_resize()s are currently only generated when switching between
+consoles, or when the framebuffer's size is modified by the guest kernel.
+
+
+The GUI timer, corresponding to the first listener than has one refresh
+period, drives the whole update process (if no listener provides a refresh
+period, a default 'no_graphic' timer is setup with a default refresh period
+of 30 frame/s).
+
+Things happen in this order:
+
+ - the GUI timer kicks in, and calls the 'dpy_refresh()' callback of
+   the listener (each listener has its own timer, btw).
+
+ - the listener callback polls for user events, and calls vga_hw_update()
+   to see if there are hardware framebuffer updates.
+
+ - vga_hw_update() checks that the graphics console is displayed (otherwise
+   it exits)
+
+ - it then calls the graphics console's 'update' callback
+
+ - the callback, implemented by the framebuffer hw emulation, checks for
+   dirty pages in order to detect what changed since it was invoked.
+
+   For every rectangle of the hw framebuffer that was modified, it copies
+   the pixels from VRAM into the DisplayState's surface buffer (eventually
+   performing format conversion at the same time).
+
+   After that, it calls dpy_update() to send the update to all registered
+   listeners for the DisplayState.
+
+ - The listener's 'dpy_update' callback is called and receives a pointer
+   to the DisplayState, and the rectangle corresponding to the update. Its
+   implementation can then update the content of the screen (or the internal
+   VNC framebuffer).
+
+Eventually, hardware emulation can also trigger other dpy_xxxx events (e.g.
+dpy_resize, dpy_copy, dpy_fill....)
+
+Here's a simplified diagram of what happens in the typical case:
+
+            _____________
+            |             |
+            |  hardware   |
+            | framebuffer |-------+
+            |             |       |
+            |_____________|       |
+               ^                  |
+               |                  |
+               | 3/ ds.update()   | 4/ dpy_update(ds,x,y,w,h)
+               |                  |
+               |                  |
+            _____________         |
+            |             |       |
+            |  Display    | <-----+
+            |   State     |
+            |             | ----------+
+            |_____________|           |
+                ^                     |
+                |                     |
+                | 2/ vga_hw_update()  |
+                |                     |
+                |                     |
+                |                     |
+                |     +---------------+
+                |     |               |
+                |     | 5/listener.dpy_update(ds,x,y,w,h)
+                |     |               |
+                |     |               | 6/listener.dpy_update(...)
+                |     |               |
+                |     v               v
+             _____________     _____________
+            |             |   |             |
+            |  SDL        |   |  VNC        |
+            |   Listener  |   |   Listener  |
+            |             |   |             |
+            |_____________|   |_____________|
+                ^
+                |
+                | 1/ listener.dpy_refresh()
+                |
+
+               GUI timer
+

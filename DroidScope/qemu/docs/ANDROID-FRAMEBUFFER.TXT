@@ -1,0 +1,88 @@
+Android Framebuffer emulation technical notes:
+==============================================
+
+This document tries to explain how framebuffer emulation works in the
+Android emulator.
+
+1 - Hardware emulation (hw/goldfish_fb.c):
+------------------------------------------
+
+  The emulated hardware provides a bunch of i/o registers to allow
+  the following:
+
+  - let the kernel query the framebuffer's dimensions (both in pixels
+    and millimeters) (see goldfish_fb_read)
+
+  - let the kernel control the physical base address for the framebuffer
+    and the internal pixel rotation to apply before display (see
+    goldfish_fb_write).
+
+  The pixel buffer is itself a set of physical pages allocated by the
+  kernel driver in the emulated system. These pages are contiguous in
+  the emulated system, but not in the emulator's process space which
+  places them randomly in the heap.
+
+  Also, a function called goldfish_fb_update_display() is in charge of
+  checking the dirty bits of the framebuffer physical pages, in order to
+  compute the bounding rectangle of pixel updates since the last call, and
+  send them to the UI through qframebuffer_update(). More on this later.
+
+
+2 - Framebuffer abstract interface (framebuffer.h):
+---------------------------------------------------
+
+  The Android-specific header 'framebuffer.h' is used to provide a generic
+  interface between framebuffer 'producers' and 'clients'. Essentially, each
+  QFrameBuffer object:
+
+    - holds a contiguous pixel buffer allocated by the emulator.
+    - can have one producer in charge of drawing into the pixel buffer
+    - can have zero or more clients, in charge of displaying the pixel
+      buffer to the final UI window (or remote VNC connection, whatever).
+
+  The emulator will periodically call 'qframebuffer_check_updates()' which
+  does the following:
+
+      foreach fb in framebuffers:
+          if fb.producer:
+            fb.producer.check_updates()
+              => in producer
+               foreach up in updates:
+                 qframebuffer_update(fb, up.x, up.y, up.w, up.h)
+                   =>
+                     foreach cl in fb.clients:
+                        cl.update(cl.opaque, up.x, up.y. up.w, up.h)
+
+  hw/goldfish_fb.c implements a producer
+  the QEmulator type in android/main.c implements a client.
+
+
+3 - DisplayState (console.h):
+-----------------------------
+
+  The upstream QEMU sources use a DisplayState object to model the state
+  of each "display". This is not conceptually exactly the same thing than
+  a QFrameBuffer object as it can also be used to emulated text-based
+  displays instead of pixel framebuffers, and incorporates input state
+  as well.
+
+  See sdl_display_init() in android/main.c which is called from vl-android.c
+  on startup to initialize the display. This really registers a function,
+  sdl_refresh() (in android/main.c), that will get called every 1/60th of
+  a second to handle pending inputs.
+
+  sdl_refresh() also calls qframebuffer_check_updates(), ensuring that
+  any animation in the emulated framebuffer will be displayed at the same
+  frequency.
+
+  The refresh frequency is defined by the GUI_REFRESH_INTERVAL defined
+  at the top of console.h
+
+
+4 - QEmulator object:
+---------------------
+
+  Currently defined and implemented in android/main.c (we may want to move
+  it to a different location). The QEmulator object bridges provides a
+  framebuffer client that uses the "generic" skin code under android/skin
+  to display the main UI window.

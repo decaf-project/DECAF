@@ -1,0 +1,619 @@
+# When building this project, we actually generate several components which
+# are the following:
+#
+#  - the emulator-ui program (which is target-agnostic)
+#  - the target-specific qemu-android-$ARCH programs (headless emulation engines)
+#  - the "standalone" emulator programs (embed both UI and engine in a single
+#    binary and process), i.e. "emulator" for ARM and "emulator-x86" for x86.
+#
+# This file defines static host libraries that will be used by at least two
+# of these components.
+#
+
+##############################################################################
+##############################################################################
+###
+###  emulator-common: LIBRARY OF COMMON FUNCTIONS
+###
+###  THESE ARE POTENTIALLY USED BY ALL COMPONENTS
+###
+
+$(call start-emulator-library, emulator-common)
+
+EMULATOR_COMMON_CFLAGS :=
+
+# Needed by everything about the host
+EMULATOR_COMMON_CFLAGS += \
+    -I$(LOCAL_PATH)/android/config/$(QEMU_HOST_TAG)
+
+# add the build ID to the default macro definitions
+ifeq ($(BUILD_STANDALONE_EMULATOR),)
+EMULATOR_COMMON_CFLAGS += -DANDROID_BUILD_ID="$(strip $(BUILD_ID))-$(strip $(BUILD_NUMBER))"
+endif
+
+# For non-standalone builds, extract the major version number from the Android SDK
+# tools revision number.
+ifneq ($(BUILD_STANDALONE_EMULATOR),true)
+    ANDROID_SDK_TOOLS_REVISION := $(shell awk -F= '/Pkg.Revision/ { print $$2; }' sdk/files/tools_source.properties)
+endif
+
+ANDROID_SDK_TOOLS_REVISION := $(strip $(ANDROID_SDK_TOOLS_REVISION))
+ifdef ANDROID_SDK_TOOLS_REVISION
+    EMULATOR_COMMON_CFLAGS += -DANDROID_SDK_TOOLS_REVISION=$(ANDROID_SDK_TOOLS_REVISION)
+endif
+
+# Enable large-file support (i.e. make off_t a 64-bit value)
+ifeq ($(HOST_OS),linux)
+EMULATOR_COMMON_CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+endif
+
+###########################################################
+# Zlib sources
+#
+ZLIB_DIR := distrib/zlib-1.2.3
+include $(LOCAL_PATH)/$(ZLIB_DIR)/sources.make
+EMULATOR_COMMON_CFLAGS += -I$(LOCAL_PATH)/$(ZLIB_DIR)
+
+LOCAL_SRC_FILES += $(ZLIB_SOURCES)
+
+###########################################################
+# Android utility functions
+#
+LOCAL_SRC_FILES += \
+	sockets.c \
+	iolooper-select.c \
+	android/async-console.c \
+	android/async-utils.c \
+	android/charmap.c \
+	android/framebuffer.c \
+	android/keycode-array.c \
+	android/avd/hw-config.c \
+	android/avd/info.c \
+	android/avd/util.c \
+	android/sync-utils.c \
+	android/utils/assert.c \
+	android/utils/bufprint.c \
+	android/utils/debug.c \
+	android/utils/dirscanner.c \
+	android/utils/filelock.c \
+	android/utils/ini.c \
+	android/utils/intmap.c \
+	android/utils/lineinput.c \
+	android/utils/mapfile.c \
+	android/utils/misc.c \
+	android/utils/panic.c \
+	android/utils/path.c \
+	android/utils/reflist.c \
+	android/utils/refset.c \
+	android/utils/stralloc.c \
+	android/utils/system.c \
+	android/utils/tempfile.c \
+	android/utils/vector.c \
+
+LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
+
+$(call end-emulator-library)
+
+##############################################################################
+##############################################################################
+###
+###  emulator-libui: LIBRARY OF UI-RELATED FUNCTIONS
+###
+###  THESE ARE USED BY 'emulator-ui' AND THE STANDALONE PROGRAMS
+###
+
+$(call start-emulator-library, emulator-libui)
+
+EMULATOR_LIBUI_CFLAGS :=
+
+LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
+
+###########################################################
+# Libpng configuration
+#
+LIBPNG_DIR := distrib/libpng-1.2.19
+include $(LOCAL_PATH)/$(LIBPNG_DIR)/sources.make
+
+EMULATOR_LIBUI_CFLAGS += \
+    $(LIBPNG_CFLAGS) \
+    -I$(LOCAL_PATH)/$(LIBPNG_DIR)
+
+LOCAL_SRC_FILES += $(LIBPNG_SOURCES) loadpng.c
+
+##############################################################################
+# SDL-related definitions
+#
+
+# Build SDL from sources except in certain cases where we use
+# prebuilt libraries instead.
+#
+BUILD_SDL_FROM_SOURCES := true
+
+# On linux-x86, using the prebuilts avoid installing all the X11
+# development packages on our build servers.
+#
+ifeq ($(QEMU_HOST_TAG),linux-x86)
+    BUILD_SDL_FROM_SOURCES := false
+endif
+
+# On darwin-x86, a bug in the Android build system prevents the compilation
+# of Objective-C sources. Fixed recently in AOSP, but we still use the
+# prebuilts for the benefit of older platform branches.
+#
+ifeq ($(QEMU_HOST_TAG),darwin-x86)
+    BUILD_SDL_FROM_SOURCES := false
+endif
+
+# If we're building with android-configure.sh && make, always build from
+# sources to catch regressions as soon as they happen.
+#
+ifeq ($(BUILD_STANDALONE_EMULATOR),true)
+    BUILD_SDL_FROM_SOURCES := true
+endif
+
+# Except if we used android-configure.sh --sdl-config=<script>
+#
+ifneq ($(SDL_CONFIG),)
+   BUILD_SDL_FROM_SOURCES := false
+endif
+
+ifneq ($(BUILD_SDL_FROM_SOURCES),true)
+
+    SDL_CONFIG ?= prebuilt/$(QEMU_HOST_TAG)/sdl/bin/sdl-config
+    SDL_CFLAGS := $(shell $(SDL_CONFIG) --cflags)
+
+    # We need to filter out the _GNU_SOURCE variable because it breaks recent
+    # releases of Cygwin when using the -mno-cygwin option. Moreover, we don't
+    # need this macro at all to build the Android emulator.
+    SDL_CFLAGS := $(filter-out -D_GNU_SOURCE=1,$(SDL_CFLAGS))
+    SDL_LDLIBS := $(filter-out %.a %.lib,$(shell $(SDL_CONFIG) --static-libs))
+
+    # Circular dependencies between libSDL and libSDLmain
+    # We repeat the libraries in the final link to work around it
+    SDL_STATIC_LIBRARIES := libSDL libSDLmain libSDL libSDLmain
+
+else # BUILD_SDL_FROM_SOURCES
+
+    SDL_DIR := distrib/sdl-1.2.12
+    include $(LOCAL_PATH)/$(SDL_DIR)/sources.make
+    LOCAL_SRC_FILES += $(SDL_SOURCES)
+
+    EMULATOR_LIBUI_CFLAGS += \
+        -I$(LOCAL_PATH)/$(SDL_DIR)/include
+
+    SDL_STATIC_LIBRARIES :=
+
+endif # BUILD_SDL_FROM_SOURCES
+
+EMULATOR_LIBUI_CFLAGS += $(SDL_CFLAGS)
+EMULATOR_LIBUI_LDLIBS += $(SDL_LDLIBS)
+
+# The following is needed by SDL_LoadObject
+ifneq ($(HOST_OS),windows)
+    EMULATOR_LIBUI_LDLIBS += -ldl
+endif
+
+# the skin support sources
+#
+SKIN_SOURCES := rect.c \
+                region.c \
+                image.c \
+                trackball.c \
+                keyboard.c \
+                keyset.c \
+                file.c \
+                window.c \
+                scaler.c \
+                composer.c \
+                surface.c \
+
+LOCAL_SRC_FILES += $(SKIN_SOURCES:%=android/skin/%)
+
+LOCAL_SRC_FILES += \
+             android/user-config.c \
+             android/resource.c \
+             android/qemulator.c \
+             android/keycode.c \
+
+# enable MMX code for our skin scaler
+ifeq ($(HOST_ARCH),x86)
+LOCAL_CFLAGS += -DUSE_MMX=1 -mmmx
+endif
+
+LOCAL_CFLAGS += $(EMULATOR_LIBUI_CFLAGS)
+
+$(call end-emulator-library)
+
+##############################################################################
+##############################################################################
+###
+###  emulator-libqemu: TARGET-INDEPENDENT QEMU FUNCTIONS
+###
+###  THESE ARE USED BY EVERYTHING EXCEPT 'emulator-ui'
+###
+
+$(call start-emulator-library, emulator-libqemu)
+
+EMULATOR_LIBQEMU_CFLAGS :=
+
+LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
+
+AUDIO_SOURCES := noaudio.c wavaudio.c wavcapture.c mixeng.c
+AUDIO_CFLAGS  := -I$(LOCAL_PATH)/audio -DHAS_AUDIO
+AUDIO_LDLIBS  :=
+
+LOCAL_CFLAGS += -Wall -Wno-missing-field-initializers
+
+ifeq ($(HOST_OS),darwin)
+  CONFIG_COREAUDIO ?= yes
+  AUDIO_CFLAGS += -DHOST_BSD=1
+endif
+
+ifeq ($(HOST_OS),windows)
+  CONFIG_WINAUDIO ?= yes
+endif
+
+ifeq ($(HOST_OS),linux)
+  CONFIG_OSS  ?= yes
+  CONFIG_ALSA ?= yes
+  CONFIG_PULSEAUDIO ?= yes
+  CONFIG_ESD  ?= yes
+endif
+
+ifeq ($(HOST_OS),freebsd)
+  CONFIG_OSS ?= yes
+endif
+
+ifeq ($(CONFIG_COREAUDIO),yes)
+  AUDIO_SOURCES += coreaudio.c
+  AUDIO_CFLAGS  += -DCONFIG_COREAUDIO
+  AUDIO_LDLIBS  += -Wl,-framework,CoreAudio
+endif
+
+ifeq ($(CONFIG_WINAUDIO),yes)
+  AUDIO_SOURCES += winaudio.c
+  AUDIO_CFLAGS  += -DCONFIG_WINAUDIO
+endif
+
+ifeq ($(CONFIG_PULSEAUDIO),yes)
+  AUDIO_SOURCES += paaudio.c audio_pt_int.c
+  AUDIO_CFLAGS  += -DCONFIG_PULSEAUDIO
+endif
+
+ifeq ($(CONFIG_ALSA),yes)
+  AUDIO_SOURCES += alsaaudio.c audio_pt_int.c
+  AUDIO_CFLAGS  += -DCONFIG_ALSA
+endif
+
+ifeq ($(CONFIG_ESD),yes)
+  AUDIO_SOURCES += esdaudio.c
+  AUDIO_CFLAGS  += -DCONFIG_ESD
+endif
+
+ifeq ($(CONFIG_OSS),yes)
+  AUDIO_SOURCES += ossaudio.c
+  AUDIO_CFLAGS  += -DCONFIG_OSS
+endif
+
+AUDIO_SOURCES := $(call sort,$(AUDIO_SOURCES:%=audio/%))
+
+LOCAL_CFLAGS += -Wno-sign-compare \
+                -fno-strict-aliasing -W -Wall -Wno-unused-parameter \
+
+# this is very important, otherwise the generated binaries may
+# not link properly on our build servers
+ifeq ($(HOST_OS),linux)
+LOCAL_CFLAGS += -fno-stack-protector
+endif
+
+LOCAL_SRC_FILES += $(AUDIO_SOURCES)
+LOCAL_SRC_FILES += \
+    android/audio-test.c
+
+# other flags
+ifneq ($(HOST_OS),windows)
+    AUDIO_LDLIBS += -ldl
+else
+endif
+
+
+EMULATOR_LIBQEMU_CFLAGS += $(AUDIO_CFLAGS)
+EMULATOR_LIBQEMU_LDLIBS += $(AUDIO_LDLIBS)
+
+LOCAL_CFLAGS += -Wno-missing-field-initializers
+
+# migration sources
+#
+ifeq ($(HOST_OS),windows)
+  LOCAL_SRC_FILES += migration-dummy-android.c
+else
+  LOCAL_SRC_FILES += migration.c \
+                     migration-exec.c \
+                     migration-tcp-android.c
+endif
+
+# misc. sources
+#
+CORE_MISC_SOURCES = \
+    acl.c \
+    aes.c \
+    aio-android.c \
+    async.c \
+    bt-host.c \
+    bt-vhci.c \
+    buffered_file.c \
+    cbuffer.c \
+    charpipe.c \
+    console.c \
+    cutils.c \
+    d3des.c \
+    input.c \
+    iohandler.c \
+    ioport.c \
+    module.c \
+    net-android.c \
+    notify.c \
+    osdep.c \
+    path.c \
+    qemu-char.c \
+    qemu-config.c \
+    qemu-error.c \
+    qemu-malloc.c \
+    qemu-option.c \
+    qemu-sockets-android.c \
+    qerror.c \
+    readline.c \
+    savevm.c \
+    shaper.c \
+    tcpdump.c \
+    vnc-android.c \
+    android/boot-properties.c \
+    android/config.c \
+    android/core-init-utils.c   \
+    android/gps.c \
+    android/hw-kmsg.c \
+    android/hw-lcd.c \
+    android/hw-events.c \
+    android/hw-control.c \
+    android/hw-sensors.c \
+    android/hw-qemud.c \
+    android/looper-qemu.c \
+    android/hw-pipe-net.c \
+    android/qemu-setup.c \
+    android/snapshot.c \
+    android/utils/timezone.c \
+
+ifeq ($(HOST_ARCH),x86)
+    CORE_MISC_SOURCES += i386-dis.c
+endif
+ifeq ($(HOST_ARCH),x86_64)
+    CORE_MISC_SOURCES += i386-dis.c
+endif
+ifeq ($(HOST_ARCH),ppc)
+    CORE_MISC_SOURCES += ppc-dis.c \
+                         cache-utils.c
+endif
+
+ifeq ($(HOST_OS),linux)
+    CORE_MISC_SOURCES += usb-linux.c \
+                         qemu-thread.c
+else
+    CORE_MISC_SOURCES += usb-dummy-android.c
+endif
+
+ifeq ($(HOST_OS),windows)
+  CORE_MISC_SOURCES   += tap-win32.c
+else
+  CORE_MISC_SOURCES   += posix-aio-compat.c
+endif
+
+LOCAL_SRC_FILES += $(CORE_MISC_SOURCES)
+
+# Required
+LOCAL_CFLAGS += -D_XOPEN_SOURCE=600 -D_BSD_SOURCE=1
+
+SLIRP_SOURCES := \
+    bootp.c \
+    cksum.c \
+    debug.c \
+    if.c \
+    ip_icmp.c \
+    ip_input.c \
+    ip_output.c \
+    mbuf.c \
+    misc.c \
+    sbuf.c \
+    slirp.c \
+    socket.c \
+    tcp_input.c \
+    tcp_output.c \
+    tcp_subr.c \
+    tcp_timer.c \
+    tftp.c \
+    udp.c
+
+LOCAL_SRC_FILES += $(SLIRP_SOURCES:%=slirp-android/%)
+EMULATOR_LIBQEMU_CFLAGS += -I$(LOCAL_PATH)/slirp-android
+
+# socket proxy support
+#
+PROXY_SOURCES := \
+    proxy_common.c \
+    proxy_http.c \
+    proxy_http_connector.c \
+    proxy_http_rewriter.c \
+
+LOCAL_SRC_FILES += $(PROXY_SOURCES:%=proxy/%)
+EMULATOR_LIBQEMU_CFLAGS += -I$(LOCAL_PATH)/proxy
+
+# include telephony stuff
+#
+TELEPHONY_SOURCES := \
+    android_modem.c \
+    modem_driver.c \
+    gsm.c \
+    sim_card.c \
+    sysdeps_qemu.c \
+    sms.c \
+    remote_call.c
+
+LOCAL_SRC_FILES += $(TELEPHONY_SOURCES:%=telephony/%)
+EMULATOR_LIBQEMU_CFLAGS += -I$(LOCAL_PATH)/telephony
+
+# sources inherited from upstream, but not fully
+# integrated into android emulator
+#
+LOCAL_SRC_FILES += \
+    json-lexer.c \
+    json-parser.c \
+    json-streamer.c \
+    qjson.c \
+    qbool.c \
+    qdict.c \
+    qfloat.c \
+    qint.c \
+    qlist.c \
+    qstring.c \
+
+# hw-config-defs.h is generated from android/avd/hardware-properties.ini
+#
+QEMU_HARDWARE_PROPERTIES_INI := $(LOCAL_PATH)/android/avd/hardware-properties.ini
+QEMU_HW_CONFIG_DEFS_H := $(LOCAL_PATH)/android/avd/hw-config-defs.h
+$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_PATH := $(LOCAL_PATH)
+$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_SOURCES := $(QEMU_HARDWARE_PROPERTIES_INI)
+$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PATH)/android/tools/gen-hw-config.py $(QEMU_HARDWARE_PROPERTIES_INI) $@
+$(QEMU_HW_CONFIG_DEFS_H): $(QEMU_HARDWARE_PROPERTIES_INI) $(LOCAL_PATH)/android/tools/gen-hw-config.py
+	$(hide) rm -f $@
+	$(transform-generated-source)
+
+$(LOCAL_PATH)/android/avd/hw-config.h: $(QEMU_HW_CONFIG_DEFS_H)
+
+# gdbstub-xml.c contains C-compilable arrays corresponding to the content
+# of $(LOCAL_PATH)/gdb-xml/, and is generated with the 'feature_to_c.sh' script.
+#
+intermediates := $(call intermediates-dir-for,STATIC_LIBRARIES,$(LOCAL_MODULE),true)
+
+ifeq ($(QEMU_TARGET_XML_SOURCES),)
+    QEMU_TARGET_XML_SOURCES := arm-core arm-neon arm-vfp arm-vfp3
+    QEMU_TARGET_XML_SOURCES := $(QEMU_TARGET_XML_SOURCES:%=$(LOCAL_PATH)/gdb-xml/%.xml)
+endif
+
+QEMU_GDBSTUB_XML_C := $(intermediates)/gdbstub-xml.c
+$(QEMU_GDBSTUB_XML_C): PRIVATE_PATH := $(LOCAL_PATH)
+$(QEMU_GDBSTUB_XML_C): PRIVATE_SOURCES := $(TARGET_XML_SOURCES)
+$(QEMU_GDBSTUB_XML_C): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PATH)/feature_to_c.sh $@ $(QEMU_TARGET_XML_SOURCES)
+$(QEMU_GDBSTUB_XML_C): $(QEMU_TARGET_XML_SOURCES) $(LOCAL_PATH)/feature_to_c.sh
+	$(hide) rm -f $@
+	$(transform-generated-source)
+
+LOCAL_GENERATED_SOURCES += $(QEMU_GDBSTUB_XML_C)
+
+EMULATOR_LIBQEMU_CFLAGS += -I$(intermediates)
+
+LOCAL_CFLAGS += $(EMULATOR_LIBQEMU_CFLAGS)
+
+$(call end-emulator-library)
+
+# Block sources, we must compile them with each executable because they
+# are only referenced by the rest of the code using constructor functions.
+# If their object files are put in a static library, these are never compiled
+# into the final linked executable that uses them.
+#
+# Normally, one would solve thus using LOCAL_WHOLE_STATIC_LIBRARIES, but
+# the Darwin linker doesn't support -Wl,--whole-archive or equivalent :-(
+#
+BLOCK_SOURCES += \
+    block.c \
+    blockdev.c \
+    block/qcow.c \
+    block/qcow2.c \
+    block/qcow2-refcount.c \
+    block/qcow2-snapshot.c \
+    block/qcow2-cluster.c \
+    block/cloop.c \
+    block/dmg.c \
+    block/vvfat.c \
+    block/raw.c
+
+ifeq ($(HOST_OS),windows)
+    BLOCK_SOURCES += block/raw-win32.c
+else
+    BLOCK_SOURCES += block/raw-posix.c
+endif
+
+BLOCK_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
+BLOCK_CFLAGS += -DCONFIG_BDRV_WHITELIST=""
+
+
+##############################################################################
+##############################################################################
+###
+###  emulator-libelff: TARGET-INDEPENDENT ELF/DWARD PARSER
+###
+###  THESE ARE USED BY EVERYTHING EXCEPT 'emulator-ui', BUT WE CANNOT PUT
+###  THEM IN emulator-libqemu SINCE THE SOURCES ARE C++
+###
+
+$(call start-emulator-library, emulator-libelff)
+
+LOCAL_CPP_EXTENSION := .cc
+
+ELFF_CFLAGS := -I$(LOCAL_PATH)/elff
+ELFF_LDLIBS := -lstdc++
+
+ELFF_SOURCES := \
+    dwarf_cu.cc \
+    dwarf_die.cc \
+    dwarf_utils.cc \
+    elf_alloc.cc \
+    elf_file.cc \
+    elf_mapped_section.cc \
+    elff_api.cc \
+
+LOCAL_SRC_FILES += $(ELFF_SOURCES:%=elff/%)
+
+LOCAL_CFLAGS += \
+    -fno-exceptions \
+    $(ELFF_CFLAGS) \
+
+$(call end-emulator-library)
+
+
+##############################################################################
+##############################################################################
+###
+###  gen-hx-header: Generate headers from .hx file with "hxtool" script.
+###
+###  The 'hxtool' script is used to generate header files from an input
+###  file with the .hx suffix. I.e. foo.hx --> foo.h
+###
+###  Due to the way the Android build system works, we need to regenerate
+###  it for each module (the output will go into a module-specific directory).
+###
+###  This defines a function that can be used inside a module definition
+###
+###  $(call gen-hx-header,<input>,<output>,<source-files>)
+###
+###  Where: <input> is the input file, with a .hx suffix (e.g. foo.hx)
+###         <output> is the output file, with a .h or .def suffix
+###         <source-files> is a list of source files that include the header
+###
+
+
+gen-hx-header = $(eval $(call gen-hx-header-ev,$1,$2,$3))
+
+define gen-hx-header-ev
+intermediates := $$(call intermediates-dir-for,$$(EMULATOR_MODULE_TYPE),$$(LOCAL_MODULE),true)
+
+QEMU_HEADER_H := $$(intermediates)/$$2
+$$(QEMU_HEADER_H): PRIVATE_PATH := $$(LOCAL_PATH)
+$$(QEMU_HEADER_H): PRIVATE_CUSTOM_TOOL = $$(PRIVATE_PATH)/hxtool -h < $$< > $$@
+$$(QEMU_HEADER_H): $$(LOCAL_PATH)/$$1 $$(LOCAL_PATH)/hxtool
+	$$(transform-generated-source)
+
+LOCAL_GENERATED_SOURCES += $$(QEMU_HEADER_H)
+LOCAL_C_INCLUDES += $$(intermediates)
+_objects := $$(patsubst %,$$(intermediates)/%,$$(3:.c=.o))
+$$(_objects): $$(QEMU_HEADER_H)
+endef
+

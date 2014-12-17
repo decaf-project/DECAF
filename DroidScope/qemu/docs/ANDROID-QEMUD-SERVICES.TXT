@@ -1,0 +1,180 @@
+ANDROID QEMUD SERVICES
+
+The docs/ANDROID-QEMUD.TXT document describes how clients running in the
+emulated system can communicate with the emulator through the 'qemud'
+multiplexing daemon.
+
+This document lists all services officially provided by the emulator to
+clients. Each service is identified by a unique name. There is no provision
+for versioning. Instead, if you need new features, create a new service
+with a slightly different name and modify clients to use it in the system
+image.
+
+
+"gsm" service:
+--------------
+
+   The GSM service provides a communication channel where GSM/GPRS AT commands
+   can be exchanged between the emulated system and an emulated modem.
+
+   The messages consist in un-framed character messages as they appear in a
+   regular AT command channel (i.e. terminated by \r\n most of the time).
+
+   There can be only 1 client talking to the modem, since the AT command
+   protocol does not allow for anything more complex.
+
+   Implementation: telephony/modem_driver.c
+   Since:          SDK 1.0
+
+"gps" service:
+--------------
+
+  The GPS service is used to broadcast NMEA 0183 sentences containing fix
+  information to all clients. The service doesn't listen to clients at all.
+
+  All sentences are un-framed and end with a \n character.
+
+  Implementation: android/gps.c
+  Since:          SDK 1.0
+
+
+"hw-control" / "control" service:
+---------------------
+
+  This service is named "control" in 1.0 and 1.1, and "hw-control"
+  in 1.5 and later releases of the SDK.
+
+  This service is used to allow the emulated system to control various aspects
+  of hardware emulation. The corresponding clients are in
+  hardware/libhardware_legacy in the Android source tree.
+
+  All messages use the optional framing described in ANDROID-QEMUD.TXT.
+  Only one client can talk with the service at any one time, but clients
+  quickly connect/disconnect to the service anyway.
+
+  Supported messages are:
+
+    1/ Client sends "power:light:brightness:<lightname>:<val>", where
+       <lightname> is the name of a light and <val> is an decimal value
+       between 0 (off) and 255 (brightest). Valid values for 'light' are:
+
+            lcd_backlight
+            keyboard_backlight
+            button_backlight
+
+       Currently, only 'lcd_backlight' is supported by the emulator.
+       Note that the brightness value doesn't scale linearly on physical
+       devices.
+
+    2/ Client sends "set_led_state:<color-rgb>:<on-ms>:<off-ms>" where
+       <color-rgb> is an 8-hexchar value describing an xRGB color, and
+       <on-ms> and <off-ms> are decimal values expressing timeout in
+       milliseconds.
+
+       This is used to modify the color of the notification LED on the
+       emulated phone as well as provide on/off timeouts for flashing.
+
+       cCrrently unsupported by the emulator.
+
+    3/ Client sends "vibrator:<timeout>", where <timeout> is a decimal value.
+       used to enable vibrator emulation for <timeout> milli-seconds.
+
+       Currently unsupported by the emulator.
+
+
+  Implementation: android/hw-control.c
+  Since:          SDK 1.0
+
+
+"sensors" service:
+------------------
+
+  This service is used for sensor emulation. All messages are framed and the
+  protocol is the following:
+
+    1/ Clients initially sends "list-sensors" and receives a single string
+       containing a decimal mask value. The value is a set of bit-flags
+       indicating which sensors are provided by the hardware emulation. The
+       bit flags are defined as:
+
+         bit 0:   accelerometer
+         bit 1:   compass
+         bit 2:   orientation
+         bit 3:   temperature
+
+    2/ Client sends "set-delay:<delay-ms>", where <delay-ms> is a decimal
+       string, to set the minimum delay in milliseconds between sensor event
+       reports it wants to receive.
+
+    3/ Client sends "wake", the service must immediately send back "wake" as
+       an answer. This is used to simplify parts of the client emulation.
+
+    4/ Client sends "set:<sensor-name>:<flag>", where <sensor-name> is the
+       name of one of the emulated sensors, and <flag> is either "0" or "1".
+       This is used to enable or disable the report of data from a given
+       emulated sensor hardware.
+
+       the list of valid <sensor-name> values is the following:
+
+           acceleration      : for the accelerometer
+           magnetic-field    : for the compass
+           orientation       : for the orientation sensor
+           temperature       : for the temperature sensor
+
+
+    5/ If at least one of the emulated sensors has been enabled with
+       "set:<name>:1", then the service should broadcast periodically the
+       state of sensors.
+
+       this is done by broadcasting a series of framed messages that look
+       like:
+
+           acceleration:<x>:<y>:<z>
+           magnetic-field:<x>:<y>:<z>
+           orientation:<azimuth>:<pitch>:<roll>
+           temperature:<celsius>
+           sync:<time_us>
+
+       Note that each line, corresponds to an independent framed message.
+       Each line, except the last one, is optional and should only be
+       produced if the corresponding sensor reporting has been enabled
+       through "set:<name>:1".
+
+       <x>, <y>, <z>, <azimuth>, <pitch>, <roll> and <celsius> are floating
+       point values written as strings with the "%g" printf formatting option.
+
+       The last 'sync' message is required to end the broadcast and contains
+       the current VM clock time in micro-seconds. The client will adjust it
+       internally to only care about differences between sensor broadcasts.
+
+       If reporting is disabled for all sensors, no broadcast message needs
+       to be sent back to clients.
+
+
+  Implementation: android/hw-sensors.c
+  Since:          SDK 1.5 (cupcake)
+
+
+"boot-properties" service:
+--------------------------
+
+  This service is used to set system properties in the emulated system at
+  boot time. It is invoked by the 'qemu-props' helper program that is invoked
+  by /system/etc/init.goldfish.rc. All messages are framed and the protocol
+  is the following:
+
+  1/ Clients sends the 'list' command
+
+  2/ Service answers by listing all system properties to set. One per
+     message with the following format:
+
+        <property-name>=<property-value>
+
+     Note that <property-value> is not zero-terminated.
+
+
+  3/ After sending all the properties, the service force-closes the
+     connection.
+
+  Implementation: android/boot-properties.c
+  Since:          SDK 1.XXX (donut)

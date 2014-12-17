@@ -1,0 +1,195 @@
+HOW AUDIO EMULATION WORKS IN QEMU:
+==================================
+
+Things are a bit tricky, but here's a rough description:
+
+  QEMUSoundCard: models a given emulated sound card
+  SWVoiceOut:    models an audio output from a QEMUSoundCard
+  SWVoiceIn:     models an audio input from a QEMUSoundCard
+
+  HWVoiceOut:    models an audio output (backend) on the host.
+  HWVoiceIn:     models an audio input (backend) on the host.
+
+Each voice can have its own settings in terms of sample size, endianess, rate, etc...
+
+
+Emulation for a given soundcard typically does:
+
+  1/ Create a QEMUSoundCard object and register it with AUD_register_card()
+  2/ For each emulated output, call AUD_open_out() to create a SWVoiceOut object.
+  3/ For each emulated input, call AUD_open_in() to create a SWVoiceIn object.
+
+  Note that you must pass a callback function to AUD_open_out() and AUD_open_in();
+  more on this later.
+
+  Each SWVoiceOut is associated to a single HWVoiceOut, each SWVoiceIn is
+  associated to a single HWVoiceIn.
+
+  However you can have several SWVoiceOut associated to the same HWVoiceOut
+  (same thing for SWVoiceIn/HWVoiceIn).
+
+SOUND PLAYBACK DETAILS:
+=======================
+
+Each HWVoiceOut has the following too:
+
+  - A fixed-size circular buffer of stereo samples (for stereo).
+    whose format is either floats or int64_t per sample (depending on build
+    configuration).
+
+  - A 'samples' field giving the (constant) number of sample pairs in the stereo buffer.
+
+  - A target conversion function, called 'clip()' that is used to read from the stereo
+    buffer and write into a platform-specific sound buffers (e.g. WinWave-managed buffers
+    on Windows).
+
+  - A 'rpos' offset into the circular buffer which tells where to read the next samples
+    from the stereo buffer for the next conversion through 'clip'.
+
+
+            |<----------------- samples ----------------------->|
+
+            |                                                   |
+
+            |       rpos                                        |
+                    |
+            |_______v___________________________________________|
+            |       |                                           |
+            |       |                                           |
+            |_______|___________________________________________|
+
+
+  - A 'run_out' method that is called each time to tell the output backend to
+    send samples from the stereo buffer to the host sound card/server. This method
+    shall also modify 'rpos' and returns the number of samples 'played'. A more detailed
+    description of this process appears below.
+
+  - A 'write' method callback used to write a buffer of emulated sound samples from
+    a SWVoiceOut into the stereo buffer. Currently all backends simply call the generic
+    function audio_pcm_sw_write() to implement this.
+
+    According to malc, the audio sub-system's original author, this is to allow
+    a backend to use a platform-specific function to do the same thing if available.
+
+    (Similarly, all input backends have a 'read' methods which simply calls 'audio_pcm_sw_read')
+
+Each SWVoiceOut has the following:
+
+  - a 'conv()' function used to read sound samples from the emulated sound card and
+    copy/mix them to the corresponding HWVoiceOut's stereo buffer.
+
+  - a 'total_hw_samples_mixed' which correspond to the number of samples that have
+    already been mixed into the target HWVoiceOut stereo buffer (starting from the
+    HWVoiceOut's 'rpos' offset). NOTE: this is a count of samples in the HWVoiceOut
+    stereo buffer, not emulated hardware sound samples, which can have different
+    properties (frequency, size, endianess).
+                                         ______________
+                                        |              |
+                                        |  SWVoiceOut2 |
+                                        |______________|
+                  ______________           |
+                 |              |          |
+                 |  SWVoiceOut1 |          |     thsm<N> := total_hw_samples_mixed
+                 |______________|          |                for SWVoiceOut<N>
+                           |               |
+                           |               |
+                    |<-----|------------thsm2-->|
+                    |      |                    |
+                    |<---thsm1-------->|        |
+             _______|__________________v________|_______________ 
+            |       |111111111111111111|        v               |
+            |       |222222222222222222222222222|               |
+            |_______|___________________________________________|
+                    ^
+                    |         HWVoiceOut stereo buffer
+                    rpos
+
+
+  - a 'ratio' value, which is the ratio of the target HWVoiceOut's frequency by
+    the SWVoiceOut's frequency, multiplied by (1 << 32), as a 64-bit integer.
+
+    So, if the HWVoiceOut has a frequency of 44kHz, and the SWVoiceOut has a frequency
+    of 11kHz, then ratio will be (44/11*(1 << 32)) = 0x4_0000_0000
+
+  - a callback provided by the emulated hardware when the SWVoiceOut is created.
+    This function is used to mix the SWVoiceOut's samples into the target
+    HWVoiceOut stereo buffer (it must also perform frequency interpolation,
+    volume adjustment, etc..).
+
+    This callback normally calls another helper functions in the audio subsystem
+    (AUD_write()) to to the mixing/volume-adjustment from emulated hardware sample
+    buffers.
+
+Here's a small graphics that explains it better:
+
+   SWVoiceOut:  emulated hardware sound buffers:
+          |
+          |   (mixed through AUD_write() called from user-provided
+          |    callback which is itself called on each audio timer
+          |    tick).
+          v
+   HWVoiceOut: stereo sample circular buffer
+          |
+          |   (sent through HWVoiceOut's 'clip' function, which is
+          |    invoked from the 'run_out' method, also called on each
+          |    audio timer tick)
+          v
+   backend-specific sound buffers
+
+
+The function audio_timer() in audio/audio.c is called periodically and it is used as
+a pulse to perform sound buffer transfers and mixing. More specifically for audio
+output voices:
+
+- For each HWVoiceOut, find the number of active SWVoiceOut, and the minimum number
+  of 'total_hw_samples_mixed' that have already been written to the buffer. We will
+  call this value the number of 'live' samples in the stereo buffer.
+
+- if 'live' is 0, call the callback of each active SWVoiceOut to fill the stereo
+  buffer, if needed, then exit.
+
+- otherwise, call the 'run_out' method of the HWVoiceOut object. This will change
+  the value of 'rpos' and return the number of samples played. Then the
+  'total_hw_samples_mixed' field of all active SWVoiceOuts is decremented by
+  'played', and the callback is called to re-fill the stereo buffer.
+
+It's important to note that the SWVoiceOut callback:
+
+- takes a 'free' parameter which is the number of stereo sound samples that can
+  be sent to the hardware stereo buffer (before rate adjustment, i.e. not the number
+  of sound samples in the SWVoiceOut emulated hardware sound buffer).
+
+- must call AUD_write(sw, buff, count), where 'buff' points to emulated sound
+  samples, and their 'count', which must be <= the 'free' parameter.
+
+- the implementation of AUD_write() will call the 'write' method of the target
+  HWVoiceOut, which in turns calls the function audio_pcm_sw_write() which does
+  standard rate/volume adjustment before mixing the conversion into the target
+  stereo buffer. It also increases the 'total_hw_samples_mixed' value of the
+  SWVoiceOut.
+
+- audio_pcm_sw_write() returns the number of sound sample *bytes* that have
+  been mixed into the stereo buffer, and so does AUD_write().
+
+So, in the end, we have the pseudo-code:
+
+    every sound timer ticks:
+      for hw in list_HWVoiceOut:
+         live = MIN([sw.total_hw_samples_mixed for sw in hw.list_SWVoiceOut ])
+         if live > 0:
+            played = hw.run_out(live)
+            for sw in hw.list_SWVoiceOut:
+                sw.total_hw_samples_mixed -= played
+
+        for sw in hw.list_SWVoiceOut:
+            free = hw.samples - sw.total_hw_samples_mixed
+            if free > 0:
+                sw.callback(sw, free)
+
+SOUND RECORDING DETAILS:
+========================
+
+Things are similar but in reverse order. I.e. the HWVoiceIn acquires sound samples
+in its stereo sound buffer, and the SWVoiceIn objects must consume them as soon as
+they can.
+

@@ -1,0 +1,57 @@
+ANDROID MEMORY CHECKER COMPONENT
+
+The docs/ANDROID-MEMCHECK.TXT document contains description of a memory checker
+implemented in the emulator
+
+The memory checker is intended to catch simple memory access violations in the
+emulated system, including:
+- Memory leaks
+- Attempts to free / reallocate invalid pointers (including pointers that have
+  already been freed, or reallocated).
+- Attempts to read from / write to areas outside of allocated blocks.
+
+To provide this functionality, the memory checker works in conjunction with
+an instrumented version of libc.so library used by the emulated system. Both,
+emulator's memory checking, and libc's instrumentation are turned on by the
+-memcheck command-line option. If this argument is omitted, libc.so will run in
+the regular, not instrumented mode, and the emulator will not perform any
+actions related to the memory checking.
+
+The way emulator and instrumented libc.so work together is as such:
+libc.so hooks up every memory allocation call (malloc, free, calloc, realloc,
+and memalign). For each such call, libc sends a notification message to the
+emulator, providing an allocation descriptor that contains information about
+allocation block and operation that is being performed on this block. Emulator
+and libc use a "magic page" that is set up in such a way that every write to
+that page on the emulated system produces some sort of event in the emulator,
+allowing emulator to receive data that emulated system has written to the "magic
+page". For more info on that, see hw/goldfish-trace.c
+
+In response to events, received from libc.so, emulator keep tracks of all blocks
+that have been allocated from the heap on emulated system. Block descriptors are
+kept in a per-process basis, so when a process exits, emulator can list all the
+leaked blocks the process left behind.
+
+When a free, or realloc operation is performed on the emulated system, emulator
+can verify that the pointer passed to free/realloc matches the address of a
+block recorded in the current process' descriptors table. This way emulator can
+detect and report attempts to free/reallocate invalid pointers.
+
+To detect read/write violations, emulator uses prefix and suffix guarding areas
+that were added to the allocated blocks by the instrumented libc. To watch for
+access violations, emulator instruments ld_/st_mmu routines to verify that
+accessed memory doesn't belong to a guarding area of a block allocated in
+context of the current process.
+
+There are some tricky things like:
+- invalidating every page containing allocated blocks every time anything has
+  been read, or written to that page, so we can be sure that we don't miss AV
+  on condition that page has been cached and ld_/st_mmu is omitted when
+  accessing memory in that page.
+- Keeping track of each thread calling stack, so when access violation is
+  reported, we can pinpoint violation to precise location in the source code.
+- etc.
+
+All the code related to memory checking is guarded in emulator's code by
+CONFIG_MEMCHECK macro, making it easy to spot changes related to it in the
+sources.

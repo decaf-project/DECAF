@@ -1,0 +1,920 @@
+Android Emulator changes:
+=========================
+
+Versions:
+
+   1.0 => SDK M3 release
+   1.1 => SDK M5 release
+   1.2 => Internal release (build 72264)
+   1.3 => Internal release (build 77780)
+   1.4 => Internal release (build 84853)
+   1.5 => SDK 0.9_r1
+   1.6 => SDK 1.0_r1
+   1.7 => SDK 1.0_r2
+   1.8 => SDK 1.1
+   1.9 => SDK 1.5_r1 (and SDK 1.5_r2)
+   1.10 => SDK 1.5_r3
+   1.11 => SDK 1.6_r1
+   1.12 => SDK 2.0
+   1.13 => SDK 2.0.1 (but wrongly tagged 1.12)
+
+   Starting from here, the emulator version number will match
+   the corresponding SDK Tools release level, i.e.:
+
+   5.0  => SDK Tools release 5
+   6.0  => SDK Tools release 6
+   7.0  => SDK Tools release 7
+   etc...
+
+==============================================================================
+Changes between 8.0 and 7.0
+
+IMPORTANT CHANGES:
+
+OTHER:
+
+- The phone can now be called with additional numbers, using the 1-555-521
+  prefix. I.e. you can now use all of the following numbers to call/sms an
+  emulator that runs on console port 5554:
+
+  5554
+  521 5554
+  555 521 5554
+  1 555 521 5554
+
+- Fix -http-proxy implementation to properly work with chunked encodings.
+
+  Also try to connect to the proxy on startup to see if the host/port are
+  valid. If no connection succeeds after 1 second, dump a warning and
+  ignore the proxy for the session.
+
+- The console's "geo fix" command was modified:
+
+  - a computational bug sent the wrong latitude/longitude to the emulated
+    system, resulting in coordinates that could be off from 500 to 1000 meters.
+
+  - fixed another bug that didn't report the altitude correctly.
+
+  - added a fourth, optional, parameter to indicate the number of tracked
+    satellites to emulate. The number must be an integer between 1 and 12,
+    (1 is the default).
+
+  - fixed a bug in parameter handling: the implementation disagreed with the
+    documentation, requiring an additional dummy fourth argument. Now four or
+    five parameters are accepted (for backwards compatibility), but the last is
+    always the satellite count.
+
+ - Add a PulseAudio audio backend on Linux. It will be used by default
+   unless it's impossible to connect to the PA daemon.
+
+ - It is now possible to access the QEMU monitor from the console.
+   Just type "qemu monitor" and you will be at the monitor prompt.
+
+   Note that the monitor 'quit' command will not stop the emulator,
+   but will simply close the connection instead.
+
+==============================================================================
+Changes between 7.0 and 6.0
+
+IMPORTANT CHANGES:
+
+OTHER:
+
+- Removed audio stack SDL dependency.
+
+- Add a '-shared-net-id' option which allows emulators to join a shared network.
+  This allows testing situations where emulators need to communicate directly
+  with each other. See '-help-shared-net-id' for more details.
+
+- Fix net shaping regression: -netspeed and -netdelay did not work anymore.
+
+==============================================================================
+Changes between 6.0 and 5.0
+
+IMPORTANT CHANGES:
+
+- Add a '-memcheck' option to instrument memory reads/writes at runtime in
+  order to detect buffer under/overflows. This requires a new version of the
+  C library that is only available in Froyo and above.
+
+- Fix '-http-proxy' on Win32. This was actually a regression introduced
+  with the Donut SDK.
+
+OTHER:
+
+- Add a '--static' option to both android-configure.sh and android-rebuild.sh
+  in order to build a completely static executable. This is required to run
+  the emulator in restricted environments. No audio and graphics in this mode
+  so using '-no-window' is required.
+
+==============================================================================
+Changes between 5.0 and 1.13
+
+IMPORTANT CHANGES:
+
+- Starting from this release, the emulator's version number will match the
+  corresponding Android SDK Tools package revision number. The exact number
+  is extracted at build time from the Android source tree.
+
+  The minor number will now be stuck to 0 since each official emulator
+  release is supposed to match a corresponding SDK Tools release.
+
+
+OTHER:
+
+- Fixed a bug that crashed the emulator when the SD Card image size was exactly
+  8 MB. Now, the minimum supported size is 9 MB, and the emulator will complain
+  with a human-friendly message if this is not the case, and ignore the SD Card
+  file.
+
+==============================================================================
+Changes between 1.13 and 1.12
+
+IMPORTANT BUG FIXES:
+
+- Fix D-Pad rotation issues in the skins. The problem being that switching
+  the emulator window to landscape mode resulted in incorrectly rotated
+  D-Pad events. The fix allows for a new 'dpad-rotation' field for each
+  layout.
+
+- Fixed a bug in Thumb2 emulation (not used by typical SDK images yet though)
+  that resulted incorrect behaviour / crashes, especially in single-stepping
+  mode.
+
+==============================================================================
+Changes between 1.12 and 1.11
+
+IMPORTANT BUG FIXES:
+
+- Fixed a nasty race condition in the Linux EsounD audio backend which resulted
+  in rare lockups when stopping the emulator on this platform.
+
+- The key-bindings for the Menu button (F2 and PageUp by default) didn't work
+  due to a typo.
+
+OTHER:
+
+- Sources have been refreshed by a large integration of upstream QEMU
+  sources (version 0.10.50). The integration is based on the following commit,
+  dated 2009-06-19:
+
+         d2e9fd8f703203c2eeeed120b1ef6c3a6574e0ab
+
+==============================================================================
+Changes between 1.11 and 1.10
+
+IMPORTANT BUG FIXES:
+
+- Fixed ANDROID_SDK_HOME being ignored on Unix (not Windows). This environment
+  variable is used to locate a user's configuration files for the SDK, with a
+  default value of ~/.android
+
+OTHER:
+
+- Add "KEY_XXX" name alias for EV_KEY codes. This means that the console
+  command "event codes EV_KEY" will now return KEY_XXX code names (in addition
+  to BTN_YYY ones), and that you can use "event send EV_KEY:KEY_SOFT1:1"
+  instead of "event send EV_KEY:229:1" to simulate the press of the Menu
+  button.
+
+  The KEY_XXX values are defined by Linux. The following Android-specific
+  mappings apply:
+
+     KEY_HOME   => Home key
+     KEY_BACK   => Back key
+     KEY_SEND   => Call key (e.g. Green Phone)
+     KEY_END    => EndCall key (e.g. Red Phone)
+     KEY_SOFT1  => Menu key
+
+     KEY_VOLUME_UP
+     KEY_VOLUME_DOWN
+
+     KEY_SEARCH => Search key (if any)
+     KEY_POWER  => Power button
+     KEY_CAMERA => Camera button
+
+     KEY_DOWN / UP / LEFT / RIGHT => DPad keys
+     KEY_CENTER                   => DPad / trackball click
+
+  Beware: KEY_MENU does *not* correspond to the "Menu" key of most Android
+          devices.
+
+==============================================================================
+Changes between 1.10 and 1.9
+
+IMPORTANT BUG FIXES:
+
+- Fixed sock_address_init_resolve() in sockets.c to work properly on
+  IPv6 capable systems, when the list returned by getaddrinfo() doesn't
+  necessarily reflect the simplistic heuristics that were used by the
+  previous implementation. On such systems, inter-emulator telephony
+  and SMS didn't work properly, as well as certain other network-related
+  tasks.
+
+IMPORTANT CHANGES:
+
+- Skins can now provide a button for the "SEARCH" scan-code, simply using
+  the "search" label for it.
+
+- A new option '-prop <name>=<value>' can be used to set a system property
+  at boot time in the emulated system. This only works for system images
+  starting at 1.5_r3, and will be ignored for older ones.
+
+  Note that properties starting with "ro." can only be set once. Moreover,
+  all system properties in the system build.prop or local.prop are parsed
+  by init before anything else. Any "ro." property in them cannot be
+  changed with this option.
+
+- Allow the HTTP proxy implementation to receive chunked encoding data.
+  This shall solve problems when talking to Microsoft proxies.
+
+OTHER:
+
+- Allow the SEARCH key-binding (F5) to work on keyboard-less hardware
+  configurations (AVDs).
+
+- Fixed a typo which prevented the kernel gdbstub from working properly
+
+- Fixed bad QADD/QDADD/QSUB/QDSUB emulation in the ARM JIT.
+
+- Fixed one minor crash when the Linux OSS audio backend was used with the
+  -debug-audio option.
+
+- Fixed emulator tracing bug (basic block address could be wrong). And add
+  support for recording native (JNI) calls when profiling.
+
+- Fixed build for platforms where deprecated symbol EAI_NODATA is not
+  defined.
+
+- Fix GPS emulation to allow several clients concurrently. There are still
+  problems that may be due to changes in the system's framework.
+
+- Added some technical documentation in the docs/ directory.
+
+==============================================================================
+Changes between 1.9 and 1.8
+
+IMPORTANT CHANGES:
+
+- Many features have been integrated from upstream QEMU sources, including
+  the new TCG code generator used by the ARM translator. This should result
+  in slightly faster execution speed on all supported platforms. Another
+  benefit is that you no longer require a specific (and obsolete) version
+  of GCC to build the emulator.
+
+- The emulator now requires that you specify a virtual device name when
+  starting the emulator, prefixed with the '@' sign. For example, to start
+  the 'foo' virtual device, type:
+
+      emulator @foo
+
+  Each AVD (Android Virtual Device) corresponds to a directory used to store
+  mutable disk images, an optional system image/kernel/sdcard, plus some
+  configuration file(s).
+
+  The command-line tool 'android' that comes with the SDK can be used to
+  create/list/remove virtual devices on your system.
+
+  Note that the '@<name>' form is a convenience shortcut for '-avd <name>'.
+  It is thus possible to place options after the AVD name on your command
+  line, as in:
+
+      emulator @foo -verbose -shell
+
+  Finally, when building the Android platform source tree, an AVD name is not
+  required and 'emulator' will start a new emulator instance exactly as
+  previously.
+
+- A new option '-sysdir <dir>' has been introduced, the interpretation of
+  the '-system' option has changed, and '-image <file>' should now be
+  considered obsolete. In more details:
+
+  * you should now use '-sysdir <dir>' instead of '-system <dir>' to specify
+    the directory where system images will be searched by the emulator
+    on startup.
+
+  * you should now use '-system <file>' to indicate which system.img partition
+    image to use at startup.
+
+  * you should not use '-system <dir>' or '-image <path>' anymore. However,
+    these options are still supported but will print a warning to remind you
+    to change your scripts/habits.
+
+  The change was done to reduce confusion as to what these options provide.
+
+- Options '-noaudio', '-nojni', '-noskin' and 'nocache' are deprecated.
+  You should use '-no-audio', '-no-jni', '-no-skin' and '-no-cache' instead.
+
+- Option 'initdata' is deprecated, you should use '-init-data' instead.
+
+- Hardware emulation is now limited to the corresponding Android Virtual
+  Device's configuration. This means it is now possible to not emulate
+  a touch-screen, trackball, dpad, keyboard, modem, etc...
+
+  Note that in the case of the Android build system, all hardware properties
+  are enabled by default, so this only affects "normal" virtual devices
+  created with the 'android' tool.
+
+- The emulator now supports capturing network packets to a file.
+  You can either use the new -tcpdump <file> command-line option, or use
+  the new console 'network capture start <file>' command (then use
+  'network capture stop' to stop it).
+
+  This captures all ethernet packets on the virtual LAN, so this includes
+  ARP, UDP, TCP, etc... The file is in libpcap format and can be opened with
+  external tools like WireShark for analysis.
+
+OTHER:
+
+- The file in ~/.android/default.keyset was ignored, unless you used
+  '-keyset default' explicitely. It is now loaded automatically when
+  available.
+
+- Environment variable ANDROID_SDK_ROOT can be used to specifiy the location
+  of the SDK installation path.
+
+- Environment variable ANDROID_SDK_HOME can be used to specify the location
+  of the '.android' data directory (which defaults to your $HOME).
+
+- A new console command 'avd name' can be used to query the name of the
+  virtual device running in the emulator. Note that it will be '<build>'
+  if you run from the Android build system.
+
+  Also, the emulator's window title also displays the AVD name now.
+
+- The option '-memory <size>' has been added. <memory> must be an integer
+  specifying the amount of physical RAM in the emulated device in megabytes.
+  The default value is 96.
+
+- The '-skindir <path>' option now requires that you specify a '-skin <name>'
+  option as well.
+
+- Better handling of Audio on Linux for the EsounD and Alsa backends
+
+- Fullscreen toggle should now work on Windows and OS X. On Linux, the
+  toggle will not switch the display resolution anymore (which resulted
+  in distorted images).
+
+- Using '-no-audio' no longer disables sound hardware emulation. It simply
+  mutes the emulator program on the host.
+
+- The window title bar changes when you toggle persistent trackball mode
+  (F6 by default). It will display something like the following:
+
+    "Press F6 to exit trackball mode ..."
+
+  The actual text depends on your key binding configuration. This is to help
+  people toggle the mode by accident.
+
+==============================================================================
+Changes between 1.7 and 1.6
+
+IMPORTANT BUG FIXES:
+
+- Properly create ~/.android directory when needed.
+
+- Do not leave temporary files in Android app-specific directory on Win32
+
+- Support for HTTP/HTTPS proxies has been considerably improved and should now
+  "just work" with a lot more HTTP proxies. In case of problem, use the
+  -debug-proxy option to dump debugging data to stderr.
+
+OTHER:
+
+- Trackball emulation has changed. First, the awkward "Control-T" keybinding
+  is gone. Instead, you can now:
+
+     - press 'Delete' to show the trackball and have it disappear as soon
+       as your release the key.
+
+     - press 'F6' to perform a persistent trackball mode toggle.
+
+  Also, trackball emulation is fixed in rotated/landscape mode now.
+
+- New option '-nand-limits <limits>' allows you to send a signal to a remote
+  process when a read or write threshold on flash storage is reached. This is
+  only useful for hardcore Android system hackers.
+
+- Fix emulator build on recent Cygwin releases (the -mno-cygwin headers do not
+  tolerate the _GNU_SOURCE macro definition anymore)
+
+- Fix Win32 emulator to support SD Card images larger than 2 GiB
+
+- The non-Android build system has been completely rewritten to allow building
+  the emulator on Linux x86_64. Also, there is now a single Makefile that
+  drives the build in both Android and non-Android modes.
+
+- '-qemu <other-options>' works again
+
+==============================================================================
+Changes between 1.6 and 1.5
+
+IMPORTANT CHANGES:
+
+- Emulator now saves the user image in <android>/SDK1.0/
+
+OTHER:
+
+- Get rid of EsounD-related freezes on Linux (again)
+
+- Fix the documentation in -help-audio. '-audio list' doesn't work, one
+  needs to call -help-audio-out and -help-audio-in to get the list of valid
+  audio backends
+
+- Fix scrollwheel Dpad emulation in rotated mode. before that, using the
+  scroll-wheel would always generated Dpad Up/Down events, even when in
+  landscape mode.
+
+- Re-enable CPU fault emulation in case of unaligned data access. this was
+  previously disabled because it crashed the emulated kernel in previous
+  releases.
+
+- The emulator no longer prints an obscure warning when it doesn't find
+  the emulator.cfg configuration file in ~/.android.
+
+  'broken configuration file doesn't have a 'window' element'
+
+- Removed a bunch of obsolete options (e.g. -console, -adb-port, etc...)
+
+- Setting the network speed through the console or the -netspeed option will
+  properly modify the connectivity icon on the device.
+
+- Setting the GSM voice registration state to 'roaming' in the console will
+  properly modify the voice icon on the device
+
+==============================================================================
+Changes between 1.5 and 1.4
+
+IMPORTANT BUG FIXES:
+
+- Fix spurious discards of SMS messages when using two emulators.
+
+OTHER:
+
+- Get rid of EsounD-related freezes on Linux (again)
+
+- Fix the documentation in -help-audio. '-audio list' doesn't work; one
+  needs to call -help-audio-out and -help-audio-in to get the list of valid
+  audio backends
+
+- Fix scrollwheel Dpad emulation in rotated mode. before that, using the
+  scroll-wheel would always generated Dpad Up/Down events, even when in
+  landscape mode.
+
+- Re-enable CPU fault emulation in case of unaligned data access. This was
+  previously disabled because it crashed the emulated kernel in previous
+  releases.
+
+==============================================================================
+Changes between 1.4 and 1.3
+
+IMPORTANT BUG FIXES:
+
+- fix for audio-related Linux startup freezes when using the 'esd' and 'alsa'
+  backends
+
+- the number of audio buffers in the Windows backend has been incremented.
+  this gets rid of audio chopiness issues on Vista (and sometimes on XP too)
+
+NEW FEATURES:
+
+NEW CONSOLE COMMANDS:
+
+- new 'geo fix <lontitude> <latitude> [<altitude>]' command allows you to
+  send a simple GPS fix to the emulated system, without the headaches of
+  NMEA 1083 formatting.
+
+OTHER BUG FIXES:
+
+- fixed the -audio, -audio-in and -audio-out options (the <backend> values
+  were sometimes ignored)
+
+REGRESSIONS:
+
+OTHER:
+
+- the transitional '-qemud' option introduced in 1.3 is now gone. its
+  behaviour is now the default.
+
+- use the new '-old-system' option if you need to use a 1.4+ emulator binary
+  with older system images. if you don't use it, GSM and GPS emulation will
+  not work correctly (among other things).
+
+- the obsolete '-oldradio' option is now gone
+
+- on some Unix systems, SIGALRM is blocked by default, so unblock it when
+  creating the alarm timer
+
+- the 'esd' and 'alsa' libraries dump a lot of error messages to the console
+  by default on Linux. these are now disabled unless you use '-debug audio'
+
+- added the '-help-char-devices' help topic that describe the specification
+  of the <device> parameter of options like -serial, -gps, -shell-serial,
+  etc...
+
+KNOWN ISSUES:
+
+- no support for video input
+- no support for mutable SIM Card emulation yet
+- no support for bluetooth
+- no support for WiFi
+
+- on some Linux machines, the emulator might get stuck at startup. this
+  seems to be related to audio input support. try starting with
+  '-audio-in none' or  even '-noaudio' to disable sound, or choose a
+  different audio backend by  defining QEMU_AUDIO_DRV to an appropriate
+  value (read below).
+
+  you can also select different audio backends for both output and input
+  by defining QEMU_AUDIO_OUT_DRV and QEMU_AUDIO_IN_DRV independently.
+
+- on Windows, the emulator takes about 10-15% of the CPU even when the
+  emulated system is idle. this is a known issue related to QEMU's internal
+  event loop and Winsock. this should be fixed in a future emulator release.
+
+- GPS emulation only if you use the '-qemud' option. this is an experimental
+  option that is soon going to be the default. without this option, the
+  emulated system will start but GPS emulation will not work.
+
+  for the record, 'qemud' is a serial port multiplexer that is used to
+  multiplex several communication channels between the emulator and the
+  emulated system, though a single serial port.
+
+==============================================================================
+Changes between 1.3 and 1.2
+
+IMPORTANT BUG FIXES:
+
+NEW FEATURES:
+
+- '-audio-in <backend>' allows you to select the audio input backend from the
+  command line. this is equivalent to defining QEMU_AUDIO_IN_DRV=<backend>
+
+  '-audio-out <backend>' works for the audio output, and '-audio <backend>'
+  will select both input and output at the same time
+
+- '-debug <tags>' has replaced the old '-verbose-<tag1> -verbose-<tag2> ...'
+  debugging option. <tags> is a comma-separated list of debug tags
+  (see -help-debug-tags for a complete list). you can also use the special
+  value 'all' to indicate all debug tags, or prefix a '-' before a tag
+  name to disable it. for example:
+
+    -debug all,-audio
+
+  enables all debugging except audio. '-debug-<tag>' still works though.
+
+  note that while '-verbose-<tag>' is deprecated, '-verbose' is still supported
+  as an alias to '-debug-init'
+
+- '-keyset <file>' allows you to specific the keyset file to use. the default
+  is still ~/.android/default.keyset on Unix. for Windows, use -help-keyset
+  to get its default location (which differs between XP and Vista)
+
+
+NEW CONSOLE COMMANDS:
+
+- the 'geo nmea <sentence>' can be used to send a NMEA 1083 sentence as if
+  it came from an emulated GPS unit. NOTE: this doesn't work unless you
+  also use the '-qemud' option (see KNOWN ISSUES below)
+
+OTHER BUG FIXES:
+
+- severe color artefact issues when scaling the emulator window < 1.0 were
+  fixed.
+
+- fix rare random emulator freezes on Linux by disabling the 'dynticks' timer.
+
+REGRESSIONS:
+
+OTHER:
+
+- the ambiguous '-console' option is now obsolete. use '-shell' instead
+
+- the new '-shell-serial <device>' allows you to specify a device to
+  connect a root shell session to the emulated system.
+
+- the '-debug-kernel' option is now known as '-show-kernel' (the -debug-
+  prefix is reserved for strict emulator debugging features)
+
+- '-adb-port' has been removed from the list of options. similarly
+  '-port <port>' will accept an odd port number, but will print a warning
+  that it is using <port>-1 instead.
+
+- MMX is used on x86 to speed up window rescaling.
+
+- a new '-qemud' option is required to have GPS support work in this
+  SDK (either through '-gps <device>' or the 'geo nmea <sentence>'
+  console command)
+
+  this option is purely experimental and will soon become the default.
+
+KNOWN ISSUES:
+
+- no support for video input
+- no support for mutable SIM Card emulation yet
+- no support for bluetooth
+- no support for WiFi
+
+- on some Linux machines, the emulator might get stuck at startup. this
+  seems to be related to audio input support. try starting with
+  '-audio-in none' or  even '-noaudio' to disable sound, or choose a
+  different audio backend by  defining QEMU_AUDIO_DRV to an appropriate
+  value (read below).
+
+  you can also select different audio backends for both output and input
+  by defining QEMU_AUDIO_OUT_DRV and QEMU_AUDIO_IN_DRV independently.
+
+- on Windows, the emulator takes about 10-15% of the CPU even when the
+  emulated system is idle. this is a known issue related to QEMU's internal
+  event loop and Winsock. this should be fixed in a future emulator release.
+
+- GPS emulation only if you use the '-qemud' option. this is an experimental
+  option that is soon going to be the default. without this option, the
+  emulated system will start but GPS emulation will not work.
+
+  for the record, 'qemud' is a serial port multiplexer that is used to
+  multiplex several communication channels between the emulator and the
+  emulated system, though a single serial port.
+
+==============================================================================
+Changes between 1.2 and 1.1
+
+
+IMPORTANT BUG FIXES:
+
+- fixed a typo that prevented the F9/F10 keyboard shortcuts from working
+  properly, making non-programatically tracing unusable.
+
+- halve the emulator's memory requirements, saving around 130 megabytes
+  of memory by changing the way flash images are accessed (we now use
+  temporary files instead)
+
+- this emulator binary should be 10% to 20% faster than previous ones on
+  the Windows and OS X platforms. for faster boots, you may also want to
+  use the -no-boot-anim option described below to speed up the initial
+  boot sequence as well on slow machines.
+
+- proper rotation support when using Keypad 7/9 to switch between layouts
+  in the default HVGA skin. no need to use Ctrl-PageDown anymore
+
+- the -http-proxy <proxy> option didn't work correctly on Windows (unless
+  you were very lucky).
+
+- general socket handling code on Windows has been significantly improved.
+
+
+NEW FEATURES:
+
+- the console port number of a given emulator instance is now displayed in
+  its window's title bar.
+
+- voice/sms are automatically forwarded to other emulator instances running
+  on the same machine, as long as you use their console port number as the
+  destination phone number.
+
+  for example, if you have two emulator running, the first one will usually
+  use console port 5554, and the second one will use port 5556
+
+  then dialing 5556 on the 1st emulator will generate an incoming call on
+  the 2nd emulator. you can also hold/unhold calls as well.
+
+  this also works when sending SMS messages from one emulator to the other
+
+- the help system has been totally revamped:
+
+   *  -help              prints a summary of all options and help topics
+   *  -help-<option>     prints option-specific help
+   *  -help-<topic>      prints various topical help text
+   *  -help-all          prints *all* help content at once
+
+- the emulator now tries to automatically detect the host time zone and sends
+  it to the emulated system at startup (through the GSM modem). there is also
+  a new '-timezone <timezone>' option to be able to specify a different one.
+
+  IMPORTANT: the <timezone> name must be in zoneinfo format, i.e.
+             Area/Location, human-friendly abbreviations like "PST" or "CET"
+             will not work. examples are:
+
+                 America/Los_Angeles
+                 Europe/Paris
+
+- the emulator can now use up to 4 distinct DNS servers (instead of only one).
+  by default, they are taken from your system's list, which is obtained by
+  calling GetNetworkParams() on Win32, and parsing /etc/resolv.conf on
+  Unix.
+
+- a new '-dns-server <server>' option can be used to specify a comma-separated
+  list of alternative DNS servers to be used by the emulated system, instead of
+  the system's default.
+
+- a new '-scale <fraction>' option allows you to scale the emulator
+  window. <fraction> can be a number between 0.1 and 3.0.
+
+  you can also use '-scale <value>dpi', (e.g. '-scale 110dpi') to indicate the
+  resolution of your host monitor screen. it will be divided by the emulated
+  device's resolution to get an absolute scale.
+
+- a new '-dpi-device <dpi>' option allows you to specific the resolution of
+  the emulated device's screen. Note that this is not required: the default
+  used is 165, which is the average of several prototypes we've been working
+  with.
+
+- add a new '-port <port>' option to specify which port the emulator should
+  bind to for the console, instead of letting it guess. <port> must be an
+  *even* integer between 5554 and 5584 included. the corresponding ADB port
+  will be <port>+1
+
+- [DEPRECATED] add a new '-adb-port <port>' option to specify which port the
+  emulator should bind to, instead of letting it guess. <port> must be an odd
+  integer between 5555 and 5585 included. the corresponding control console
+  will be on <port>-1
+
+  NOTE: -adb-port is deprecated, don't use it, it will probably disappear
+  NOTE2: you cannot use both -port and -adb-port at the same time.
+
+- a new '-no-boot-anim' options tells the emulated system to disable the boot
+  animation. on slow systems, this can *significantly* reduce the time to
+  boot the system in the emulator.
+
+- you can now redefine the emulator's keybinding by writing a 'keyset' file
+  and use '-keyset <filename>' to use it when starting the emulator. use
+  -help-keyset and -help-keyset-file for all details.
+
+  this allows you to use the emulator effectively on keyboards which don't
+  have a keypad, by using different keys..
+
+- you can now toggle between windowed and fullscreen mode at runtime by
+  pressing Alt-Enter (only works on Linux at the moment !!)
+
+- use '-audio-out <backend>' and '-audio-in <backend>' to change the output
+  and input audio backends used by the emulator. see -help-audio-out and
+  -help-audio-in for a list of valid values.
+
+  this is equivalent to setting the QEMU_AUDIO_OUT_DRV and QEMU_AUDIO_IN_DRV
+  environment variables.
+
+  use '-audio <backend>' to set both the input and output backends at the
+  same time. this is equivalent to setting the QEMU_AUDIO_DRV environment
+  variable.
+
+
+NEW CONSOLE COMMANDS:
+
+- the new 'power' command can be used to control the power/battery state of
+  the emulated device.
+
+- the new 'event send' command can be used to send simulated hardware events
+  to the Android Linux kernel. each event must be in the form
+  <type>:<code>:<value> where:
+
+    <type>  is either an integer or a corresponding string alias
+            (use "event types" to see a list of aliases)
+
+    <code>  is either an integer or a corresponding string alias
+            that depends on the value of <type> (use "event codes <type>"
+            to see a list of these aliases)
+
+    <value> is an integer
+
+  NOTE: Be warned that it is very easy to confuse the kernel about the state
+        of emulated hardware by sending the wrong event. An *excellent*
+        knowledge of the Linux kernel internals is encouraged before playing
+        with "event send".
+
+- the new 'event text <textMessage>' command can be used to simulate
+  keypresses of small text messages, where <textMessage> is an utf-8 string.
+
+- the new 'avd stop' and 'avd start' command can be used to stop/start the
+  emulation. you can also use 'avd status' to query the current state.
+
+- the new 'window scale <scale>' command allows you to change the scale of
+  the emulator window dynamically. <scale> is either an integer followed by
+  the 'dpi' suffix (e.g. '120dpi') or a real number between 0.1 and 3.0.
+
+  in the first case, <scale> specifies your monitor dpi; in the second one,
+  the new window scale itself.
+
+
+OTHER BUG FIXES:
+
+- in case of SDL_Init() failure, print the SDL error message.
+- disable networking code's logging to /tmp/slirp.log
+- the emulator now works with 2GB SD Card files
+- the emulator doesn't prevent the screensaver to kick in on OS X anymore
+- the -onion and -onion-alpha options now work properly
+- a second emulator instance trying to use the same SD Card instance than a
+  first one will no longer crash
+- it's now possible to properly start the emulator in the background on all
+  Unix shells (e.g. "emulator &") without being interrupted/stopped by a
+  SIGTTIN or SIGTTOU signal.
+- fixed a bug in the SMS emulation that happened when using GSM 7-bit escaped
+  characters, i.e. anything in the following: [|]~\{}^
+- fixed a small regression where -data <foo> would fail if the file <foo>
+  did not exist.
+
+
+REGRESSIONS:
+
+- the -flash-keys options doesn't work anymore
+
+
+KNOWN ISSUES:
+
+- no support for video input
+- no support for mutable SIM Card emulation yet
+- no support for bluetooth
+- no support for WiFi
+
+- on some Linux machines, the emulator might get stuck at startup. this
+  seems to be related to audio input support. try starting with
+  '-audio-in none' or even '-noaudio' to disable sound, or choose a different
+  audio backend by defining QEMU_AUDIO_DRV to an appropriate value
+  (read below).
+
+  you can also select different audio backends for both output and input
+  by defining QEMU_AUDIO_OUT_DRV and QEMU_AUDIO_IN_DRV independently.
+
+- on Windows, the emulator takes about 10-15% of the CPU even when the
+  emulated system is idle. this is a known issue related to QEMU's internal
+  event loop and Winsock. this should be fixed in a future emulator release.
+
+OTHER:
+
+- you can now use -debug-<component> and/or -debug-no-<component> to
+  enable or disable the debug messages of a given emulator component. this
+  can be very useful for troubleshooting. for all details, use -help-debug
+  and -help-debug-tags
+
+- you can also use '-debug <tags>' where <tags> is a comma-separated list
+  of component names, optionally prefixed by a single '-'. see -help-debug
+  and -help-debug-tags for all details
+
+- you can now define the ANDROID_VERBOSE environment variable as a list
+  of "debug" items (each <item> corresponds to a -debug-<item> option).
+  for example, defining:
+
+     ANDROID_VERBOSE=socket,keys
+
+  is equivalent to using "-debug socket,keys" when invoking the emulator
+
+- as a special case, -debug-slirp enables logging of the router/firewall
+  operations to a temporary file (e.g. /tmp/android/slirp.log). you can
+  also specify a logging bitmask with the ANDROID_SLIRP_LOGMASK environment
+  variable (the default is a mask of 7).
+
+- removed many obsolete / unused source files from the repository. also
+  performed a rather heavy cleanup of the sources to make them somewhat
+  more manageable.
+
+- integrate dynticks support from upstream QEMU depot. this only allows one
+  to provide more precise timing accuracy in the guest under Linux.
+  (NOTE: disabled in the source code, since it seems that it freezes
+  the emulator sometimes)
+
+- audio input is now working on OS X, Windows and Linux. on Linux, there
+  are four different backends supported: EsounD, ALSA, OSS and SDL. they
+  are accessed through dlopen/dlsym, which means that the emulator binary
+  will run on any system.
+
+  you can specify a given backend by defining the QEMU_AUDIO_DRV environment
+  variable to one of these values:
+
+    alsa
+    esd
+    sdl
+    oss
+    none
+
+  note that the "sdl" audio backend is the most compatible, but doesn't
+  support audio input at all !!
+
+- a new option '-cpu-delay <delay>' can be used to slow down the CPU
+  emulation. the <delay> is an integer between 0 and 1000. note that it
+  doesn't necessarily scale linearly with effective performance.
+
+  the delay process is not exactly deterministic. this is just a hack that
+  may disappear or be completely re-implemented in the future
+
+- some new "gsm" and "sms" subcommands were added to the control console.
+  they are used internally by the voice/sms auto-forwarder and are probably
+  not very useful to typical developers
+
+- some code has been added to support save/restore of the AVD state to/from
+  a file. however this is not properly tested yet, and requires that you
+  use exactly the same options and disk images when reloading the AVD state.
+
+- added a new -cache <file> option to specify the cache partition image
+  file. the default is to use a temporary file instead
+
+- added a new -report-console <socket> option to be able to report the
+  automatically assigned console port to a remote third-party (e.g. a
+  script) before starting the emulation. see the output of -help for all
+  the details
+
+- (only useful to Android engineers)
+  the audio sub-system is now compiled in its own static library (called
+  libqemu-audio.a), which gets copied to the Android "prebuilt/Linux/qemu"
+  directory. this is done to avoid forcing all developers to install various
+  development packages on Linux, as well as all build servers. there is also
+  now a script named "distrib/update-audio.sh" which will update the depot
+  file automatically for you: call it whenever you change the audio sources.

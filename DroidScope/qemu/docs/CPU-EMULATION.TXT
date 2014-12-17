@@ -1,0 +1,91 @@
+HOW THE QEMU EXECUTION ENGINE WORKS:
+====================================
+
+Translating ARM to x86 machine code:
+------------------------------------
+
+QEMU starts by isolating code "fragments" from the emulated machine code.
+Each "fragment" corresponds to a series of ARM instructions ending with a
+branch (e.g. jumps, conditional branches, returns).
+
+Each fragment is translated into a "translated block" (a.k.a. TB) of host
+machine code (e.g. x86). All TBs are put in a cache and each time the
+instruction pointer changes (i.e. at the end of TB execution), a hash
+table lookup is performed to find the next TB to execute.
+
+If none exists, a new one is generated. As a special exception, it is
+sometimes possible to 'link' the end of a given TB to the start of
+another one by tacking an explicit jump instruction.
+
+Note that due to differences in translations of memory-related operations
+(described below in "MMU emulation"), there are actually two TB caches per
+emulated CPU: one for translated kernel code, and one for translated
+user-space code.
+
+When a cache fills up, it is simply totally emptied and translation starts
+again.
+
+CPU state is kept in a single global structure which the generated code
+can access directly (with direct memory addressing).
+
+The file target-arm/translate.c is in charge of translating the ARM or
+Thumb instructions starting at the current instruction pointer position
+into a TB. This is done by decomposing each instruction into a series of
+micro-operations supported by the TCG code generator.
+
+TCG stands for "Tiny Code Generator" and is specific to QEMU. It supports
+several host machine code backends. See source files under tcg/ for details.
+
+
+MMU Emulation:
+--------------
+
+The ARM Memory Management Unit is emulated in software, since it is so
+different from the one on the host. Essentially, a single ARM memory load/store
+instruction is translated into a series of host machine instructions that will
+translate virtual addresses into physical ones by performing the following:
+
+- first lookup in a global 256-entries cache for the current page and see if
+  a corresponding value is already stored there. If this is the case, use it
+  directly.
+
+- otherwise, call a special helper function that will implement the full
+  translation according to the emulated system's state, and modify the
+  cache accordingly.
+
+The page cache is called the "TLB" in the QEMU sources.
+
+Note that there are actually two TLBs: one is used for host machine
+instructions that correspond to kernel code, and the other for instructions
+translated from user-level code.
+
+This means that a memory load in the kernel will not be translated into the
+same instructions than the same load in user space.
+
+Each TLB is also implemented as a global per-emulated-CPU hash-table.
+The user-level TLB is flushed on each process context switch.
+
+When initializing the MMU emulation, one can define several zones of the
+address space, with different access rights / type. This is how memory-mapped
+I/O is implemented: the virtual->physical conversion helper function detects
+that you're trying to read/write from an I/O memory region, and will then call
+a callback function associated to it.
+
+
+Hardware Emulation:
+-------------------
+
+Most hardware emulation code initializes by registering its own region of
+I/O memory, as well as providing read/write callbacks for it. Then actions
+will be based on which offset of the I/O memory is read from/written to and
+eventually with which value.
+
+You can have a look at hw/goldfish_tty.c that implements an emulated serial
+port for the Goldfish platform.
+
+"Goldfish" is simply the name of the virtual Linux platform used to build
+the Android-emulator-specific kernel image. The corresponding sources are
+located in the origin/android-goldfish-2.6.27 branch of
+git://android.git.kernel.org/kernel/common.git. You can have a look at
+arch/arm/mach-goldfish/ for the corresponding kernel driver sources.
+

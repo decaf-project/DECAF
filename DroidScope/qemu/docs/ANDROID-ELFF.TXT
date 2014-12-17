@@ -1,0 +1,23 @@
+ANDROID ELFF LIBRARY
+
+The docs/ANDROID-ELFF.TXT document contains notes about the ELFF library used
+by the emulator to extract debugging information from symbol files of the
+emulated system.
+
+The ELFF library has been introduced to provide the emulator's memory checker
+subsystem with information about routine name, source file name and location
+when a memory access violation detected at runtime. This requires parsing symbol
+files corresponding to the libraries of the emulated system, in order to extract
+relevant information from them.
+
+Due to lack of windows support on available open source projects, this is a
+full new implementation of an ELF/DWARF parser.
+
+The library exposes a simple API that at this point allows:
+- Extract information about routine, containing given PC address in the emulated
+  system. Routine information, collected by the library includes:
+  * Routine name
+  * Source file name and line corresponded to the given emulated PC.
+  * If routine happens to be inlined, library traces inclusion up to the first
+    routine that is not inlined, providing names and source file location
+    information for all inlined routines in that chain.

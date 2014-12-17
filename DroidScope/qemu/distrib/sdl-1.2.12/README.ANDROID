@@ -1,0 +1,9 @@
+This is a modified version of SDL 1.2.12 that is used by the Android QEMU emulator.
+The modifications are the following:
+
+To build it as a static library on Linux, OS X and Windows:
+
+./android-configure.sh  [--prefix=<path>]
+make -j2
+make install
+

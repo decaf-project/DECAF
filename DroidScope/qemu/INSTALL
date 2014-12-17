@@ -1,0 +1,119 @@
+This package contains the sources to the Android emulator program.
+
+Supported Development Platforms:
+--------------------------------
+
+The Android emulator can be built on the following platforms:
+
+    - Linux 32-bits
+    - Linux 64-bits (*only* generates 32-bit emulator binary)
+    - Darwin x86
+    - Darwin ppc  (experimental only)
+    - Windows x86  (through Cygwin only)
+
+Note that development on 64-bit versions of Darwin and Windows is
+not supported. The 32-bit emulator binary should run normally on
+these platforms though.
+
+The Windows emulator binary is built using the -no-cygwin option
+and thus doesn't depend on CYGWIN.DLL being installed on your system.
+
+It is possible to hack the android-configure.sh script to build
+a 64-bit emulator binary on Linux. Unfortunately the resulting
+program will crash pretty soon during emulation. This problem is
+due to the way the emulator works and cannot be easily fixed at
+the moment.
+
+Supported Compilers:
+--------------------
+
+The Android emulator is a heavy fork of QEMU 0.8.2, and as such,
+can only be built properly with a small number of compilers. Moreover,
+which compiler can be used depends on your platform.
+
+The following table sums up the compilers that are *known* to produce
+correct output:
+
+  Linux x86:              gcc-3.4.6
+  Linux x86 and x86_64:   gcc-4.2.3
+  Darwin x86:             gcc-4.0.1 (build 5341)
+  Darwin ppc:             gcc-3.3   (build 1819)
+
+Use any other compiler at your own risks ! A 'bad binary' usually
+results in the VM crashing either immediately or after a few seconds.
+
+Note that on Darwin, the *build* number of your compiler *is* important.
+Some builds of gcc-4.0.1 are known to generate bad binaries on Darwin x86,
+so your own fails to build an executable that works correctly.
+You can find the sources to the required gcc here:
+
+
+We distribute a file named distrib/build_gcc_qemu_darwin.sh which can be
+used as a replacement for the Apple-provided build_gcc.sh that comes with
+their gcc distribution.
+
+
+Building the emulator with the Android build system:
+----------------------------------------------------
+
+Ensure that you have properly configured your build by running the
+envsetup.sh script and using the appropriate 'lunch' command.
+
+Then type: 
+
+     m emulator
+
+This will rebuild the emulator and place it in an adequate location.
+Simply type 'emulator' to start it with the currently built system
+image.
+
+
+Building the emulator without the Android build system:
+-------------------------------------------------------
+
+You can also build the emulator as a stand-alone program, by following
+these simple steps:
+
+  1/ First, build Android's patched libSDL as a static library,
+     this can be done as:
+
+        cd $TOP/external/qemu/distrib/sdl-1.2.12
+        ./android-configure --prefix=<PATH>
+        make
+        make install
+
+    Where $TOP is the path of your open-source Android source tree, and
+    where <PATH> is any path of your chosing where the library will
+    be copied to by the 'make install' command. For example, you
+    can use $HOME/android-sdl
+
+  2/ Configure the emulator with android-configure.sh, as in:
+
+        cd $TOP/external/qemu
+        ./android-configure.sh --sdl-config=<PATH>/bin/sdl-config
+        make
+
+     Where <PATH> is the same path you used with the --prefix option
+     when building the SDL library
+
+The emulator binary is located into objs/emulator, you can strip it and
+copy it to any location of your choosing.
+
+
+Creating an emulator source distribution package:
+-------------------------------------------------
+
+We provide a script to build a tar.gz package file that contains all the
+sources required to rebuild the emulator (i.e. it includes the patched SDL
+sources as well) plus a handy script to automate the rebuild.
+
+Simply invoke:
+
+    cd $TOP/tools/qemu
+    distrib/make-distrib.sh
+
+This script will create a tar.gz file under /tmp/android-package and will
+print its location when it completes.
+
+To rebuild the corresponding emulator, un-tar-gz the package, and run
+the 'rebuild.sh' script.

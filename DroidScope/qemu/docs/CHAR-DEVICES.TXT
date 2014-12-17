@@ -1,0 +1,201 @@
+QEMU CHARACTER "DEVICES" MANAGEMENT
+
+I. CharDriverState objects:
+---------------------------
+
+One of the strangest abstraction in QEMU is the "CharDriverState"
+(abbreviated here as "CS").
+
+The CS is essentially an object used to model a character stream that
+can be connected to things like a host serial port, a host network socket,
+an emulated device, etc...
+
+What's really unusual is its interface though, which comes from the fact
+that QEMU implements a big event loop with no blocking i/o allowed. You
+can see "qemu-char.h" for the full interface, but here we will only describe
+a few important functions:
+
+  - qemu_chr_write() is used to try to write data into a CS object. Note that
+    success is not guaranteed: the function returns the number of bytes that
+    were really written (which can be 0) and the caller must deal with it.
+    This is very similar to writing to a non-blocking BSD socket on Unix.
+
+       int  qemu_chr_write( CharDriverState*  cs,
+                            const uint8_t*    data,
+                            int               datalen );
+
+    This function may return -1 in case of error, but this depends entirely
+    on the underlying implementation (some of them will just return 0 instead).
+    In practice, this means it's not possible to reliably differentiate between
+    a "connection reset by peer" and an "operation in progress" :-(
+
+    There is no way to know in advance how many bytes a given CharDriverState
+    can accept, nor to be notified when its underlying implementation is ready
+    to accept data again.
+
+
+  - qemu_chr_add_handler() is used to add "read" and "event" handlers
+    to a CS object. We will ignore "events" here and focus on the
+    "read" part.
+
+    Thing is, you cannot directly read from a CS object. Instead, you provide
+    two functions that will be called whenever the object has something for
+    you:
+
+        - a 'can_read' function that shall return the number of bytes
+          that you are ready to accept from the CharDriverState. Its
+          interface is:
+
+             typedef int  IOCanRWHandler (void*  opaque);
+
+        - a 'read' function that will send you bytes from the CharDriverState
+
+             typedef void IOReadHandler  (void*           opaque,
+                                          const uint8_t*  data,
+                                          int             datalen);
+
+          normally, the value of 'datalen' cannot be larger than the result
+          of a previous 'can_read' call.
+
+    For both callbacks, 'opaque' is a value that you pass to the function
+    qemu_chr_add_handler() which signature is:
+
+         void qemu_chr_add_handlers(CharDriverState *s,
+                                    IOCanRWHandler  *fd_can_read,
+                                    IOReadHandler   *fd_read,
+                                    IOEventHandler  *fd_event,
+                                    void            *opaque);
+
+  - qemu_chr_open() is used to create a new CharDriverState object from a
+    descriptive string, its interface is:
+
+         CharDriverState*  qemu_chr_open(const char*  filename);
+
+    there are various formats for acceptable 'filenames', and they correspond
+    to the parameters of the '-serial' QEMU option described here:
+
+       http://www.nongnu.org/qemu/qemu-doc.html#SEC10
+
+    For example:
+
+       "/dev/<file>" (Linux and OS X only):
+            connect to a host character device file (e.g. /dev/ttyS0)
+
+       "file:<filename>":
+            Write output to a given file (write only)
+
+       "stdio":
+            Standard input/output
+
+       "udp:[<remote_host>]:<remote_port>[@[<src_ip>]:<src_port>]":
+            Connect to a UDP socket for both read/write.
+
+       "tcp:[<host>]:<port>[,server][,nowait][,nodelay]"
+            Connect to a TCP socket either as a client or a server.
+
+            The 'nowait' option is used to avoid waiting for a client
+            connection.
+
+            The 'nodelay' is used to disable the TCP Nagle algorithm to
+            improve throughput.
+
+    For Android, a few special names have been added to the internal
+    implementation and redirect to program functions:
+
+       "android-kmsg":
+            A CharDriverState that is used to receive kernel log messages
+            from the emulated /dev/ttyS0 serial port.
+
+       "android-qemud":
+            A CharDriverState that is used to exchange messages between the
+            emulator program and the "qemud" multiplexing daemon that runs in
+            the emulated system.
+
+            The "qemud" daemon is used to allow one or more clients in the
+            system to connect to various services running in the emulator
+            program. This is mainly used to bypass the kernel in order to
+            implement certain features with ease.
+
+            (see docs/ANDROID-QEMUD.TXT for details)
+
+       "android-gsm":
+            A CharDriverState that is used to connect the emulated system to
+            a host modem device with the -radio <device> option. Otherwise,
+            the system uses qemud to connect to the emulator's internal modem
+            emulation.
+
+        "android-gps":
+            A CharDriverState that is used to connect the emulated system to a
+            host GPS device with the -gps <device> option. Otherwise the
+            system uses qemud to connect to the emulator's internal GPS
+            emulation.
+
+
+II. CharDriverState users:
+--------------------------
+
+As described above, a CharDriverState "user" is a piece of code that can write
+to a CharDriverState (by calling qemu_chr_write() explicitely) and can also
+read from it after registering can_read/read handlers for it through
+qemu_chr_add_handlers().
+
+Typical examples are the following:
+
+  - The hardware serial port emulation (e.g. hw/goldfish_tty.c) will read data
+    from the kernel then send it to a CS. It also uses a small buffer that is
+    used to read data from the CS and send it back to the kernel.
+
+  - The Android emulated modem also uses a CS to talk with its client,
+    which will in most cases be an emulated serial port.
+
+
+III. CharBuffer objects:
+------------------------
+
+The Android emulator provides an object called a CharBuffer which acts as
+a CharDriverState object that implements a *write* buffer to send data to a
+given CS object, called the endpoint. You can create one with:
+
+    #include "charpipe.h"
+    CharDriverState*  qemu_chr_open_buffer( CharDriverState*  endpoint );
+
+This function returns a new CS object that will buffer in the heap any data
+that is sent to it, but cannot be sent to the endpoint yet. On each event loop
+iteration, the CharBuffer will try to send data to the endpoint until it
+doesn't have any data left.
+
+This can be useful to simplify certain CS users who don't want to maintain
+their own emit buffer. Note that writing to a CharBuffer always succeeds.
+
+Note also that calling qemu_chr_add_handler() on the CharBuffer will do the
+same on the endpoint. Any endpoint-initiated calls to can_read()/read()
+callbacks are passed directly to your handler functions.
+
+
+IV. CharPipe objects:
+---------------------
+
+The Android emulator also provides a convenient abstraction called a "charpipe"
+used to connect two CharDriverState users together. For example, this is used
+to connect a serial port emulation (in hw/goldfish_tty.c) to the internal
+GSM modem emulation (see telephony/modem_driver.c).
+
+Essentially, a "charpipe" is a bi-directionnal communication pipe whose two
+endpoints are both CS objects. You call "qemu_chr_open_pipe()" to create the
+pipe, and this function will return the two endpoints to you:
+
+    #include "charpipe.h"
+    int  qemu_chr_open_pipe(CharDriverState* *pfirst,
+                            CharDriverState* *psecond);
+
+When you write to one end of the pipe (with qemu_chr_write()), the charpipe will
+try to write as much data as possible to the other end. Any remaining data is stored
+in a heap-allocated buffer.
+
+The charpipe will try to re-send the buffered data on the next event loop
+iteration by calling the can_read/read functions of the corresponding user,
+if there is one.
+
+Note that there is no limit on the amount of data buffered in a charpipe,
+and writing to it is never blocking. This simplifies CharDriverState
+users who don't need to worry about buffering issues.

@@ -1,0 +1,50 @@
+This is source release of the Android emulator. simply run the "build-emulator.sh" script to
+generate a statically linked "emulator" binary in the current directory.
+
+you can also use the "--target=<path>" option to install the executable into a different location,
+
+At the moment, only Linux and Mac OS X are supported.
+
+This emulator is probably not usable without other support files provided by the Android project,
+like a specific kernel image, ramdisk, system and user disk images. Please go to the Android web
+site for more details.
+
+This emulator is licensed under the GNU General Public License (GPL) version 2, which can be
+found in the file "qemu/COPYING".
+
+it is based on QEMU 0.8.2 with many changes used to support the following features:
+
+  - additionnal hardware support for some Android reference boards.
+
+  - various OS-X related patches to make everything compile cleanly with GCC 4.1 and
+    beyond. this includes better support for the Mach-O binary format
+
+  - support for instruction-level profiling and data cache simulation. this allows the
+    emulator to generate "profile" files that can later be analyzed with external tools
+    to provide accurate information about what's happening in the system
+
+  - changes in the dynamic code generators, mainly to support concurrent generators in
+    a single binary (this allows us to use different generators for profiling and
+    non-profiling modes, and switch between them dynamically at runtime when needed)
+
+  - support for network throttling and latency simulation, used to better emulate the
+    network conditions of radio networks.
+
+  - a new graphical user interface capable of displaying and rotating "device skins"
+
+  - an optional (and disabled by default) "polling" runtime mode that doesn't use
+    SIGALRM signals to implement timers. this makes for much better timing accuracy
+    when using "old" emukated Linux kernels, at the cost of using 100% CPU, even when
+    the guest system is idle. This is now disabled since Linux 2.6.21 and beyond use
+    "dynamic ticks" that make this mode un-necessary for Android.
+
+
+it also uses a patched version of LibSDL-1.2.12 which implements the following:
+
+  - prevent a fatal bug in Quartz Extreme's QuickDraw emulation to crash the program
+    whenever SDL_WINDOW_POS is set in the environment before starting the program.
+    the patch implements a simple workaround to this system-level problem.
+
+  - new APIs: SDL_WM_GetPos() and SDL_WM_SetPos() are used to retrieve and set the emulator
+    window position. this allows us to implement a simple-yet-useful feature: the emulator remembers
+    its position among restarts.

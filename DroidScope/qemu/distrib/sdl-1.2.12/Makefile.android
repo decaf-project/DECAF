@@ -1,0 +1,93 @@
+LOCAL_PATH:= $(call my-dir)
+
+SDL_DIR := $(LOCAL_PATH)
+include $(SDL_DIR)/sources.make
+
+CONFIG_DIRS     := \
+    $(LOCAL_PATH)/objs \
+    $(LOCAL_PATH)/include \
+    $(LOCAL_PATH) \
+
+CONFIG_INCLUDES := $(CONFIG_DIRS:%=-I%)
+
+MY_CC      := $(CC)
+MY_LD      := $(LD)
+MY_CFLAGS  := $(CFLAGS) $(CONFIG_INCLUDES)
+MY_LDFLAGS := $(LDFLAGS)
+
+include $(CLEAR_VARS)
+
+LOCAL_NO_DEFAULT_COMPILER_FLAGS := true
+LOCAL_CC                        := $(MY_CC)
+LOCAL_CFLAGS                    := $(MY_CFLAGS) $(LOCAL_CFLAGS)
+LOCAL_LDFLAGS                   := $(MY_LDFLAGS) $(LOCAL_LDFLAGS)
+
+LOCAL_MODULE := libSDL
+
+LOCAL_SRC_FILES := $(SDL_SOURCES)
+
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+## Build libSDLmain
+##
+
+include $(CLEAR_VARS)
+
+LOCAL_NO_DEFAULT_COMPILER_FLAGS := true
+LOCAL_CC                        := $(MY_CC)
+LOCAL_CFLAGS                    := $(MY_CFLAGS) $(LOCAL_CFLAGS)
+LOCAL_LDFLAGS                   := $(MY_LDFLAGS) $(LOCAL_LDFLAGS)
+
+LOCAL_MODULE := libSDLmain
+
+LOCAL_SRC_FILES := $(SDLMAIN_SOURCES)
+
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+# handle installation of generated files
+#
+
+SDL_HEADERS := \
+	SDL.h \
+	SDL_active.h \
+	SDL_audio.h \
+	SDL_byteorder.h \
+	SDL_cdrom.h \
+	SDL_copying.h \
+	SDL_cpuinfo.h \
+	SDL_endian.h \
+	SDL_error.h \
+	SDL_events.h \
+	SDL_getenv.h \
+	SDL_joystick.h \
+	SDL_keyboard.h \
+	SDL_keysym.h \
+	SDL_loadso.h \
+	SDL_main.h \
+	SDL_mouse.h \
+	SDL_mutex.h \
+	SDL_name.h \
+	SDL_opengl.h \
+	SDL_platform.h \
+	SDL_quit.h \
+	SDL_rwops.h \
+	SDL_stdinc.h \
+	SDL_syswm.h \
+	SDL_thread.h \
+	SDL_timer.h \
+	SDL_types.h \
+	SDL_version.h \
+	SDL_video.h \
+	begin_code.h \
+	close_code.h \
+
+
+$(foreach target,$(INSTALL_TARGETS),\
+  $(eval $(call install-target,objs/sdl-config,$(target)/bin/sdl-config)) \
+  $(eval $(call install-target,objs/SDL_config.h,$(target)/include/SDL/SDL_config.h)) \
+  $(eval $(call install-target,objs/libs/libSDL.a,$(target)/libs/libSDL.a)) \
+  $(eval $(call install-target,objs/libs/libSDLmain.a,$(target)/libs/libSDLmain.a)) \
+  $(foreach header,$(SDL_HEADERS), \
+    $(eval $(call install-target,include/$(header),$(target)/include/SDL/$(header))) \
+  ) \
+)

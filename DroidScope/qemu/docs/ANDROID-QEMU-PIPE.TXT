@@ -1,0 +1,224 @@
+Android QEMU FAST PIPES
+=======================
+
+Introduction:
+-------------
+
+The Android emulator implements a special virtual device used to provide
+_very_ fast communication channels between the guest system and the
+emulator itself.
+
+From the guest, usage is simply as follows:
+
+  1/ Open the /dev/qemu_pipe device for read+write
+
+  2/ Write a zero-terminated string describing which service you want to
+     connect.
+
+  3/ Simply use read() and write() to communicate with the service.
+
+In other words:
+
+   fd = open("/dev/qemu_pipe", O_RDWR);
+   const char* pipeName = "<pipename>";
+   ret = write(fd, pipeName, strlen(pipeName)+1);
+   if (ret < 0) {
+       // error
+   }
+   ... ready to go
+
+Where <pipename> is the name of a specific emulator service you want to use.
+Supported service names are listed later in this document.
+
+
+Implementation details:
+-----------------------
+
+In the emulator source tree:
+
+    ./hw/goldfish_pipe.c implements the virtual driver.
+
+    ./hw/goldfish_pipe.h provides the interface that must be
+    implemented by any emulator pipe service.
+
+    ./android/hw-pipe-net.c contains the implementation of the network pipe
+    services (i.e. 'tcp' and 'unix'). See below for details.
+
+In the kernel source tree:
+
+    drivers/misc/qemupipe/qemu_pipe.c contains the driver source code
+    that will be accessible as /dev/qemu_pipe within the guest.
+
+
+Device / Driver Protocol details:
+---------------------------------
+
+The device and driver use an I/O memory page and an IRQ to communicate.
+
+  - The driver writes to various I/O registers to send commands to the
+    device.
+
+  - The device raises an IRQ to instruct the driver that certain events
+    occured.
+
+  - The driver reads I/O registers to get the status of its latest command,
+    or the list of events that occured in case of interrupt.
+
+Each opened file descriptor to /dev/qemu_pipe in the guest corresponds to a
+32-bit 'channel' value allocated by the driver.
+
+The following is a description of the various commands sent by the driver
+to the device. Variable names beginning with REG_ correspond to 32-bit I/O
+registers:
+
+  1/ Creating a new channel:
+
+     Used by the driver to indicate that the guest just opened /dev/qemu_pipe
+     that will be identified by a 32-bit value named '<channel>' here:
+
+        REG_CHANNEL = <channel>
+        REG_CMD     = CMD_OPEN
+
+     IMPORTANT: <channel> should never be 0
+
+  2/ Closing a channel:
+
+     Used by the driver to indicate that the guest called 'close' on the
+     channel file descriptor.
+
+        REG_CHANNEL = <channel>
+        REG_CMD     = CMD_CLOSE
+
+  3/ Writing data to the channel:
+
+     Corresponds to when the guest does a write() or writev() on the
+     channel's file descriptor. This command is used to send a single
+     memory buffer:
+
+        REG_CHANNEL = <channel>
+        REG_ADDRESS = <buffer-address>
+        REG_SIZE    = <buffer-size>
+        REG_CMD     = CMD_WRITE_BUFFER
+
+        status = REG_STATUS
+
+    NOTE: The <buffer-address> is the *GUEST* buffer address, not the
+          physical/kernel one.
+
+    IMPORTANT: The buffer sent through this command SHALL ALWAYS be entirely
+               contained inside a single page of guest memory. This is
+               enforced to simplify both the driver and the device.
+
+               When a write() spans several pages of guest memory, the
+               driver will issue several CMD_WRITE_BUFFER commands in
+               succession, transparently to the client.
+
+    The value returned by REG_STATUS should be:
+
+       > 0    The number of bytes that were written to the pipe
+       0      To indicate end-of-stream status
+       < 0    A negative error code (see below).
+
+    On important error code is PIPE_ERROR_AGAIN, used to indicate that
+    writes can't be performed yet. See CMD_WAKE_ON_WRITE for more.
+
+  4/ Reading data from the channel:
+
+    Corresponds to when the guest does a read() or readv() on the
+    channel's file descriptor.
+
+        REG_CHANNEL = <channel>
+        REG_ADDRESS = <buffer-address>
+        REG_SIZE    = <buffer-size>
+        REG_CMD     = CMD_READ_BUFFER
+
+        status = REG_STATUS
+
+    Same restrictions on buffer addresses/lengths and same set of error
+    codes.
+
+  5/ Waiting for write ability:
+
+    If CMD_WRITE_BUFFER returns PIPE_ERROR_AGAIN, and the file descriptor
+    is not in non-blocking mode, the driver must put the client task on a
+    wait queue until the pipe service can accept data again.
+
+    Before this, the driver will do:
+
+        REG_CHANNEL = <channel>
+        REG_CMD     = CMD_WAKE_ON_WRITE
+
+    To indicate to the virtual device that it is waiting and should be woken
+    up when the pipe becomes writable again. How this is done is explained
+    later.
+
+  6/ Waiting for read ability:
+
+    This is the same than CMD_WAKE_ON_WRITE, but for readability instead.
+
+        REG_CHANNEL = <channel>
+        REG_CMD     = CMD_WAKE_ON_WRITE
+
+  7/ Polling for write-able/read-able state:
+
+    The following command is used by the driver to implement the select(),
+    poll() and epoll() system calls where a pipe channel is involved.
+
+        REG_CHANNEL = <channel>
+        REG_CMD     = CMD_POLL
+        mask = REG_STATUS
+
+    The mask value returned by REG_STATUS is a mix of bit-flags for
+    which events are available / have occured since the last call.
+    See PIPE_POLL_READ / PIPE_POLL_WRITE / PIPE_POLL_CLOSED.
+
+  8/ Signaling events to the driver:
+
+    The device can signal events to the driver by raising its IRQ.
+    The driver's interrupt handler will then have to read a list of
+    (channel,mask) pairs, terminated by a single 0 value for the channel.
+
+    In other words, the driver's interrupt handler will do:
+
+        for (;;) {
+            channel = REG_CHANNEL
+            if (channel == 0)  // END OF LIST
+                break;
+
+            mask = REG_WAKES  // BIT FLAGS OF EVENTS
+            ... process events
+        }
+
+    The events reported through this list are simply:
+
+       PIPE_WAKE_READ   :: the channel is now readable.
+       PIPE_WAKE_WRITE  :: the channel is now writable.
+       PIPE_WAKE_CLOSED :: the pipe service closed the connection.
+
+    The PIPE_WAKE_READ and PIPE_WAKE_WRITE are only reported for a given
+    channel if CMD_WAKE_ON_READ or CMD_WAKE_ON_WRITE (respectively) were
+    issued for it.
+
+    PIPE_WAKE_CLOSED can be signaled at any time.
+
+
+Available services:
+-------------------
+
+  tcp:<port>
+  tcp:<hostname>:<port>
+
+     Open a TCP socket to a given port. This provides a very fast
+     pass-through that doesn't depend on the very slow internal emulator
+     NAT router. Note that you can only use the file descriptor with read()
+     and write() though, send() and recv() will return an ENOTSOCK error,
+     as well as any socket ioctl().
+
+  unix:<path>
+
+     Open a Unix-domain socket on the host.
+
+  opengles
+
+     Connects to the OpenGL ES emulation process. For now, the implementation
+     is equivalent to tcp:22468, but this may change in the future.

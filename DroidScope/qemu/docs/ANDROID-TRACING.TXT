@@ -1,0 +1,66 @@
+This document details how the Android-specific -trace <name> instruction works.
+
+hw/goldfish_trace.c:
+
+- virtual hardware i/o memory used by the goldfish kernel to send event information
+  to the emulator (e.g. context switches, forks, execs, etc...). Used by both -trace
+  and -memcheck implementations.
+
+trace.c/trace.h:
+
+- support functions for the runtime tracing facility. E.g. record static/dynamic
+  blocks, compute instruction sizes, etc..
+
+trace_common.h:
+
+- a header included by "trace.h" but also by the sources of the trace file processor
+  tool (sdk/emulator/qtools). Defines common data structures and types only.
+
+target-arm/translate.c:
+
+- each new translated basic block is recorded by:
+
+    1. calling trace_bb_start()
+    2. for each instruction in the block, calling trace_bb_insn()
+    3. calling trace_bb_end() at the end of the basic block.
+
+  this is done at "translation time".
+
+- each basic block is translated into a "tb" of x86 machine code that
+  will have, at its start, a call to a helper function like:
+
+     trace_bb_helper(bb_num, tb)
+
+  where 'bb_num' is the unique 64-bit ID of the original basic block.
+
+  -> at "execution time", we record which BB are executed.
+
+- we record context switches and other events from goldfish_trace.c through
+  functions like trace_switch(), trace_fork(), trace_exception(), etc...
+  (see trace.c, some of these miss a declaration in trace.h)
+
+- see genTraceTicks(), genTraceBB()
+
+- the number of virtual CPU cycles / instruction is returned by get_insn_ticks_arm()
+  (implemented in trace.c). This does not account for dynamic data interlocks or
+  variable cycles due to operand sizes (e.g. multiplications instructions).
+
+
+target-arm/helpers.h:
+
+- contains a list of helper functions that are going to be called by x86 machine code
+  at runtime. see #ifdef CONFIG_TRACE .. #endif
+
+target-arm/helpers.c:
+
+- implementation of the helper functions. see #ifdef CONFIG_TRACE .. #endif at the end
+
+- helper traceTicks(ticks): used to record that we executed 'ticks' simulated ARM CPU
+  cycles. This just increments a global uint64_t counter.
+
+- helper traceInsn(): used to record that we executed properly a single instruction.
+  this allows to properly recover/profile when a basic block is exited by an exceptional
+  condition (e.g. a signal, a page fault, etc...), instead of reaching its end.
+
+- helper_traceBB32/traceBB64: used to record that we entered a given basic block at
+  runtime. Simply calls trace_bb_helper()

@@ -1,0 +1,103 @@
+Android Emulator Config File Formats:
+====================================
+
+Introduction:
+-------------
+
+The Android emulator supports several file formats for its configuration
+files, depending on specific usage. This file documents them.
+
+
+I. Android .ini configuration files:
+------------------------------------
+
+The code in android/utils/ini.[hc] is used to support a simple .ini file
+format for some configuration files. Here's the BNF for it:
+
+  file             := <line>*
+  line             := <comment> | <LF> | <assignment>
+  comment          := (';'|'#') <noLF>* <LF>
+  assignment       := <space>* <keyName> <space>* '=' <space>* <valueString> <space>* <LF>
+  keyName          := <keyNameStartChar> <keyNameChar>*
+  keyNameStartChar := [A-Za-z_]
+  keyNameChar      := [A-Za-z0-9_.-]
+  valueString      := <noLF>*
+  space            := ' ' | '\t'
+  LF               := '\r\n' | '\n' | '\r'
+  noLF             := [^<LF>]
+
+Or, in plain English:
+
+ - No support for sections
+ - Empty lines are ignored, as well as lines beginning with ';' or '#'
+ - Lines must be of the form: "<keyName> = <value>"
+ - Key names must start with a letter or an underscore
+ - Other key name characters can be letters, digits, underscores, dots or
+   dashes
+
+ - Leading and trailing space are allowed and ignored before/after the key
+   name and before/after the value
+
+ - There is no restriction on the value, except that it can't contain
+   leading/trailing space/tab characters or newline/charfeed characters
+
+ - Empty values are possible, and will be stored as an empty string.
+ - Any badly formatted line is discarded (and will print a warning)
+
+
+II. Android 'aconfig' configuration files:
+------------------------------------------
+
+Alternatively, another configuration file format is supported by the code
+in android/config.[hc]. Its purpose is to support each config file as a
+tree of key/value pairs. More specifically:
+
+ - Each key or value is a string
+ - Each key can be associated either to a value, or a sub-tree
+ - A (key,value) pair is written in the config file as:
+
+      <keyname> <value>
+
+   which means the key name, some spaces, then the value.
+
+ - Dots can be used to separate keys in a tree path, as in:
+
+     some.other.name   value
+
+   corresponding to a top-level key named 'some' with a single
+   sub-key 'other' which itself has a sub-key 'name' associated to
+   value 'value'.
+
+ - As a consequence, key names *cannot* contain a dot.
+
+ - Alternatively, braces can be used to group sub-keys, as in:
+
+     some {
+        other {
+            name   value
+            name2  other-value
+        }
+     }
+
+   which defines a top-level 'some' key with two sub-keys 'name' and
+   'name2'
+
+ - Brace and dot notations are equivalent, so the above config file
+   can also be written as:
+
+        some.other.name value
+        some.other.name2 other-value
+
+ - If a key appears twice in the config file, it replaces any
+   assigned value, hence:
+
+        some-key  foo
+        some-key  bar
+
+   defines 'some-key' to 'bar'
+
+ - If a sharp (#) appears whenever a key name is expected by the parser,
+   then it is considered a comment and will be ignored along anything that
+   follows on the current line.
+
+
