@@ -535,6 +535,11 @@ int cpu_exec(CPUState *env)
                 }
 #endif /* DEBUG_DISAS || CONFIG_DEBUG_EXEC */
                 spin_lock(&tb_lock);
+                if(g_bNeedFlush)
+                {
+                    tb_flush(env);
+                    g_bNeedFlush = 0;
+                }
                 tb = tb_find_fast(env);
                 /* Note: we do it here to avoid a gcc bug on Mac OS X when
                    doing it in tb_find_slow */

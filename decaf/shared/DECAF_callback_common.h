@@ -138,6 +138,7 @@ typedef struct _DECAF_Mem_Read_Params
 	gva_t vaddr;
 	gpa_t paddr;
 	DATA_TYPE dt;
+	unsigned long value;
 
 }DECAF_Mem_Read_Params;
 typedef struct _DECAF_Mem_Write_Params
@@ -145,6 +146,7 @@ typedef struct _DECAF_Mem_Write_Params
 	gva_t vaddr;
 	gpa_t paddr;
 	DATA_TYPE dt;
+	unsigned long value;
 }DECAF_Mem_Write_Params;
 typedef struct _DECAF_EIP_Check_Params
 {

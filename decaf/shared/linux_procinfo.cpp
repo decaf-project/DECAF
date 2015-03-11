@@ -1626,7 +1626,7 @@ void get_procinfo_directory(string &sPath)
 }
 
 // given the section number, load the offset values
-#define FILL_TARGET_ULONG_FIELD(field) pi.field = pt.get<target_ulong>(sSectionNum + #field)
+#define FILL_TARGET_ULONG_FIELD(field) pi.field = pt.get(sSectionNum + #field, INVALID_VAL)
 void _load_one_section(const boost::property_tree::ptree &pt, int iSectionNum, ProcInfo &pi)
 {
     string sSectionNum;
@@ -1640,6 +1640,8 @@ void _load_one_section(const boost::property_tree::ptree &pt, int iSectionNum, P
     sName = pt.get<string>(sSectionNum + "strName");
     strncpy(pi.strName, sName.c_str(), SIZE_OF_STR_NAME);
     pi.strName[SIZE_OF_STR_NAME-1] = '\0';
+
+    const target_ulong INVALID_VAL = -1;
 
     // fill other fields
     FILL_TARGET_ULONG_FIELD(init_task_addr  );
@@ -1775,7 +1777,7 @@ int load_proc_info(CPUState * env, gva_t threadinfo, ProcInfo &pi)
   boost::property_tree::ptree pt;
   get_procinfo_directory(sProcInfoPath);
   sProcInfoPath += "procinfo.ini";
-  monitor_printf(default_mon, "Procinfo path: %s\n",sProcInfoPath.c_str());
+  monitor_printf(default_mon, "\nProcinfo path: %s\n",sProcInfoPath.c_str());
   // read procinfo.ini
   if (0 != access(sProcInfoPath.c_str(), 0))
   {
@@ -1821,7 +1823,7 @@ private:
 
     if (0 != access(sLibConfPath.c_str(), 0))
     {
-        monitor_printf(default_mon, "Can't open %s\nLibrary function offset will not be loaded.\n", sLibConfPath.c_str());
+        monitor_printf(default_mon, "\nCan't open %s\nLibrary function offset will not be loaded.\nGo head if you don't need to hook library functions.\n", sLibConfPath.c_str());
         return false;
     }
 

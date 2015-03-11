@@ -59,6 +59,7 @@ mon_cmd_t DECAF_info_cmds[] = {
 		{ NULL, NULL , }, };
 
 
+int g_bNeedFlush = 0;
 
 static void convert_endian_4b(uint32_t *data);
 
@@ -382,15 +383,21 @@ int do_unload_plugin(Monitor *mon, const QDict *qdict, QObject **ret_data) {
 /* AWH - Fix for bugzilla bug #9 */
 static int runningState = 0;
 void DECAF_stop_vm(void) {
-	if (runstate_check(RUN_STATE_RUNNING)) {
-		runningState = 1;
-		vm_stop(RUN_STATE_PAUSED);
-	} else
-		runningState = 0;
+	if (runstate_is_running()) {
+        vm_stop(RUN_STATE_PAUSED);
+    }
+	// if (runstate_check(RUN_STATE_RUNNING)) {
+	// 	runningState = 1;
+	// 	vm_stop(RUN_STATE_PAUSED);
+	// } else
+	// 	runningState = 0;
 }
 
 void DECAF_start_vm(void) {
-	if (runningState) vm_start();
+	// if (runningState) vm_start();
+    if (!runstate_is_running()) {
+        vm_start();
+    }	
 }
 
 void DECAF_loadvm(void *opaque) {
@@ -543,8 +550,8 @@ static void DECAF_virtdev_write_data(void *opaque, uint32_t addr, uint32_t val) 
 #ifndef CONFIG_VMI_ENABLE
 		
 		handle_guest_message(syslogline);
-		fprintf(guestlog, "%s", syslogline);
-		fflush(guestlog);
+		// fprintf(guestlog, "%s", syslogline);
+		// fflush(guestlog);
 #endif
 		pos = 0;
 	}

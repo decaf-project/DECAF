@@ -313,6 +313,7 @@ void TraceConverterX86::printOperand(const OperandVal& op, ostream& outs)
   
   outs << "T_begin ";
   outs<<"(0x"<< hex << op.tainted_begin << ")";
+  if (op.tainted_begin) outs << " tainted ";
   outs <<" T_end (0x"<< hex << op.tainted_end << ")";
   /*
   if (op.tainted)
@@ -327,7 +328,16 @@ void TraceConverterX86::printOperand(const OperandVal& op, ostream& outs)
   */
 }
 
-void TraceConverterX86::operandToString(string& str, const OperandVal& op)
+static inline int getFullRegister(int id) {
+	if (id < 16) return id;
+	else if (id >=32) return id;
+	else if (id < 20) return (32+ id - 16); //between al to bl
+	else if (id < 24) return (32 + id - 20); //between ah to bh
+	else
+		return (32 + id - 24); //between ax to di
+}
+
+void TraceConverterX86::operandToString(string& str, const OperandVal& op, bool fullRegisterName)
 {
   char temp[20] = ""; //maybe 20 is not good enough, who knows
   //although at most it should be M@XXXXXXXXYYYYYYYY which is a 64bit address
@@ -335,7 +345,7 @@ void TraceConverterX86::operandToString(string& str, const OperandVal& op)
 
   if (op.type == TRegister)
   {
-    snprintf(temp, 19, "R@%s", regname_map[op.addr-100]);
+    snprintf(temp, 19, "R@%s", regname_map[fullRegisterName? getFullRegister(op.addr-100) : op.addr -100]);
   }
   else
   {

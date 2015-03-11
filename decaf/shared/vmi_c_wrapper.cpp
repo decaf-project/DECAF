@@ -121,7 +121,7 @@ int VMI_find_pid_by_cr3_c(uint32_t cr3)
 	p  = VMI_find_process_by_pgd(cr3);
 	if(!p)
 		return -1;
-	return p->cr3;
+	return p->pid;
 }
 
 int VMI_find_pid_by_name_c(const char* proc_name)

@@ -8,11 +8,11 @@ include $(SRC_PATH)/$(TARGET_DIR)/config-target.mak
 include $(SRC_PATH)/config-host.mak
 
 #SLEUTHKIT_PATH=$(SRC_PATH)/shared/sleuthkit/
-LLCONF_PATH=$(SRC_PATH)/shared/llconf
+#LLCONF_PATH=$(SRC_PATH)/shared/llconf
 
 DEFINES=-I. -I$(SRC_PATH) -I$(SRC_PATH)/plugins -I$(SRC_PATH)/fpu -I$(SRC_PATH)/shared -I$(SRC_PATH)/target-$(TARGET_ARCH) -I$(SRC_PATH)/tcg/$(TARGET_ARCH) -I$(SRC_PATH)/$(TARGET_DIR) -I$(SRC_PATH)/slirp -I$(SRC_PATH)/shared/hooks 
 DEFINES+=-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -DNEED_CPU_H
-DEFINES+=-I$(LLCONF_PATH)/install/include
+#DEFINES+=-I$(LLCONF_PATH)/install/include
 DEFINES+=-I$(GLIB_CFLAGS)
 #DEFINES+=-I$(SLEUTHKIT_PATH)/src/fstools -I$(SLEUTHKIT_PATH)/src/auxtools -I$(SLEUTHKIT_PATH)/src/imgtools -DLINUX2 -DTRACE_ENABLED
 
@@ -22,8 +22,8 @@ CFLAGS=-Wall -O2 -g -fPIC -MMD
 # CFLAGS=-Wall -g -fPIC 
 LDFLAGS=-g -shared 
 LIBS=-lcrypto
-LIBS+=-L$(LLCONF_PATH)/src/.libs
-SHARED_LIBS=$(LLCONF_PATH)/src/.libs/libllconf.so
+#LIBS+=-L$(LLCONF_PATH)/src/.libs
+#SHARED_LIBS=$(LLCONF_PATH)/src/.libs/libllconf.so
 
 ifeq ($(ARCH), x86_64)
 LIBS+=-L$(SRC_PATH)/shared/xed2/xed2-intel64/lib -lxed
@@ -35,13 +35,13 @@ DEFINES+= -I$(SRC_PATH)/shared/xed2/xed2-ia32/include
 endif
 
 OBJS= disasm.o commands.o trace.o operandinfo.o conditions.o network.o  tracecap.o readwrite.o conf.o trackproc.o
-OBJS+=$(SHARED_LIBS)
+#OBJS+=$(SHARED_LIBS)
 
 # temu, qemu-tools removed as target
 all: tracecap.so ini/main.ini ini/hook_plugin.ini
 
-$(SHARED_LIBS):
-	./build-deps.sh $(SRC_PATH)
+#$(SHARED_LIBS):
+#	./build-deps.sh $(SRC_PATH)
 
 hooks:
 	$(MAKE) -C $(SRC_PATH)/shared/hooks/hook_plugins protos_hooks

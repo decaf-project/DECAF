@@ -96,105 +96,105 @@ static const int tcg_target_call_oarg_regs[] = {
 static void REGPARM ldb_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "ldb_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),1);  
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint8_t *) addr, 1);  
 }
 
 static void REGPARM ldw_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "ldw_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB)) 
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),2);
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),*(uint16_t *) addr, 2);
 }
 
 static void REGPARM ldl_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "ldl_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),4);
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint32_t *) addr, 4);
 }
 
 static void REGPARM ldq_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "ldq_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),8);
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint64_t *) addr, 8);
 }
 
-static void REGPARM stb_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM stb_cb(unsigned long addr, gva_t vaddr,unsigned long value) {
 //fprintf(stderr, "stb_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),1);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),value & 0xFF,1);
 }
 
-static void REGPARM stw_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM stw_cb(unsigned long addr, gva_t vaddr,unsigned long value) {
 //fprintf(stderr, "stw_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),2);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),value & 0xFFFF,2);
 }
 
-static void REGPARM stl_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM stl_cb(unsigned long addr, gva_t vaddr,unsigned long value) {
 //fprintf(stderr, "stl_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),4);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value & 0xFFFFFFFF,4);
 }
 
-static void REGPARM stq_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM stq_cb(unsigned long addr, gva_t vaddr, unsigned long value) {
 //fprintf(stderr, "stq_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),8);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value,8);
 }
 
 static void REGPARM taint_ldb_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "taint_ldb_cb: %08x %08x\n", addr, vaddr);
   __taint_ldb_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),1);
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint8_t *) addr, 1);
 }
 
-static void REGPARM taint_ldw_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM taint_ldw_cb(unsigned long addr, gva_t vaddr ) {
 //fprintf(stderr, "taint_ldw_cb: %08x %08x\n", addr, vaddr);
   __taint_ldw_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),2);
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint16_t*) addr, 2);
 }
 
 static void REGPARM taint_ldl_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "taint_ldl_cb: %08x %08x\n", addr, vaddr);
   __taint_ldl_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),4);
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint32_t * ) addr, 4);
 }
 
 static void REGPARM taint_ldq_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "taint_ldq_cb: %08x %08x\n", addr, vaddr);
   __taint_ldq_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),8);
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint64_t *) addr, 8);
 }
 
-static void REGPARM taint_stb_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM taint_stb_cb(unsigned long addr, gva_t vaddr,unsigned long value) {
 //fprintf(stderr, "taint_stb_cb: %08x %08x\n", addr, vaddr);
   __taint_stb_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),1);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value & 0xFF,1);
 }
 
-static void REGPARM taint_stw_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM taint_stw_cb(unsigned long addr, gva_t vaddr, unsigned long value) {
 //fprintf(stderr, "taint_stw_cb: %08x %08x\n", addr, vaddr);
   __taint_stw_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),2);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value & 0xFFFF, 2);
 }
 
-static void REGPARM taint_stl_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM taint_stl_cb(unsigned long addr, gva_t vaddr, unsigned long value) {
 //fprintf(stderr, "taint_stl_cb: %08x %08x\n", addr, vaddr);
   __taint_stl_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),4);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value & 0xFFFFFFFF, 4);
 }
 
-static void REGPARM taint_stq_cb(unsigned long addr, gva_t vaddr) {
+static void REGPARM taint_stq_cb(unsigned long addr, gva_t vaddr, unsigned long value) {
 //fprintf(stderr, "taint_stq_cb: %08x %08x\n", addr, vaddr);
   __taint_stq_raw(addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),8);
+    helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value, 8);
 }
 
 static uint8_t *tb_ret_addr;
@@ -1521,8 +1521,11 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
     tcg_out_pop(s, args[addrlo_idx]);
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
+
     tcg_out_mov(s, TCG_TYPE_I32,
       tcg_target_call_iarg_regs[1], args[addrlo_idx]);
+    tcg_out_mov(s, TCG_TYPE_I32,
+      tcg_target_call_iarg_regs[2], args[0]); //store the value write to memory
 
       switch (opc) {
         case 0:
@@ -1672,6 +1675,9 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
     tcg_out_mov(s, TCG_TYPE_I32, 
       tcg_target_call_iarg_regs[1], args[addrlo_idx]);
+    tcg_out_mov(s, TCG_TYPE_I32,
+      tcg_target_call_iarg_regs[2], args[0]); //store the value write to memory
+
     switch (opc) {
     case 0:
         //tcg_out_calli(s, (tcg_target_long)__taint_stb_raw);

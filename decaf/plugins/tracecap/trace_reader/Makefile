@@ -2,7 +2,7 @@
 CC=gcc
 CPP=g++
 STRIP=strip
-CFLAGS=-g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -I. -lbfd -lopcodes
+CFLAGS=-g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -I. -lbfd -lopcodes -lboost_program_options
 #CFLAGS += `pkg-config --cflags --libs gtkmm-2.4`
 DEPS =  
 CPPFiles = $(wildcard *.cpp)

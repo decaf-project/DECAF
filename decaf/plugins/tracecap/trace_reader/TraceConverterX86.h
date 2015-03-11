@@ -21,8 +21,11 @@
 /** strings for information output. */
 const static char optype_map[7] = {'N', 'R', 'M', 'I', 'J', 'F', 'A'};
 const static char access_map[8][4] = {{""}, {"RW"}, {"R"}, {"W"}, {"RCW"}, {"CW"}, {"CRW"}, {"CR"}};
-const static char regname_map[40][4] = {{"es"}, {"cs"}, {"ss"}, {"ds"}, {"fs"}, {"gs"}, {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""}, {""},
-        {"al"}, {"cl"}, {"dl"}, {"bl"}, {"ah"}, {"ch"}, {"dh"}, {"bh"}, {"ax"}, {"cx"}, {"dx"}, {"bx"}, {"sp"}, {"bp"}, {"si"}, {"di"},
+const static char regname_map[40][4] = {
+		{"es"}, {"cs"}, {"ss"}, {"ds"}, {"fs"}, {"gs"}, {""}, {""},
+		{""}, {""}, {""}, {""}, {""}, {""}, {""}, {""},
+        {"al"}, {"cl"}, {"dl"}, {"bl"}, {"ah"}, {"ch"}, {"dh"}, {"bh"},
+        {"ax"}, {"cx"}, {"dx"}, {"bx"}, {"sp"}, {"bp"}, {"si"}, {"di"},
         {"eax"}, {"ecx"}, {"edx"}, {"ebx"}, {"esp"}, {"ebp"}, {"esi"}, {"edi"}};
 
 
@@ -40,7 +43,7 @@ public:
 
   static int convert(std::string& str, const TRInstructionX86& i, bool bVerbose = true);
   static int convert(TRInstructionX86& insn, const std::string& str);
-  static void operandToString(std::string& str, const OperandVal& op); 
+  static void operandToString(std::string& str, const OperandVal& op, bool fullRegisterName = false);
 private:
   //function that is needed for sorting the operands
   //friend bool operand_compare(const OperandVal& op1, const OperandVal& op2);

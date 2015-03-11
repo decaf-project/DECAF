@@ -128,8 +128,8 @@ int update_kernel_modules(CPUState * _env, gva_t vaddr)
 int procmod_insert_modinfo(uint32_t pid, uint32_t cr3, const char *name,
 			   uint32_t base, uint32_t size, const char *full_name)
 {
-  
-
+  assert(strlen(name) < VMI_MAX_MODULE_PROCESS_NAME_LEN);
+  assert(strlen(full_name) < VMI_MAX_MODULE_FULL_NAME_LEN);
   unordered_map<uint32_t, process *>::iterator iter = process_pid_map.find(
       pid);
   process *proc;
@@ -172,7 +172,7 @@ int procmod_remove_modinfo(uint32_t pid, uint32_t base)
 
 
 int procmod_createproc(uint32_t pid, uint32_t parent_pid,
-		       uint32_t cr3, const char *name)
+           uint32_t cr3, const char *name)
 {
 
 
@@ -184,28 +184,28 @@ int procmod_createproc(uint32_t pid, uint32_t parent_pid,
   proc->cr3 = cr3;
   strcpy(proc->name, name);
 
-    unordered_map < uint32_t, process * >::iterator iter =
-      process_pid_map.find(pid);
-    if (iter != process_pid_map.end()){
-      // Found an existing process with the same pid
-      // We force to remove that one.
-    //  monitor_printf(default_mon, "remove process pid %d", proc->pid);
-      VMI_remove_process(pid);
-    }
+    // unordered_map < uint32_t, process * >::iterator iter =
+    //   process_pid_map.find(pid);
+    // if (iter != process_pid_map.end()){
+    //   // Found an existing process with the same pid
+    //   // We force to remove that one.
+    // //  monitor_printf(default_mon, "remove process pid %d", proc->pid);
+    //   VMI_remove_process(pid);
+    // }
 
-    unordered_map < uint32_t, process * >::iterator iter2 =
-          process_map.find(proc->cr3);
-    if (iter2 != process_map.end()) {
-      // Found an existing process with the same CR3
-      // We force to remove that process
-    //  monitor_printf(default_mon, "removing due to cr3 0x%08x\n", proc->cr3);
-      if(proc->cr3 != -1)
-        VMI_remove_process(iter2->second->pid);
-    }
+    // unordered_map < uint32_t, process * >::iterator iter2 =
+    //       process_map.find(proc->cr3);
+    // if (iter2 != process_map.end()) {
+    //   // Found an existing process with the same CR3
+    //   // We force to remove that process
+    // //  monitor_printf(default_mon, "removing due to cr3 0x%08x\n", proc->cr3);
+    //   if(proc->cr3 != -1)
+    //     VMI_remove_process(iter2->second->pid);
+    // }
 
-    process_pid_map[proc->pid] = proc;
-    //process_map[proc->cr3] = proc;
-
+    // process_pid_map[proc->pid] = proc;
+    // process_map[proc->cr3] = proc;
+    VMI_create_process(proc);
 
   return 0;
 }
@@ -231,67 +231,67 @@ static int procmod_remove_all()
 }
 
 
-void update_proc(void *opaque)
-{
+// void update_proc(void *opaque)
+// {
  
-  monitor_printf(default_mon, "updating proc \n");
-//    long taskaddr = 0xC033C300; 
-    int pid;
-    uint32_t cr3, pgd, mmap;
-    uint32_t nextaddr = 0;
+//   monitor_printf(default_mon, "updating proc \n");
+// //    long taskaddr = 0xC033C300; 
+//     int pid;
+//     uint32_t cr3, pgd, mmap;
+//     uint32_t nextaddr = 0;
 
-    char comm[512];
+//     char comm[512];
 
-    procmod_remove_all();
+//     procmod_remove_all();
 
-    nextaddr = taskaddr;
-    do {
-	pid = get_pid(nextaddr);
-	pgd = get_pgd(nextaddr);
-	cr3 = pgd - 0xc0000000;	//subtract a page offset 
-	get_name(nextaddr, comm, 512);
-	procmod_createproc(pid, -1, cr3, comm);	//XXX: parent pid is not supported
+//     nextaddr = taskaddr;
+//     do {
+// 	pid = get_pid(nextaddr);
+// 	pgd = get_pgd(nextaddr);
+// 	cr3 = pgd - 0xc0000000;	//subtract a page offset 
+// 	get_name(nextaddr, comm, 512);
+// 	procmod_createproc(pid, -1, cr3, comm);	//XXX: parent pid is not supported
 
-	mmap = get_first_mmap(nextaddr);
-	while (0 != mmap) {
-	    get_mod_name(mmap, comm, 512);
-	    //term_printf("0x%08lX -- 0x%08lX %s\n", get_vmstart(env, mmap),
-	    //            get_vmend(env, mmap), comm); 
-	    int base = get_vmstart(mmap);
-	    int size = get_vmend(mmap) - get_vmstart(mmap);
-	 //  TODO: FIXME
+// 	mmap = get_first_mmap(nextaddr);
+// 	while (0 != mmap) {
+// 	    get_mod_name(mmap, comm, 512);
+// 	    //term_printf("0x%08lX -- 0x%08lX %s\n", get_vmstart(env, mmap),
+// 	    //            get_vmend(env, mmap), comm); 
+// 	    int base = get_vmstart(mmap);
+// 	    int size = get_vmend(mmap) - get_vmstart(mmap);
+// 	 //  TODO: FIXME
 
-     // procmod_insert_modinfo(pid, pgd, comm, base, size);
+//      // procmod_insert_modinfo(pid, pgd, comm, base, size);
 
-	    char message[612];
-	    snprintf(message, sizeof(message), "M %d %x \"%s\" %x %d", pid,
-		     pgd, comm, base, size);
-	    handle_guest_message(message);
+// 	    char message[612];
+// 	    snprintf(message, sizeof(message), "M %d %x \"%s\" %x %d", pid,
+// 		     pgd, comm, base, size);
+// 	    handle_guest_message(message);
 
-	    char funcfile[128];
-	    snprintf(funcfile, 128, "/tmp/%s.func", comm);
-	    FILE *fp = fopen(funcfile, "r");
-	    if (fp) {
-		while (!feof(fp)) {
-		    int offset;
-		    char fname[128];
-		    if (fscanf(fp, "%x %128s", &offset, fname) == 2) {
-			snprintf(message, 128, "F %s %s %x ", comm,
-				 fname, offset);
-			handle_guest_message(message);
-		    }
-		}
-		fclose(fp);
-	    }
+// 	    char funcfile[128];
+// 	    snprintf(funcfile, 128, "/tmp/%s.func", comm);
+// 	    FILE *fp = fopen(funcfile, "r");
+// 	    if (fp) {
+// 		while (!feof(fp)) {
+// 		    int offset;
+// 		    char fname[128];
+// 		    if (fscanf(fp, "%x %128s", &offset, fname) == 2) {
+// 			snprintf(message, 128, "F %s %s %x ", comm,
+// 				 fname, offset);
+// 			handle_guest_message(message);
+// 		    }
+// 		}
+// 		fclose(fp);
+// 	    }
 
-	    mmap = get_next_mmap(mmap);
-	}
+// 	    mmap = get_next_mmap(mmap);
+// 	}
 
-	nextaddr = next_task_struct(nextaddr);
+// 	nextaddr = next_task_struct(nextaddr);
 
-    } while (nextaddr != taskaddr);
+//     } while (nextaddr != taskaddr);
 
-}
+// }
 
 int procmod_init()
 {
@@ -302,30 +302,30 @@ int procmod_init()
   kernel_proc->pid = 0;
   VMI_create_process(kernel_proc);
 
-	
-
-	FILE *guestlog = fopen("guest.log", "r");
-	char syslogline[GUEST_MESSAGE_LEN];
-	int pos = 0;
-	if (guestlog) {
-		int ch;
-		while ((ch = fgetc(guestlog)) != EOF) {
-			syslogline[pos++] = (char) ch;
-			if (pos > GUEST_MESSAGE_LEN - 2)
-				pos = GUEST_MESSAGE_LEN - 2;
-			if (ch == 0xa) {
-				syslogline[pos] = 0;
-				handle_guest_message(syslogline);
-				pos = 0;
-			}
-		}
-		fclose(guestlog);
-	}
+  
+/*
+  FILE *guestlog = fopen("guest.log", "r");
+  char syslogline[GUEST_MESSAGE_LEN];
+  int pos = 0;
+  if (guestlog) {
+    int ch;
+    while ((ch = fgetc(guestlog)) != EOF) {
+      syslogline[pos++] = (char) ch;
+      if (pos > GUEST_MESSAGE_LEN - 2)
+        pos = GUEST_MESSAGE_LEN - 2;
+      if (ch == 0xa) {
+        syslogline[pos] = 0;
+        handle_guest_message(syslogline);
+        pos = 0;
+      }
+    }
+    fclose(guestlog);
+  } */
 
     //TODO: save and load thread information
  //   monitor_printf(default_mon, " hookingpoint 0x%08x \n", hookingpoint);
-    if (init_kernel_offsets() >= 0)
-    	hookapi_hook_function(1, hookingpoint, 0, update_proc, NULL, 0);
+    // if (init_kernel_offsets() >= 0)
+    //  hookapi_hook_function(1, hookingpoint, 0, update_proc, NULL, 0);
  //   monitor_printf(default_mon, " hookingpoint 0x%08x \n", hookingpoint);
     // AWH - Added NULL parm for DeviceState* (change in API)
   //TODO: FIXME
@@ -396,10 +396,9 @@ void parse_module(const char *log)
   case '+':
           procmod_insert_modinfo(pid, cr3, mod, base, size, full_mod);
           break;
-  }
-
-
-  
+  default:
+      assert(false);
+  }  
 }
 
 

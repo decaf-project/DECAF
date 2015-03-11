@@ -162,6 +162,7 @@ extern void DECAF_keystroke_place(int keycode);
 /// In this case, the plugin is responsible to set this flag to 1 when the execution is within
 /// the specified process and to 0 when it is not.
 extern int should_monitor;
+extern int g_bNeedFlush;
 
 //extern int do_enable_emulation(Monitor *mon, const QDict *qdict, QObject **ret_data);
 //extern int do_disable_emulation(Monitor *mon, const QDict *qdict, QObject **ret_data);
@@ -205,30 +206,37 @@ void DECAF_flushTranslationPage_env(CPUState* env, gva_t addr);
 static inline void DECAF_flushTranslationBlock(uint32_t addr)
 {
   CPUState* env;
+  DECAF_stop_vm();
   for(env = first_cpu; env != NULL; env = env->next_cpu)
   {
     DECAF_flushTranslationBlock_env(env, addr);
   }
+  DECAF_start_vm();
 }
 
 //Iterates through all virtual cpus and flushes the pages
 static inline void DECAF_flushTranslationPage(uint32_t addr)
 {
   CPUState* env;
+  DECAF_stop_vm();
   for(env = first_cpu; env != NULL; env = env->next_cpu)
   {
     DECAF_flushTranslationPage_env(env, addr);
   }
+  DECAF_start_vm();
 }
 
 //Iterates through all virtual cpus and flushes the pages
 static inline void DECAF_flushTranslationCache(void)
 {
   CPUState* env;
+  // DECAF_stop_vm();
   for(env = first_cpu; env != NULL; env = env->next_cpu)
   {
-    tb_flush(env);
+    g_bNeedFlush = 1;
+     // tb_flush(env);
   }
+  // DECAF_start_vm();
 }
 
 /* Static in monitor.c for QEMU, but we use it for plugins: */

@@ -12,9 +12,9 @@
 class TraceProcessorX86
 {
 public:
-  virtual int processInstruction(History<TRInstructionX86>& insns) = 0;
-  virtual int processInstruction(History<std::string>& strInsns) = 0;
-  virtual bool isInterested(const std::string& s) = 0;
+//  virtual int processInstruction(History<TRInstructionX86>& insns) = 0;
+//  virtual int processInstruction(History<std::string>& strInsns) = 0;
+//  virtual bool isInterested(const std::string& s) = 0;
   virtual bool isInterested(const TRInstructionX86& insn) = 0;
   const std::string& getResult() { return (strEmpty); }
 };

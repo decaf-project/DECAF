@@ -319,6 +319,7 @@ int VMI_remove_process(uint32_t pid)
     params.rp.cr3 = iter->second->cr3;
     params.rp.pid = iter->second->pid;
     params.rp.name = iter->second->name;
+    // printf("removing %d %x %s\n", params.rp.pid, params.rp.cr3, params.rp.name);
 	SimpleCallback_dispatch(&VMI_callbacks[VMI_REMOVEPROC_CB], &params);
 
 	process_map.erase(iter->second->cr3);
@@ -437,7 +438,7 @@ int VMI_dispatch_lm(module * m, process *p, gva_t base)
 
 void VMI_init()
 {
-#if CONFIG_VMI_ENABLE
+#ifdef CONFIG_VMI_ENABLE
 	monitor_printf(default_mon, "inside vmi init \n");
 	insn_handle_c = DECAF_register_callback(DECAF_TLB_EXEC_CB, block_end_cb, NULL);
 #endif

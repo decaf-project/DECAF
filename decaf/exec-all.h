@@ -23,6 +23,7 @@
 #include "qemu-common.h"
 #ifdef CONFIG_TCG_IR_LOG 
 #include "tcg-target.h" /* AWH - For TCG_TARGET_REG_BITS */
+#define DECAF_DISASM_CODE_MAX_SIZE 512
 #endif /* CONFIG_TCG_IR_LOG */
 
 /* allow to see translation results - the slowdown should be negligible, so we leave it */
@@ -236,7 +237,7 @@ struct TranslationBlock {
     uint16_t DECAF_num_temps; /* AWH - number of temp or local registers in this TB */
     uint8_t DECAF_temp_type[256]; /* AWH - Bitmap to describe which registers are temp (0) or local (1) */ 
     uint8_t DECAF_temp_size[256]; /* AWH - Bitmap to describe which registers are 32 bits (0) or 64 bits (1) */
-    uint8_t DECAF_disasm_code[256]; /* AWH - Guest code for this TB */
+    uint8_t DECAF_disasm_code[DECAF_DISASM_CODE_MAX_SIZE]; /* AWH - Guest code for this TB */
     uint8_t DECAF_disasm_size; /* AWH - Size of guest code for this TB */
 #endif /* CONFIG_TCG_IR_LOG */
 };

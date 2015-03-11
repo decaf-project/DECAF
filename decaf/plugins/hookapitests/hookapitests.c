@@ -172,7 +172,7 @@ static int hookapitests_init(void)
 
 static void hookapitests_cleanup(void)
 {
-	VMI_Callback_Params params;
+	// procmod_Callback_Params params;
 
 	DECAF_printf("Bye world\n");
 

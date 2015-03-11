@@ -612,8 +612,8 @@ int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data) {
     env = cpu_single_env ? cpu_single_env : first_cpu;
     taint_load_pointers_enabled = qdict_get_bool(qdict, "load");
     taint_store_pointers_enabled = qdict_get_bool(qdict, "store"); 
-    DECAF_start_vm();
     tb_flush(env);
+    DECAF_start_vm();
     monitor_printf(default_mon, "Tainting of pointers changed -> Load: %s, Store: %s\n", taint_load_pointers_enabled ? "ON " : "OFF", taint_store_pointers_enabled ? "ON " : "OFF");
   }
   return 0;

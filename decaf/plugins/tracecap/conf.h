@@ -10,10 +10,10 @@
 #define _CONF_H_
 #include "tracecap.h"
 /* llconf */
-#include <llconf/modules.h>
-#include <llconf/ini.h>
-#include <llconf/nodes.h>
-#include <llconf/entry.h>
+// #include <llconf/modules.h>
+// #include <llconf/ini.h>
+// #include <llconf/nodes.h>
+// #include <llconf/entry.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -9913,7 +9913,7 @@ undef:
 }
 
 #ifdef CONFIG_TCG_IR_LOG
-inline void log_tcg_ir(TranslationBlock *tb)
+inline void log_tcg_ir(TranslationBlock *tb, target_ulong pc_ptr, target_ulong pc_start)
 {
     int i;
 
@@ -9941,6 +9941,13 @@ inline void log_tcg_ir(TranslationBlock *tb)
     else
       tb->DECAF_temp_size[i>>3] &= ~(1 << (i % 8));
   }
+#if 1 // AWH
+  /* Store the guest code */
+  tb->DECAF_disasm_size = pc_ptr - pc_start;
+  assert(tb->DECAF_disasm_size <= DECAF_DISASM_CODE_MAX_SIZE);
+  for(i=pc_start; i < pc_ptr; i++)
+    tb->DECAF_disasm_code[i-pc_start] = ldub_code(i);
+#endif // AWH
 }
 #endif /* CONFIG_TCG_IR_LOG */
 
@@ -10079,7 +10086,7 @@ static inline void gen_intermediate_code_internal(CPUState *env,
 #else
         if (dc->pc >= 0xfffffff0 && IS_M(env)) {
 #ifdef CONFIG_TCG_IR_LOG
-            log_tcg_ir(tb);
+            log_tcg_ir(tb, dc->pc, pc_start);
 #endif /* CONFIG_TCG_IR_LOG */
 #ifdef CONFIG_TCG_TAINT
             if (taint_tracking_enabled) {
@@ -10099,7 +10106,7 @@ static inline void gen_intermediate_code_internal(CPUState *env,
             QTAILQ_FOREACH(bp, &env->breakpoints, entry) {
                 if (bp->pc == dc->pc) {
 #ifdef CONFIG_TCG_IR_LOG
-                    log_tcg_ir(tb);
+                    log_tcg_ir(tb, dc->pc, pc_start);
 #endif /* CONFIG_TCG_IR_LOG */
 #ifdef CONFIG_TCG_TAINT
                     if (taint_tracking_enabled) {
@@ -10179,7 +10186,7 @@ static inline void gen_intermediate_code_internal(CPUState *env,
              dc->pc < next_page_start &&
              num_insns < max_insns);
 #ifdef CONFIG_TCG_IR_LOG
-    log_tcg_ir(tb);
+    log_tcg_ir(tb, dc->pc, pc_start);
 #endif /* CONFIG_TCG_IR_LOG */
 #ifdef CONFIG_TCG_TAINT
     if (not_tainted && taint_tracking_enabled)

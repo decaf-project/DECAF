@@ -23,6 +23,13 @@ http://code.google.com/p/decaf-platform/
 
 #include "SimpleCallback.h"
 
+#ifndef LIST_FOREACH_SAFE
+#define LIST_FOREACH_SAFE(var, head, field, tvar)                       \
+          for ((var) = LIST_FIRST((head));                                \
+              (var) && ((tvar) = LIST_NEXT((var), field), 1);             \
+              (var) = (tvar))
+#endif
+
 SimpleCallback_t* SimpleCallback_new(void)
 {
   SimpleCallback_t* pList = (SimpleCallback_t*) malloc(sizeof(SimpleCallback_t));
@@ -106,7 +113,7 @@ DECAF_Handle SimpleCallback_register(
 
 DECAF_errno_t SimpleCallback_unregister(SimpleCallback_t* pList, DECAF_Handle handle)
 {
-  SimpleCallback_entry_t *cb_struct = NULL;
+  SimpleCallback_entry_t *cb_struct = NULL, *cb_temp;
 
   if (pList == NULL)
   {
@@ -114,7 +121,7 @@ DECAF_errno_t SimpleCallback_unregister(SimpleCallback_t* pList, DECAF_Handle ha
   }
 
   //FIXME: not thread safe
-  LIST_FOREACH(cb_struct, pList, link) {
+  LIST_FOREACH_SAFE(cb_struct, pList, link, cb_temp) {
     if((DECAF_Handle)cb_struct != handle)
       continue;
 
@@ -129,7 +136,7 @@ DECAF_errno_t SimpleCallback_unregister(SimpleCallback_t* pList, DECAF_Handle ha
 
 void SimpleCallback_dispatch(SimpleCallback_t* pList, void* params)
 {
-  SimpleCallback_entry_t *cb_struct;
+  SimpleCallback_entry_t *cb_struct, *cb_temp;
 
   if (pList == NULL)
   {
@@ -137,7 +144,7 @@ void SimpleCallback_dispatch(SimpleCallback_t* pList, void* params)
   }
 
   //FIXME: not thread safe
-  LIST_FOREACH(cb_struct, pList, link) {
+  LIST_FOREACH_SAFE(cb_struct, pList, link, cb_temp) {
           // If it is a global callback or it is within the execution context,
           // invoke this callback
           if(!cb_struct->enabled || *cb_struct->enabled)
