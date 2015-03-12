@@ -4,7 +4,7 @@ before_script:
  - sudo apt-get update
  - sudo apt-get install qemu
  - sudo apt-get install binutils
- - sudo apt-get build-essential
+ - sudo apt-get install build-essential
  - sudo apt-get install build-dep qemu
  - sudo apt-get install binutils-dev
  - sudo apt-get install libboost-all-dev
