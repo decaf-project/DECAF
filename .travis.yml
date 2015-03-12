@@ -8,7 +8,9 @@ before_script:
  - sudo apt-get install binutils-dev
  - sudo apt-get install libboost-all-dev
 script: 
- - cd ./decaf & ./configure --disable-vmi & make
- - cd ./decaf & ./configure --enable-tcg-taint & make
- - cd ./decaf & ./configure & make
+ - ./decaf/configure --disable-vmi & make
+ - make distclean
+ - ./decaf/configure --enable-tcg-taint & make
+ - make distclean
+ - ./decaf/configure & make
 language: c
