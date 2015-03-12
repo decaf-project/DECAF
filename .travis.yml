@@ -1,6 +1,7 @@
 os:
  - linux
 before_script:
+ - sudo apt-get update
  - sudo apt-get install qemu
  - sudo apt-get install binutils
  - sudo apt-get build-essential
