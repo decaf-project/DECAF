@@ -1,3 +1,5 @@
+os:
+ - linux
 before_script:
  - sudo apt-get install qemu
  - sudo apt-get install binutils
