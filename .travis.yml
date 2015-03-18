@@ -11,21 +11,21 @@ before_script:
 script: 
  - ./configure --disable-vmi --disable-tcg-taint
  - make
- - make distclean
- - reset
- - ./configure --disable-vmi --enable-tcg-taint
- - make
- - make distclean
- - reset
- - ./configure --enable-vmi --disable-tcg-taint
- - make
- - make distclean
- - reset
- - ./configure --enable-vmi --enable-tcg-taint
- - make
- - make distclean
- - reset
- - ./configure --enable-vmi --enable-tcg-taint --enable-tcg-ir-log
- - make
- - make distclean
+# - make distclean
+# - reset
+# - ./configure --disable-vmi --enable-tcg-taint
+# - make
+# - make distclean
+# - reset
+# - ./configure --enable-vmi --disable-tcg-taint
+# - make
+#- make distclean
+# - reset
+# - ./configure --enable-vmi --enable-tcg-taint
+# - make
+# - make distclean
+# - reset
+# - ./configure --enable-vmi --enable-tcg-taint --enable-tcg-ir-log
+# - make
+# - make distclean
 language: c
