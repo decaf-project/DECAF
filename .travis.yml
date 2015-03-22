@@ -21,7 +21,6 @@ env:
   - Cmd="./configure --enable-vmi --enable-tcg-taint"
   - Cmd="./configure --enable-vmi --enable-tcg-taint --enable-tcg-ir-log"
 
-
 script:
  - $Cmd && make && make distclean && reset
 
