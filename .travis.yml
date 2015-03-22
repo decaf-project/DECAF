@@ -1,31 +1,26 @@
 os:
  - linux
-before_script:
- - sudo apt-get update
- - sudo apt-get install qemu
- - sudo apt-get install binutils
- - sudo apt-get install build-essential
- - sudo apt-get install binutils-dev
- - sudo apt-get install libboost-all-dev
- - cd decaf
-script: 
- - ./configure --disable-vmi --disable-tcg-taint
- - make
- - make distclean
- - reset
- - ./configure --disable-vmi --enable-tcg-taint
- - make
- - make distclean
- - reset
- - ./configure --enable-vmi --disable-tcg-taint
- - make
- - make distclean
- - reset
- - ./configure --enable-vmi --enable-tcg-taint
- - make
- - make distclean
- - reset
- - ./configure --enable-vmi --enable-tcg-taint --enable-tcg-ir-log
- - make
- - make distclean
+
 language: c
+
+
+before_script:
+- sudo apt-get update
+- sudo apt-get install qemu
+- sudo apt-get install binutils
+- sudo apt-get install build-essential
+- sudo apt-get install binutils-dev
+- sudo apt-get install libboost-all-dev
+- cd decaf
+
+env:
+ matrix:
+  - Cmd="./configure --disable-vmi --disable-tcg-taint"
+  - Cmd="./configure --disable-vmi --enable-tcg-taint"
+  - Cmd="./configure --enable-vmi --disable-tcg-taint"
+  - Cmd="./configure --enable-vmi --enable-tcg-taint"
+  - Cmd="./configure --enable-vmi --enable-tcg-taint --enable-tcg-ir-log"
+
+
+script:
+ - $Cmd && make && make distclean && reset
