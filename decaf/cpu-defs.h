@@ -1,4 +1,4 @@
-/*
+  /*
  * common defines for all CPUs
  *
  * Copyright (c) 2003 Fabrice Bellard
