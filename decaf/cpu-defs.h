@@ -53,7 +53,7 @@ typedef uint32_t target_ulong __attribute__((aligned(TARGET_LONG_ALIGNMENT)));
 #elif TARGET_LONG_SIZE == 8
 typedef int64_t target_long __attribute__((aligned(TARGET_LONG_ALIGNMENT)));
 typedef uint64_t target_ulong __attribute__((aligned(TARGET_LONG_ALIGNMENT)));
-#define TARGET_FMT_lx "%016" PRIx64
+#define TARGET_FMT_lx "%016" /*PRIx64*/
 #define TARGET_FMT_ld "%" PRId64
 #define TARGET_FMT_lu "%" PRIu64
 #else

@@ -150,7 +150,7 @@ void DECAF_after_iret_protected(void)
 }
 #endif
 
-int DECAF_get_page_access(CPUState* env, uint32_t addr)
+int DECAF_get_page_access(CPUState* env, /*uint32_t*/target_ulong addr)
 {
     uint32_t pde_addr, pte_addr;
     uint32_t pde, pte;

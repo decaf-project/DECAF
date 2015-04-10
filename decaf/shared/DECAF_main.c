@@ -118,7 +118,7 @@ gpa_t DECAF_get_phys_addr(CPUState* env, gva_t addr)
 
 }
 
-DECAF_errno_t DECAF_memory_rw(CPUState* env, uint32_t addr, void *buf, int len,
+DECAF_errno_t DECAF_memory_rw(CPUState* env, /*uint32_t*/target_ulong addr, void *buf, int len,
 		int is_write) {
 	int l;
 	target_ulong page, phys_addr;
@@ -234,7 +234,7 @@ static TranslationBlock *DECAF_tb_find_slow(CPUState *env, target_ulong pc) {
 }
 
 // This is the same as tb_find_fast except we invalidate at the end
-void DECAF_flushTranslationBlock_env(CPUState *env, uint32_t addr) {
+void DECAF_flushTranslationBlock_env(CPUState *env, /*uint32_t*/target_ulong addr) {
 	TranslationBlock *tb;
 
 	if (env == NULL ) {
@@ -256,7 +256,7 @@ void DECAF_flushTranslationBlock_env(CPUState *env, uint32_t addr) {
 	tb_phys_invalidate(tb, -1);
 }
 
-void DECAF_flushTranslationPage_env(CPUState* env, uint32_t addr)
+void DECAF_flushTranslationPage_env(CPUState* env, /*uint32_t*/target_ulong addr)
 {
 	if (env == NULL ) {
 #ifdef DECAF_NO_FAIL_SAFE
