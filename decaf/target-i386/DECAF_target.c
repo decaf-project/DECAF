@@ -1,4 +1,4 @@
-/*
+ /*
 Copyright (C) <2012> <Syracuse System Security (Sycure) Lab>
 
 DECAF is based on QEMU, a whole-system emulator. You can redistribute
