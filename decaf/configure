@@ -914,9 +914,10 @@ if [ "$softmmu" = "yes" ] ; then
 i386-softmmu \
 arm-softmmu \
 mips-softmmu \
+x86_64-softmmu \
 "
 fi
-#x86_64-softmmu \
+
 #alpha-softmmu \
 #arm-softmmu \
 #cris-softmmu \
