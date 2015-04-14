@@ -913,11 +913,10 @@ if [ "$softmmu" = "yes" ] ; then
     default_target_list="\
 i386-softmmu \
 arm-softmmu \
-mips-softmmu \
 x86_64-softmmu \
 "
 fi
-
+#mips-softmmu \
 #alpha-softmmu \
 #arm-softmmu \
 #cris-softmmu \
