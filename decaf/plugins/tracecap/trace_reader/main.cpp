@@ -1,89 +1,6 @@
 /**
  *  @Author Lok Yan
  */
-#if 0
-//#include <gtk/gtk.h>
-
-#include <signal.h>
-#include <stdio.h>
-#include <unistd.h>
-
-#include <string>
-#include <iostream>
-
-#include "Taint.h"
-
-#include "TraceConverterARM.h"
-
-#include "TraceProcessorX86TraceCompressor.h"
-
-using namespace std;
-
-#include "LibOpcodesWrapper_ARM.h"
-#include "TraceReaderBinX86.h"
-int main(int argc, char* argv[])
-{
-    TraceReaderBinX86 tr;
-    string inFile;
-    string outFile;
-    bool bVerbose = false;
-
-    for (int i = 1; i < argc; i++)
-    {
-        if (strcmp(argv[i], "-i") == 0)
-        {
-            i++;
-            if (i < argc)
-            {
-                inFile = argv[i];
-            }
-            else
-            {
-                std::cout << "Error: Need a filename after -i" << endl;
-                return (-1);
-            }
-        }
-        else if (strcmp(argv[i], "-o") == 0)
-        {
-            i++;
-            if (i < argc)
-            {
-                outFile = argv[i];
-            }
-            else
-            {
-                std::cerr << "Error: Need a filename after -o" << endl;
-                return (-1);
-            }
-        }
-        else if (strcmp(argv[i], "-v") == 0)
-        {
-            bVerbose = true;
-        }
-        else if ((argv[i][0] != '-') && (inFile.empty()))
-        {
-            inFile = argv[i];
-        }
-        else
-        {
-            cerr << "Unknown option [" << argv[i] << endl;
-            return (-1);
-        }
-    }
-
-    if (inFile.empty())
-    {
-        fprintf(stderr, "Need an input file.\n");
-        return (-1);
-    }
-
-    tr.init(inFile, outFile);
-    tr.setVerbose(bVerbose);
-    tr.run();
-}
-
-#endif
-//#if 0
 
 //Here is some sample code that uses the new piper to process a version 41 trace. Note that it require bap's toil program
 
@@ -102,17 +19,6 @@ using namespace boost::program_options;
 #include "TraceReaderBinX86.h"
 #include "TraceProcessorX86Verify.h"
 #include "TraceProcessorX86TaintSummary.h"
-#include "TraceProcessorX86CFA.h"
-#include "TraceProcessorX86DFA.h"
-
-//this one was the start of a tainted DL
-//static std::ifstream::streampos startInterest = 49932042;
-//this one is the start of a taint with T2
-//static std::ifstream::streampos startInterest = 49938996;
-//This is the beginning of the tainted area for ubuntu.904
-//static std::ifstream::streampos startInterest = 85428141;
-//this is the beginning for cmpxchg
-static std::ifstream::streampos startInterest = 13952644;
 
 //hostfile is created by gcc -nostdlib -nostdinc -m32 host.s -o hostfile
 // and then stripped to reduce the size using strip hostfile
@@ -229,8 +135,6 @@ main(int argc, char **argv)
     TraceReaderBinX86 tr;
     // TraceProcessorX86Verify bapVerifier(false, true);
     // TraceProcessorX86TaintSummary taintSummary(true);
-    TraceProcessorX86CFA cfa;
-    TraceProcessorX86DFA dfa;
     SummaryPrinter sum_printer;
     BapPrinter bap_printer(g_bVerbose);
 
@@ -260,10 +164,7 @@ main(int argc, char **argv)
         counter++;
         //grab a reference to the current instruction
         const TRInstructionX86& insn = tr.getCurInstruction();
-
-        //cfa.processInstruction(insn);
-        dfa.processInstruction(insn);
-
+        
         if (g_bBAP)
         {
             cout << "************************************************" << endl;
@@ -289,18 +190,6 @@ main(int argc, char **argv)
 
     //ofstream of("cfg.dot");
     //write_graphviz(of, cfa.m_CFG);
-
-    for (int i = 0; i < dfa.m_UseDef.size(); i++)
-    {
-        set<unsigned long>::iterator iter;
-
-        cout << i << ": ";
-        for (iter = dfa.m_UseDef[i].begin(); iter != dfa.m_UseDef[i].end();
-                iter++)
-            cout << *iter << " ";
-
-        cout << endl;
-    }
 
     printf("[%lu] Instructions Decoded\n", counter);
 
