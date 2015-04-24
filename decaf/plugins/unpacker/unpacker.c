@@ -29,9 +29,6 @@
 
 #include "config.h"
 
-//change begin
-// for DECAF TEMU_lib.h to DECAF_main.h DECAF_main_x86.h DECAF_callback.h
-
 #include "DECAF_main.h"
 #include "DECAF_callback.h"
 #include "DECAF_target.h"
@@ -174,10 +171,8 @@ static void dump_unpacked_code()
   char filename[128];
   taint_record_t records[4];
 
-  //DECAF change
-  DECAF_read_register(eip_reg,&eip);
-  DECAF_read_register(cr3_reg,&cr3);
-  //end
+  eip = DECAF_getPC(cpu_single_env);
+  cr3 = DECAF_getPGD(cpu_single_env);
 
   //we just dump one page
   start_va = (eip & TARGET_PAGE_MASK);
@@ -208,43 +203,44 @@ static void dump_unpacked_code()
 int inContext = 0;
 static void unpacker_block_begin(DECAF_Callback_Params*dcp)
 {
-
+	CPUState *env = dcp->bb.env;
 	/*
 	 * check current instruction:
 	 * if it belongs to the examined process, and
 	 * if it is clean, dump the region
 	*/
-	uint32_t eip, cr3;//Need change for DECAF
+	uint32_t eip, cr3; 
 	if(unpack_basename[0] == '\0')
 		return ;
-	DECAF_read_register(cr3_reg,&cr3);
+
+	cr3 = DECAF_getPGD(env);
 	if(unpack_cr3 == 0) {
 		char current_proc[256];
 		uint32_t pid;
-	//	find_process(cr3, current_proc,sizeof(current_proc), &pid);  //Need change for DECAF
 
-		VMI_find_process_by_cr3_c(cr3, current_proc, sizeof(current_proc), &pid );
+		VMI_find_process_by_cr3_c(cr3, current_proc, sizeof(current_proc), &pid);
 		if(strcasecmp(current_proc, unpack_basename) != 0)
 		  return ;
 		unpack_cr3 = cr3;
 	}
-	inContext = (unpack_cr3 == cr3) && (!DECAF_is_in_kernel(dcp->ib.env)); //change end
-	DECAF_read_register(eip_reg, &eip);//change end
+	inContext = (unpack_cr3 == cr3) && (!DECAF_is_in_kernel(dcp->ib.env)); 
+	eip = DECAF_getPC(env);
 	if (!inContext)
 		return ;
 
 /* Changed by Aravind: arprakas@syr.edu */
-    uint64_t mybitmap=0;
-    mybitmap=check_mem_mark(eip,1);
-    if(mybitmap>0){
-    	DECAF_printf("will dump this region: eip=%08x \n", eip);
-    	DECAF_printf("Suspicious activity!\n");
-    	fprintf(unpacker_log, "suspcious instruction: eip=%08x \n", eip);
-    	fflush(unpacker_log);
-    	dump_unpacked_code();
-    	cur_version++;
-    }
-    return ;
+    	uint64_t mybitmap=0;
+    	mybitmap=check_mem_mark(eip,1);
+    	if(mybitmap>0){
+    		DECAF_printf("will dump this region: eip=%08x \n", eip);
+    		DECAF_printf("Suspicious activity!\n");
+    		fprintf(unpacker_log, "suspcious instruction: eip=%08x \n", eip);
+    		fflush(unpacker_log);
+    		dump_unpacked_code();
+    		cur_version++;
+    	}
+
+    	return ;
 }
 //change add
 static void unpacker_module_loaded(VMI_Callback_Params *pcp)
