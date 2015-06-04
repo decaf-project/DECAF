@@ -126,7 +126,7 @@ static void get_new_modules_x86(CPUState* env, process * proc)
 
 	set<target_ulong> module_bases;
 	
-	bool extending = false;
+	
 	target_ulong ts_mm, mm_mmap, vma_curr, vma_file, f_dentry, vma_next=NULL;
 	const int MAX_LOOP_COUNT = 1024;	// prevent infinite loop
 	target_ulong vma_vm_start = 0, vma_vm_end = 0;
@@ -153,7 +153,7 @@ static void get_new_modules_x86(CPUState* env, process * proc)
 
 // AVB, changed logic of module updation
 	for (size_t count = MAX_LOOP_COUNT; count--; ) {
-		extending = false;
+
 			
 		// read start of curr vma
 		if (DECAF_read_mem(env, vma_curr + OFFSET_PROFILE.vma_vm_start, sizeof(target_ptr), &vma_vm_start) < 0)
