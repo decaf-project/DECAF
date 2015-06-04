@@ -331,7 +331,7 @@ int VMI_remove_process(uint32_t pid)
 
 
 
-int VMI_insert_module(uint32_t pid, uint32_t base, module *mod)
+int VMI_insert_module(uint32_t pid, target_ulong base, module *mod)
 {
 	VMI_Callback_Params params;
 	params.lm.pid = pid;

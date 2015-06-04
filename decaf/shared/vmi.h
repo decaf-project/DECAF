@@ -38,6 +38,8 @@ public:
 	uint16_t major;
 	uint16_t minor;
 	bool	symbols_extracted;
+	target_ulong mod_start;
+	target_ulong mod_end;
 	unordered_map < uint32_t, string> function_map_offset;
 	unordered_map < string, uint32_t> function_map_name;
 };
