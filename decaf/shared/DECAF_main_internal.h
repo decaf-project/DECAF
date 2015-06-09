@@ -19,11 +19,6 @@ http://code.google.com/p/decaf-platform/
 #include "monitor.h"
 
 
-#define PAGE_LEVEL 0
-#define BLOCK_LEVEL 1
-#define ALL_CACHE 2
-
-
 /**
  * Flush related structs
  */
@@ -34,7 +29,7 @@ typedef struct __flush_list flush_list;
 
 struct __flush_node{
 	int type; //Type of cache to flush
-	target_ulong addr;
+	 uint32_t addr;
 	flush_node *next;
 };
 
@@ -48,9 +43,7 @@ extern struct __flush_list flush_list_internal;
 
 
 
-void flush_list_insert(flush_list *list, int type, target_ulong addr);
-
-void DECAF_perform_flush(CPUState* env);
+extern void flush_list_insert(flush_list *list, int type, uint32_t addr);
 
 
 

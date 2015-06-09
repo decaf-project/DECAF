@@ -55,6 +55,11 @@ extern "C" {
 };
 #endif /* __cplusplus */
 
+
+#define PACKAGE "decaf_linux_readelf"
+#define PACKAGE_VERSION "1.0.0"
+
+
 #include "DECAF_main.h"
 #include "DECAF_target.h"
 #include "shared/vmi.h"

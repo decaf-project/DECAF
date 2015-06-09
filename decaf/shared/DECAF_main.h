@@ -42,6 +42,10 @@ extern "C"
 
 
 
+#define PAGE_LEVEL 0
+#define BLOCK_LEVEL 1
+#define ALL_CACHE 2
+
 
 
 
@@ -196,7 +200,9 @@ extern int DECAF_emulation_started; //will be removed
  * @param env The cpu context
  * @param addr The block's address
  */
-void DECAF_flushTranslationBlock_env(CPUState* env, gva_t addr);
+extern void DECAF_flushTranslationBlock_env(CPUState* env, gva_t addr);
+
+void DECAF_perform_flush(CPUState* env);
 
 /**
  * Flush - or invalidate - all translation blocks for the page in addr.
@@ -236,13 +242,7 @@ static inline void DECAF_flushTranslationPage(uint32_t addr)
 }
 
 //Iterates through all virtual cpus and flushes the pages
-static inline void DECAF_flushTranslationCache(int type,target_ulong addr)
-{
-
-	flush_list_insert(&flush_list_internal,type,addr);
-
-  
-}
+void DECAF_flushTranslationCache(int type,target_ulong addr);
 
 /* Static in monitor.c for QEMU, but we use it for plugins: */
 ///send a keystroke into the guest system
