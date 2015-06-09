@@ -42,38 +42,6 @@ extern "C"
 
 
 
-#define PAGE_LEVEL 0
-#define BLOCK_LEVEL 1
-#define ALL_CACHE 2
-
-
-/**
- * Flush related structs
- */
-typedef struct __flush_node flush_node;
-typedef struct __flush_list flush_list;
-
-
-
-struct __flush_node{
-	int type; //Type of cache to flush
-	target_ulong addr;
-	flush_node *next;
-};
-
-struct __flush_list {
-	flush_node *head;
-	size_t size;
-};
-
-
-extern struct __flush_list flush_list_internal;
-
-
-
-void flush_list_insert(flush_list *list, int type, target_ulong addr);
-
-void DECAF_perform_flush(CPUState* env);
 
 
 
@@ -270,7 +238,6 @@ static inline void DECAF_flushTranslationPage(uint32_t addr)
 //Iterates through all virtual cpus and flushes the pages
 static inline void DECAF_flushTranslationCache(int type,target_ulong addr)
 {
-  	CPUState* env;
 
 	flush_list_insert(&flush_list_internal,type,addr);
 

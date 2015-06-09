@@ -94,7 +94,7 @@ __asm__ __volatile__ ("push %rax");
 //The idea behind the page level callback is for API level
 // instrumentation where modules are normally separated at the
 // page level. Block end callbacks are a little bit special
-// since the callback can be set for both the from and to
+// since the callback can be set for both the 'from' and 'to'
 // addresses. In this way, you can specify callbacks only for
 // the transitions between a target module and the libc library
 // for example. For simplicity sake we only provide page-level optimized
@@ -304,7 +304,6 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
       if (CountingHashtable_add(pOBBTable, addr) == 1)
       {
       	DECAF_flushTranslationCache(BLOCK_LEVEL,addr);
-        //DECAF_flushTranslationBlock(addr);
       }
       break;
     }
@@ -329,7 +328,6 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
       if (CountingHashtable_add(pOBBPageTable, addr) == 1)
       {
       	DECAF_flushTranslationCache(PAGE_LEVEL,addr);
-        //DECAF_flushTranslationPage(addr);
       }
       break;
     }
@@ -412,8 +410,6 @@ DECAF_errno_t DECAF_unregisterOpcodeRangeCallbacks(DECAF_Handle handle)
 
 		free(cb_struct);
 
-		// tb_flush(cpu_single_env);
-
 		return 0;
 	}
 
@@ -465,7 +461,6 @@ DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
     if (CountingHashtable_add(pOBEFromPageTable, from & TARGET_PAGE_MASK) == 1)
     {
     	DECAF_flushTranslationCache(PAGE_LEVEL,from);
-      //DECAF_flushTranslationPage(from);
     }
   }
   else if (from == INV_ADDR)
@@ -494,7 +489,6 @@ DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
     if (CountingHashmap_add(pOBEPageMap, from & TARGET_PAGE_MASK, to & TARGET_PAGE_MASK) == 1)
     {
 	    DECAF_flushTranslationCache(PAGE_LEVEL,from);
-      //DECAF_flushTranslationPage(from);
     }
   }
 
@@ -609,10 +603,7 @@ DECAF_errno_t DECAF_unregisterOptimizedBlockBeginCallback(DECAF_Handle handle)
         }
         if (CountingHashtable_remove(pOBBPageTable, cb_struct->from) == 0)
         {
-          //Heng: Comment out the line below, so we don't flush the translation page immediately.
-
 			DECAF_flushTranslationCache(PAGE_LEVEL,cb_struct->from);
-		  //DECAF_flushTranslationPage(cb_struct->from);
         }
         break;
       }

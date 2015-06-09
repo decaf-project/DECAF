@@ -55,14 +55,6 @@ extern "C" {
 };
 #endif /* __cplusplus */
 
-
-
-
-
-#define PACKAGE "your-program-name"
-#define PACKAGE_VERSION "1.2.3"
-
-
 #include "DECAF_main.h"
 #include "DECAF_target.h"
 #include "shared/vmi.h"
