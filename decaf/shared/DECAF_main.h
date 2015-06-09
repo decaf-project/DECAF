@@ -23,18 +23,59 @@ http://code.google.com/p/decaf-platform/
  *  are in the target directory in DECAF_main_x86.h and .c for example
  */
 
-#ifndef DECAF_MAIN_H_
-#define DECAF_MAIN_H_
 
 #include "qemu-common.h"
 #include "monitor.h"
 #include "DECAF_types.h"
 #include "blockdev.h"
 
+#ifndef DECAF_MAIN_H_
+#define DECAF_MAIN_H_
+
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+
+
+
+
+#define PAGE_LEVEL 0
+#define BLOCK_LEVEL 1
+#define ALL_CACHE 2
+
+
+/**
+ * Flush related structs
+ */
+typedef struct __flush_node flush_node;
+typedef struct __flush_list flush_list;
+
+
+
+struct __flush_node{
+	int type; //Type of cache to flush
+	target_ulong addr;
+	flush_node *next;
+};
+
+struct __flush_list {
+	flush_node *head;
+	size_t size;
+};
+
+
+extern struct __flush_list flush_list_internal;
+
+
+
+void flush_list_insert(flush_list *list, int type, target_ulong addr);
+
+void DECAF_perform_flush(CPUState* env);
+
+
 
 /*************************************************************************
  * The Plugin interface comes first
@@ -172,14 +213,14 @@ int DECAF_bdrv_pread(void *bs, int64_t offset, void *buf, int count); //for Sleu
 
 extern int DECAF_emulation_started; //will be removed
 
-//In DECAF - we do not use the same-per vcpu flushing behavior as in QEMU. For example
+// In DECAF - we do not use the same-per vcpu flushing behavior as in QEMU. For example
 // DECAF_flushTranslationCache is a wrapper for tb_flush that iterates through all of
 // the virtual CPUs and calls tb_flush on that particular environment. The main reasoning
 // behind this decision is that the user wants to know when an event occurs for any
 // vcpu and not only for specific ones. This idea can change in the future of course.
 // We have yet to decide how to handle multi-core analysis, at the program abstraction
 // level or at the thread execution level or at the virtual cpu core level?
-//No matter what the decision, flushing can occur using the CPUState as in QEMU
+// No matter what the decision, flushing can occur using the CPUState as in QEMU
 // or using DECAF's wrappers.
 
 /**
@@ -227,24 +268,25 @@ static inline void DECAF_flushTranslationPage(uint32_t addr)
 }
 
 //Iterates through all virtual cpus and flushes the pages
-static inline void DECAF_flushTranslationCache(void)
+static inline void DECAF_flushTranslationCache(int type,target_ulong addr)
 {
-  CPUState* env;
-  // DECAF_stop_vm();
-  for(env = first_cpu; env != NULL; env = env->next_cpu)
-  {
-    g_bNeedFlush = 1;
-     // tb_flush(env);
-  }
-  // DECAF_start_vm();
+  	CPUState* env;
+
+	flush_list_insert(&flush_list_internal,type,addr);
+
+  
 }
 
 /* Static in monitor.c for QEMU, but we use it for plugins: */
 ///send a keystroke into the guest system
 extern void do_send_key(const char *string);
 
+
+
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* DECAF_MAIN_H_ */
+

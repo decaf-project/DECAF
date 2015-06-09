@@ -50,6 +50,11 @@ static FILE *decaflog = NULL;
 
 int should_monitor = 1;
 
+struct __flush_list flush_list_internal;
+
+
+
+
 mon_cmd_t DECAF_mon_cmds[] = {
 #include "DECAF_mon_cmds.h"
 		{ NULL, NULL , }, };
@@ -272,6 +277,61 @@ void DECAF_flushTranslationPage_env(CPUState* env, /*uint32_t*/target_ulong addr
 				tb->page_addr[0] + TARGET_PAGE_SIZE, 0);
 	}
 }
+
+/* Method to insert into the flush linked list, 
+   It holds a list of all the flushes that need to be performed
+   Flushed can be BLOCK_LEVEL, PAGE_LEVEL or ALL_CACHE, which is a flush
+	of the complete cache */
+
+void flush_list_insert(flush_list *list, int type, target_ulong addr)  {
+		
+	++list->size;
+	flush_node *temp=list->head;
+	flush_node *to_insert=(flush_node *)malloc(sizeof(flush_node));
+	to_insert->type=type;
+	to_insert->next=NULL;
+	to_insert->addr=addr;
+	
+	if(temp==NULL) {
+		list->head=to_insert;
+		return;
+	}
+
+	while(temp->next !=NULL) {
+		temp=temp->next;
+	}
+
+	temp->next=to_insert;
+}
+
+/* Method to perform flush, this is performed right before TB_fast_lookup()
+	in the main loop of QEMU */
+
+void DECAF_perform_flush(CPUState* env)
+{
+	//TO DO, Empty this list as its traversed,
+	flush_node *prev,*temp=flush_list_internal.head;
+	while(temp!=NULL) {
+		switch (temp->type) {
+			case BLOCK_LEVEL: 
+				DECAF_flushTranslationBlock(temp->addr);
+				break;
+			case PAGE_LEVEL: 
+				DECAF_flushTranslationPage(temp->addr);
+				break;
+			case ALL_CACHE:
+				tb_flush(env);
+				break;
+		}
+		prev=temp;
+		temp=temp->next;
+		prev->next=NULL;
+		free(prev);
+	}
+	flush_list_internal.head=NULL;
+	flush_list_internal.size=0;
+}
+
 
 int do_load_plugin(Monitor *mon, const QDict *qdict, QObject **ret_data) {
 	do_load_plugin_internal(mon, qdict_get_str(qdict, "filename"));

@@ -287,7 +287,8 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
       {
         //Perhaps we should flush ALL blocks instead of
         // just the ones associated with this env?
-        DECAF_flushTranslationCache();
+        // tlb_flush() does that exactly
+        DECAF_flushTranslationCache(ALL_CACHE,0);
       }
 
       break;
@@ -302,7 +303,8 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
       //This is not necessarily thread-safe
       if (CountingHashtable_add(pOBBTable, addr) == 1)
       {
-        DECAF_flushTranslationBlock(addr);
+      	DECAF_flushTranslationCache(BLOCK_LEVEL,addr);
+        //DECAF_flushTranslationBlock(addr);
       }
       break;
     }
@@ -326,7 +328,8 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
       //This is not necessarily thread-safe
       if (CountingHashtable_add(pOBBPageTable, addr) == 1)
       {
-        DECAF_flushTranslationPage(addr);
+      	DECAF_flushTranslationCache(PAGE_LEVEL,addr);
+        //DECAF_flushTranslationPage(addr);
       }
       break;
     }
@@ -378,7 +381,7 @@ DECAF_Handle DECAF_registerOpcodeRangeCallbacks (
 	LIST_INSERT_HEAD(&callback_list_heads[DECAF_OPCODE_RANGE_CB], cb_struct, link);
 
 	//Flush the tb
-  DECAF_flushTranslationCache();
+  	DECAF_flushTranslationCache(ALL_CACHE,0);
 
 	return (DECAF_Handle)cb_struct;
 }
@@ -448,7 +451,7 @@ DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
     bEnableAllBlockEndCallbacks = 1;
     if (enableAllBlockEndCallbacksCount == 1)
     {
-      DECAF_flushTranslationCache();
+      DECAF_flushTranslationCache(ALL_CACHE,0);
     }
   }
   else if (to == INV_ADDR) //this means only looking at the FROM list
@@ -461,7 +464,8 @@ DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
 
     if (CountingHashtable_add(pOBEFromPageTable, from & TARGET_PAGE_MASK) == 1)
     {
-      DECAF_flushTranslationPage(from);
+    	DECAF_flushTranslationCache(PAGE_LEVEL,from);
+      //DECAF_flushTranslationPage(from);
     }
   }
   else if (from == INV_ADDR)
@@ -475,7 +479,7 @@ DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
 
     if (CountingHashtable_add(pOBEToPageTable, to & TARGET_PAGE_MASK) == 1)
     {
-      DECAF_flushTranslationCache();
+      DECAF_flushTranslationCache(ALL_CACHE,0);
     }
   }
   else
@@ -489,7 +493,8 @@ DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
     //if we are here then that means we need the hashmap
     if (CountingHashmap_add(pOBEPageMap, from & TARGET_PAGE_MASK, to & TARGET_PAGE_MASK) == 1)
     {
-      DECAF_flushTranslationPage(from);
+	    DECAF_flushTranslationCache(PAGE_LEVEL,from);
+      //DECAF_flushTranslationPage(from);
     }
   }
 
@@ -533,8 +538,10 @@ DECAF_Handle DECAF_register_callback(
 	  goto insert_callback; //Should not flush for tlb callbacks since they don't go into tb.
 #endif
 
+
+// AVB ,Do we need a flush here?
   if(LIST_EMPTY(&callback_list_heads[cb_type]))
-    DECAF_flushTranslationCache();
+    DECAF_flushTranslationCache(ALL_CACHE,0);
 #ifdef CONFIG_VMI_ENABLE
 insert_callback:
 #endif
@@ -566,7 +573,7 @@ DECAF_errno_t DECAF_unregisterOptimizedBlockBeginCallback(DECAF_Handle handle)
         {
           bEnableAllBlockBeginCallbacks = 0;
           //if its now zero flush the cache
-          // DECAF_flushTranslationCache();
+          DECAF_flushTranslationCache(ALL_CACHE,0);
         }
         else if (enableAllBlockBeginCallbacksCount < 0)
         {
@@ -590,7 +597,7 @@ DECAF_errno_t DECAF_unregisterOptimizedBlockBeginCallback(DECAF_Handle handle)
           //Guest kernel reboot is observed if we immediately flush the translation block. So I 
           //decide not to do so. It may even help to improve performance in certain cases.
 
-          //DECAF_flushTranslationBlock(cb_struct->from);
+          DECAF_flushTranslationCache(BLOCK_LEVEL,cb_struct->from);
         }
         break;
       }
@@ -603,7 +610,9 @@ DECAF_errno_t DECAF_unregisterOptimizedBlockBeginCallback(DECAF_Handle handle)
         if (CountingHashtable_remove(pOBBPageTable, cb_struct->from) == 0)
         {
           //Heng: Comment out the line below, so we don't flush the translation page immediately.
-          //DECAF_flushTranslationPage(cb_struct->from);
+
+			DECAF_flushTranslationCache(PAGE_LEVEL,cb_struct->from);
+		  //DECAF_flushTranslationPage(cb_struct->from);
         }
         break;
       }
@@ -638,7 +647,7 @@ int DECAF_unregisterOptimizedBlockEndCallback(DECAF_Handle handle)
       enableAllBlockEndCallbacksCount--;
       if (enableAllBlockEndCallbacksCount == 0)
       {
-        // DECAF_flushTranslationCache();
+        DECAF_flushTranslationCache(ALL_CACHE,0);
         bEnableAllBlockEndCallbacks = 0;
       }
       else if (enableAllBlockEndCallbacksCount < 0)
@@ -652,7 +661,7 @@ int DECAF_unregisterOptimizedBlockEndCallback(DECAF_Handle handle)
       gva_t from = cb_struct->from & TARGET_PAGE_MASK;
       if (CountingHashtable_remove(pOBEFromPageTable, from) == 0)
       {
-        // DECAF_flushTranslationPage(from);
+        DECAF_flushTranslationCache(PAGE_LEVEL,from);
       }
     }
     else if (cb_struct->from == INV_ADDR)
@@ -660,11 +669,12 @@ int DECAF_unregisterOptimizedBlockEndCallback(DECAF_Handle handle)
       gva_t to = cb_struct->to & TARGET_PAGE_MASK;
       if (CountingHashtable_remove(pOBEToPageTable, to) == 0)
       {
-        // DECAF_flushTranslationCache();
+       	DECAF_flushTranslationCache(ALL_CACHE,0);
       }
     }
     else if (CountingHashmap_remove(pOBEPageMap, cb_struct->from & TARGET_PAGE_MASK, cb_struct->to & TARGET_PAGE_MASK) == 0)
     {
+    	DECAF_flushTranslationCache(PAGE_LEVEL,cb_struct->from & TARGET_PAGE_MASK);
       // DECAF_flushTranslationPage(cb_struct->from & TARGET_PAGE_MASK);
     }
 
@@ -707,7 +717,7 @@ int DECAF_unregister_callback(DECAF_callback_type_t cb_type, DECAF_Handle handle
     //Aravind - If going from non-empty to empty. Flush needed
     if(LIST_EMPTY(&callback_list_heads[cb_type]))
     {
-      // DECAF_flushTranslationCache();
+       DECAF_flushTranslationCache(ALL_CACHE,0);
     }
 
 #ifdef CONFIG_VMI_ENABLE
@@ -926,7 +936,7 @@ POP_ALL()
 void helper_DECAF_invoke_insn_end_callback(CPUState* env)
 {
 	static callback_struct_t *cb_struct, *cb_temp;
-        static DECAF_Callback_Params params;
+    static DECAF_Callback_Params params;
 
 	if (env == 0) return;
 	params.ie.env = env;
