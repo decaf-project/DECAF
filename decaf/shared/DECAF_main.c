@@ -283,7 +283,7 @@ void DECAF_flushTranslationPage_env(CPUState* env, /*uint32_t*/target_ulong addr
    Flushed can be BLOCK_LEVEL, PAGE_LEVEL or ALL_CACHE, which is a flush
 	of the complete cache */
 
-void flush_list_insert(flush_list *list, int type,  uint32_t addr )  {
+void flush_list_insert(flush_list *list, int type, unsigned int addr )  {
 		
 	++list->size;
 	flush_node *temp=list->head;

@@ -20,16 +20,14 @@ http://code.google.com/p/decaf-platform/
 
 
 /**
- * Flush related structs
+ * Flush related structs AVB
  */
 typedef struct __flush_node flush_node;
 typedef struct __flush_list flush_list;
 
-
-
 struct __flush_node{
 	int type; //Type of cache to flush
-	 uint32_t addr;
+	unsigned int addr;
 	flush_node *next;
 };
 
@@ -41,9 +39,7 @@ struct __flush_list {
 
 extern struct __flush_list flush_list_internal;
 
-
-
-extern void flush_list_insert(flush_list *list, int type, uint32_t addr);
+extern void flush_list_insert(flush_list *list, int type, unsigned int addr);
 
 
 
