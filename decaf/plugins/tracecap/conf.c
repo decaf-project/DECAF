@@ -19,7 +19,11 @@
 #include "conditions.h"
 #include "network.h"
 #include "conf.h"
-//#include "config-plugin.h" // AWH
+/* llconf */
+#include "modules.h"
+#include "parsers/ini.h"
+#include "nodes.h"
+#include "entry.h"
 
 /* Default configuration flags */
 int conf_trace_only_after_first_taint = 1;
