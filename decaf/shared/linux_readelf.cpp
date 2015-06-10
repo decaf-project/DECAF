@@ -42,6 +42,8 @@
 #include <math.h>
 #include <glib.h>
 #include <mcheck.h>
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -52,6 +54,11 @@ extern "C" {
 #ifdef __cplusplus
 };
 #endif /* __cplusplus */
+
+
+#define PACKAGE "decaf_linux_readelf"
+#define PACKAGE_VERSION "1.0.0"
+
 
 #include "DECAF_main.h"
 #include "DECAF_target.h"
@@ -74,6 +81,7 @@ extern "C" {
 #include "elf/external.h"
 #include "elf/internal.h"
 
+   
 /* The following headers use the elf/reloc-macros.h file to
    automatically generate relocation recognition functions
    such as elf_mips_reloc_type()  */
