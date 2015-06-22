@@ -115,7 +115,7 @@ static inline int unresolved_attempt(process *proc, uint32_t addr)
 
 void extract_symbols_info(CPUState *env, uint32_t cr3, target_ulong start_addr, module * mod)
 {
-	if ( mod->symbols_extracted = read_elf_info(env, cr3, mod->name, start_addr, mod->size) ) {
+	if ( mod->symbols_extracted = read_elf_info(env, cr3, mod->name, start_addr, mod->size, 0) ) {
 		monitor_printf(default_mon, "mod %s (start_addr = 0x%08x, end_addr = 0x%08x) is extracted \n", mod->name, start_addr, (start_addr + mod->size));
 	}
 }
