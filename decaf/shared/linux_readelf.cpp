@@ -70,10 +70,10 @@ extern "C" {
 #include "function_map.h"
 #include "shared/utils/SimpleCallback.h"
 #include "linux_readelf.h"
+//#include <elfio/elfio.hpp>
 #include "shared/elfio/elfio.hpp"
 
-
-//#include "shared/DECAF_fileio.h"
+#include "shared/DECAF_fileio.h"
 
 
 #if HOST_LONG_BITS == 64
@@ -92,11 +92,6 @@ extern "C" {
 using namespace ELFIO;
 
 
-// NOTE: I will uncomment this in the next commit, 
-// This commit is only to replace the elf library with the new elf library
-// I have had to change this as it had dependencies with that old library
-
-#if 0
 /* Call back action for file_walk
  */
 static TSK_WALK_RET_ENUM
@@ -106,9 +101,9 @@ write_action(TSK_FS_FILE * fs_file, TSK_OFF_T a_off, TSK_DADDR_T addr,
     if (size == 0)
         return TSK_WALK_CONT;
 
-   std::string *sp = static_cast<std::string*>(ptr);
+	std::string *sp = static_cast<std::string*>(ptr);
 
-   sp->append(buf,size);
+	sp->append(buf,size);
 
     return TSK_WALK_CONT;
 }
@@ -117,79 +112,82 @@ write_action(TSK_FS_FILE * fs_file, TSK_OFF_T a_off, TSK_DADDR_T addr,
 
 // register symbol to DECAF
 static void register_symbol(const char * mod_name, const char * func_name,
-      const target_ulong func_addr)
+		const target_ulong func_addr)
 {
-   funcmap_insert_function(mod_name, func_name, func_addr);
+	funcmap_insert_function(mod_name, func_name, func_addr);
 }
-#endif
 
 
 
 /* Process one ELF object */
-int read_elf_info(CPUState *env, uint32_t cr3, const char * mod_name, target_ulong start_addr, uint64_t size, unsigned int inode_number) {
+int read_elf_info(const char * mod_name, target_ulong start_addr, unsigned int inode_number) {
 
-#if 0
-   int print = 0 ;
-   bool header_present;
-   
-   //FILE *fp = fopen ("funcs.log", "a+");
+	FILE *fp;
+	fp = fopen("exported_symbols.log","a");
 
-   if(strstr(mod_name,".so") != NULL)
-      fprintf(fp,"%d\n",++counter);
+	
+	bool header_present;	
+	TSK_FS_FILE *file_fs = tsk_fs_file_open_meta(disk_info_internal[0].fs, NULL, (TSK_INUM_T)inode_number);
 
-   
-   TSK_FS_FILE *file_fs = tsk_fs_file_open_meta(disk_info_internal[0].fs, NULL, (TSK_INUM_T)inode_number);
+	void *file_stream = static_cast<void*>(new std::string());
+	std::string *local_copy = static_cast<std::string*>(file_stream);
+	
+	int ret = 0;
+	ret = tsk_fs_file_walk(file_fs, TSK_FS_FILE_WALK_FLAG_NONE, write_action, file_stream);
 
-   void *file_stream = static_cast<void*>(new std::string());
-   std::string *local_copy = static_cast<std::string*>(file_stream);
-   
-   int ret = 0;
-   ret = tsk_fs_file_walk(file_fs, TSK_FS_FILE_WALK_FLAG_NONE, write_action, file_stream);
+	std::istringstream is(*local_copy);
+	
+	elfio reader;
+	Elf64_Addr elf_entry;
+	bool found = false;
+	header_present = reader.load(is);
+	
+	
+    Elf_Half seg_num = reader.segments.size();
+    std::cout << "Number of segments: " << seg_num << std::endl;
+    for ( int i = 0; i < seg_num; ++i ) {
+        const segment* pseg = reader.segments[i];
 
-   std::istringstream is(*local_copy);
-   
-   elfio reader;
-   Elf64_Addr elf_entry;
-   header_present = reader.load(is);
+		if(pseg->get_type() == PT_LOAD) {
+			elf_entry = pseg->get_virtual_address();
+			found = true;
+		}
+		if(found)
+			break;
+    }
 
-   if(header_present)
-      elf_entry = reader.get_entry();
-   else
-      elf_entry = start_addr;
+	
+	Elf_Half sec_num = reader.sections.size();
+	for ( int i = 0; i < sec_num; ++i ) {
+		section* psec = reader.sections[i];
+		// Check section type
+		if ( psec->get_type() == SHT_DYNSYM || psec->get_type() == SHT_SYMTAB) {
 
-   
-   Elf_Half sec_num = reader.sections.size();
+			const symbol_section_accessor symbols( reader, psec );
+			for ( unsigned int j = 0; j < symbols.get_symbols_num(); ++j ) {
+				std::string   name;
+				Elf64_Addr	  value;
+				Elf_Xword	  size;
+				unsigned char bind;
+				unsigned char type;
+				Elf_Half	  section_index;
+				unsigned char other;
+				
+				// Read symbol properties
+				symbols.get_symbol( j, name, value, size, bind,
+									   type, section_index, other );
+				//if( size>0  &&  type == STT_FUNC  && ( bind == STB_GLOBAL || bind == STB_WEAK  ) ) {
+				if(type == STT_FUNC ) {
+					register_symbol(mod_name, name.c_str(), (value-elf_entry));
+					fprintf(fp, "mod_name=\"%s\" elf_name=\"%s\" base_addr=\"%x\" func_addr= \"%x\" \n",mod_name, name.c_str(),elf_entry ,value);
+					fflush(fp);
+				}
+			}
+		}
+	}
 
-   for ( int i = 0; i < sec_num; ++i ) {
-      section* psec = reader.sections[i];
-      // Check section type
-      if ( psec->get_type() == SHT_DYNSYM || psec->get_type() == SHT_SYMTAB) {
-
-         const symbol_section_accessor symbols( reader, psec );
-         for ( unsigned int j = 0; j < symbols.get_symbols_num(); ++j ) {
-            std::string   name;
-            Elf64_Addr    value;
-            Elf_Xword     size;
-            unsigned char bind;
-            unsigned char type;
-            Elf_Half   section_index;
-            unsigned char other;
-            
-            // Read symbol properties
-            symbols.get_symbol( j, name, value, size, bind,
-                              type, section_index, other );
-            if(size>0  && type == STT_FUNC && ( bind == STB_GLOBAL || bind == STB_WEAK ) ) {
-               register_symbol(mod_name, name.c_str(), (elf_entry-start_addr));
-               //fprintf(fp, "mode name=%s elf section name= %s base_addr= %x func_addr= %x\n",mod_name, name.c_str(),elf_entry ,value);
-            }
-         }
-      }
-   }
-
-   //fclose(fp);
-   return true;
-
-   #endif
+	fclose(fp);
+    return true;
 }
 
 

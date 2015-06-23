@@ -61,6 +61,16 @@ target_ulong funcmap_get_pc(const char *module_name, const char *function_name, 
 	if(!mod)
 		return 0;
 
+
+	/* AVB: For Linux, we do not extract exported symbols regularly when the modules are discovered
+	 * Instead we just extract the `inode number' belonging to the module and do the extraction
+	 * when there is a request for a mapping from pc-->function_name or function_name-->pc.
+	 * This function does symbol extraction of the module specified in `mod' if not already done
+	 * 
+	 * For Windows though, this function just returns.
+	 */
+	VMI_extract_symbols(mod,base);
+	
 	map<string, map<string, uint32_t> >::iterator iter = map_function_offset.find(module_name);
 	if(iter == map_function_offset.end())
 		return 0;
@@ -79,6 +89,16 @@ int funcmap_get_name(target_ulong pc, target_ulong cr3, string &mod_name, string
 	if(!mod)
 		return -1;
 
+	/* AVB: For Linux, we do not extract exported symbols regularly when the modules are discovered
+	 * Instead we just extract the `inode number' belonging to the module and do the extraction
+	 * when there is a request for a mapping from pc-->function_name or function_name-->pc.
+	 * This function does symbol extraction of the module specified in `mod' if not already done
+	 * 
+	 * For Windows though, this function just returns.
+	 */
+	VMI_extract_symbols(mod,base);
+
+	
 	map<string, map<uint32_t, string> >::iterator iter = map_offset_function.find(mod->name);
 	if (iter == map_offset_function.end())
 		return -1;

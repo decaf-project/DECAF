@@ -40,6 +40,12 @@ public:
 	bool	symbols_extracted;
 	unordered_map < uint32_t, string> function_map_offset;
 	unordered_map < string, uint32_t> function_map_name;
+	unsigned int inode_number;
+
+	module()
+	{
+		this->inode_number = 0;
+	}
 };
 
 
@@ -93,6 +99,8 @@ int VMI_add_module(module *mod, const char *key);
 // find module by key
 module* VMI_find_module_by_key(const char *key);
 
+//AVB
+int VMI_extract_symbols(module *mod, target_ulong base);
 
 int VMI_create_process(process *proc);
 int VMI_remove_process(uint32_t pid);

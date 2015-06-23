@@ -3506,6 +3506,9 @@ int main(int argc, char **argv, char **envp)
     qemu_system_reset(VMRESET_SILENT);
 
 #if 1 // AWH - Port of TEMU functionality
+	
+	// AVB, This opens the device for sleuthkit to read
+	DECAF_blocks_init();
     DECAF_init();                // some initializations have to be done
     // before loadvm 
     // AWH - FIXME: Change to new do_load_plugin() interface

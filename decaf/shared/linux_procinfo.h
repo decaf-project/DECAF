@@ -51,6 +51,8 @@ typedef struct _ProcInfo
 	target_ulong dentry_d_iname;
 	target_ulong dentry_d_parent;
 	target_ulong ti_task;
+	target_ulong file_inode;
+	target_ulong inode_ino;
 // #ifdef TARGET_MIPS
 	target_ulong mips_pgd_current;
 // #endif	
