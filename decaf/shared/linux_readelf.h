@@ -6,7 +6,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-int read_elf_info(CPUState *env, uint32_t cr3, const char * mod_name, target_ulong start_addr, uint64_t size, uint32_t inode_number);
+int read_elf_info(const char * mod_name, target_ulong start_addr, unsigned int inode_number);
 
 #ifdef __cplusplus
 };

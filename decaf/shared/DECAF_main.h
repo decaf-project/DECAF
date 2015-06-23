@@ -180,8 +180,9 @@ extern int g_bNeedFlush;
 //extern int do_enable_emulation(Monitor *mon, const QDict *qdict, QObject **ret_data);
 //extern int do_disable_emulation(Monitor *mon, const QDict *qdict, QObject **ret_data);
 
+// For sleuthkit to read
+int DECAF_bdrv_pread(void *opaque, int64_t offset, void *buf, int count);
 
-int DECAF_bdrv_pread(void *bs, int64_t offset, void *buf, int count); //for SleuthKit
 
 extern int DECAF_emulation_started; //will be removed
 

@@ -47,6 +47,9 @@ extern void flush_list_insert(flush_list *list, int type, unsigned int addr);
 extern mon_cmd_t DECAF_mon_cmds[];
 extern mon_cmd_t DECAF_info_cmds[];
 
+
+extern void DECAF_bdrv_open(int index, void *opaque);
+
 /****** Functions used internally ******/
 extern void DECAF_nic_receive(const uint8_t * buf, const int size, const int cur_pos, const int start, const int stop);
 extern void DECAF_nic_send(const uint32_t addr, const int size, const uint8_t * buf);

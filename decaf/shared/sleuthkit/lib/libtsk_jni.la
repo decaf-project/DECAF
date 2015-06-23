@@ -17,7 +17,7 @@ old_library='libtsk_jni.a'
 inherited_linker_flags=' -pthread'
 
 # Libraries that this one depends upon.
-dependency_libs=' -L/usr/local/lib /home/csrgyin/los_almos/decaf/DECAF/decaf/shared/sleuthkit/lib/libtsk.la -lz -ldl'
+dependency_libs=' -L/usr/local/lib /home/csrgyin/decaf_to_update/DECAF/decaf/shared/sleuthkit/lib/libtsk.la -lz -ldl'
 
 # Names of additional weak libraries provided by this library
 weak_library_names=''
@@ -38,4 +38,4 @@ dlopen=''
 dlpreopen=''
 
 # Directory that this library needs to be installed in:
-libdir='/home/csrgyin/los_almos/decaf/DECAF/decaf/shared/sleuthkit/lib'
+libdir='/home/csrgyin/decaf_to_update/DECAF/decaf/shared/sleuthkit/lib'

@@ -93,19 +93,23 @@ int init_module(void)
 
 	printk(KERN_INFO
 		"file_dentry     = %lu\n" /* offset of f_dentry in file */
+		"file_inode   	 = %lu\n" /* inode of file struct */
 		"dentry_d_name   = %lu\n" /* offset of d_name in dentry */
 		"dentry_d_iname  = %lu\n" /* offset of d_iname in dentry */ 
 		"dentry_d_parent = %lu\n" /* offset of d_parent in dentry */
-		"ti_task         = %lu\n", /* offset of task in thread_info */
+		"ti_task         = %lu\n" /* offset of task in thread_info */
+		"inode_ino	     = %lu\n", /* offset of inode index in inode struct */
 		OFFSET_OF(file, f_dentry),
+		OFFSET_OF(dentry, d_inode),
 		OFFSET_OF(dentry, d_name),
 		OFFSET_OF(dentry, d_iname),
 		OFFSET_OF(dentry, d_parent),
-		OFFSET_OF(thread_info, task)
+		OFFSET_OF(thread_info, task),
+		OFFSET_OF(inode,i_ino)
 		);
     
 
-    printk(KERN_INFO "Information module retistered.\n");
+    printk(KERN_INFO "Information module registered.\n");
     return -1;
 }
 

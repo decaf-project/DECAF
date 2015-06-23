@@ -113,11 +113,11 @@ static inline int unresolved_attempt(process *proc, uint32_t addr)
 }
 
 
-void extract_symbols_info(CPUState *env, uint32_t cr3, target_ulong start_addr, module * mod)
+void extract_symbols_info(CPUState *env, uint32_t cr3, target_ulong start_addr, module * mod,char* proc_name)
 {
-	if ( mod->symbols_extracted = read_elf_info(env, cr3, mod->name, start_addr, mod->size, 0) ) {
-		monitor_printf(default_mon, "mod %s (start_addr = 0x%08x, end_addr = 0x%08x) is extracted \n", mod->name, start_addr, (start_addr + mod->size));
-	}
+	#if 0
+ 	mod->symbols_extracted = read_elf_info(env, cr3, mod->name, start_addr, mod->size, mod->inode_number);
+	#endif
 }
 
 // get new module, basically reading from mm_struct
@@ -126,14 +126,17 @@ static void get_new_modules_x86(CPUState* env, process * proc)
 
 	set<target_ulong> module_bases;
 	
-	
-	target_ulong ts_mm, mm_mmap, vma_curr, vma_file, f_dentry, vma_next=NULL;
+
+	target_ulong ts_mm, mm_mmap, vma_curr, vma_file, f_dentry, f_inode, vma_next=NULL;
+	unsigned int inode_number;
 	const int MAX_LOOP_COUNT = 1024;	// prevent infinite loop
 	target_ulong vma_vm_start = 0, vma_vm_end = 0;
 	target_ulong last_vm_start = 0, last_vm_end = 0, mod_vm_start = 0;
 	char name[32];	// module file path
-	string last_mod_name;
+	char key[32+32];
+	string last_mod_name, mod_name;
 	module *mod = NULL;
+	
 	bool finished_traversal = false;
 	
 
@@ -175,7 +178,16 @@ static void get_new_modules_x86(CPUState* env, process * proc)
 		// read small names form the dentry
 		if (DECAF_read_mem(env, f_dentry + OFFSET_PROFILE.dentry_d_iname, 32, name) < 0)
 			goto next;
-			
+
+		
+		// inode struct extraction from the struct* file
+		if (DECAF_read_mem(env, f_dentry + OFFSET_PROFILE.file_inode, sizeof(target_ptr), &f_inode) < 0 || !f_inode)
+			goto next;
+
+		// inode_number extraction
+		if (DECAF_read_mem(env, f_inode + OFFSET_PROFILE.inode_ino , sizeof(unsigned int), &inode_number) < 0 || !inode_number)
+			goto next;
+				
 		name[31] = '\0';	// truncate long string
 
 		
@@ -184,9 +196,11 @@ static void get_new_modules_x86(CPUState* env, process * proc)
 			goto next;
 
 
+		
 		if (last_vm_end == vma_vm_start && !strcmp(last_mod_name.c_str(), name)) { 
 			// extending the module
 			assert(mod);
+
 			target_ulong new_size = vma_vm_end - mod_vm_start;
 			if (mod->size < new_size)
 				mod->size = new_size;
@@ -195,14 +209,16 @@ static void get_new_modules_x86(CPUState* env, process * proc)
 
 		//not extending, a different module
 		mod_vm_start = vma_vm_start;
-		
-		mod = VMI_find_module_by_key(name);
+		sprintf(key, "%u_%s", inode_number, name);
+		mod = VMI_find_module_by_key(key);
 		if (!mod) {
 			mod = new module();
 			strncpy(mod->name, name, 31);
 			mod->name[31] = '\0';
 			mod->size = vma_vm_end - vma_vm_start;
-			VMI_add_module(mod, name);
+			mod->inode_number = inode_number;
+			mod->symbols_extracted = 0;
+			VMI_add_module(mod, key);
 			module_bases.insert(vma_vm_start);
 		}
 	
@@ -244,6 +260,7 @@ next:	if (DECAF_read_mem(env, vma_curr + OFFSET_PROFILE.vma_vm_next, sizeof(targ
 				//monitor_printf(default_mon, "removed module %08x\n", *iter2);
 
 			VMI_remove_module(proc->pid, *iter2);
+
 		}
 	}
 }
@@ -712,13 +729,7 @@ process * find_new_process(CPUState *env, uint32_t cr3) {
 
 // retrive symbols from specific process
 static void retrive_symbols(CPUState *env, process * proc) {
-	if (!proc || proc->cr3 == -1UL) return;	// unnecessary check
-	for (unordered_map < uint32_t,module * >::iterator it = proc->module_list.begin();
-		it != proc->module_list.end(); it++) {
-		module *cur_mod = it->second;
-		if (!cur_mod->symbols_extracted)
-			extract_symbols_info(env, proc->cr3, it->first, cur_mod);
-	}
+
 }
 
 

@@ -31,7 +31,13 @@
 #include "shared/DECAF_callback_to_QEMU.h"
 #include "shared/hookapi.h"
 #include "DECAF_target.h"
+
+// AVB, Add only when file analysis is needed
+#include "shared/DECAF_fileio.h"
+
+
 #include "procmod.h"
+#include "block_int.h"
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/taint_memory.h"
 #include "tainting/taintcheck_opt.h"
@@ -50,6 +56,8 @@ static FILE *decaflog = NULL;
 
 int should_monitor = 1;
 
+static int devices=0;
+
 struct __flush_list flush_list_internal;
 
 
@@ -65,6 +73,7 @@ mon_cmd_t DECAF_info_cmds[] = {
 
 
 int g_bNeedFlush = 0;
+disk_info_t disk_info_internal[5];
 
 static void convert_endian_4b(uint32_t *data);
 
@@ -641,10 +650,7 @@ void DECAF_after_loadvm(const char *param) {
 		decaf_plugin->after_loadvm(param);
 }
 
-//TODO: to be removed -Heng
-int DECAF_bdrv_pread(void *bs, int64_t offset, void *buf, int count) {
-	return bdrv_pread((BlockDriverState *) bs, offset, buf, count);
-}
+
 
 /*
  * NIC related functions
@@ -713,3 +719,49 @@ static void convert_endian_4b(uint32_t *data)
          | ((*data & 0x0000ff00) <<  8)
          | ((*data & 0x000000ff) << 24);
 }
+
+// AVB, This function is used to read 'n' bytes off the disk images give by `opaque' 
+// at an offset
+int DECAF_bdrv_pread(void *opaque, int64_t offset, void *buf, int count) {
+
+	return bdrv_pread((BlockDriverState *)opaque, offset, buf, count);
+
+}
+
+// AVB, This function is used to open the disk on sleuthkit by calling `tsk_fs_open_img'.
+void DECAF_bdrv_open(int index, void *opaque) {
+
+  TSK_FS_INFO *fs=NULL;
+  TSK_OFF_T a_offset = 0;
+  unsigned long img_size = ((BlockDriverState *)opaque)->total_sectors * 512;
+
+  if(!qemu_pread)
+	  qemu_pread=(qemu_pread_t)DECAF_bdrv_pread;
+
+  monitor_printf(default_mon, "inside bdrv open, drv addr= 0x%0x, size= %lu\n", opaque, img_size);
+  
+  disk_info_internal[devices].bs = opaque;
+  disk_info_internal[devices].img = tsk_img_open(1, (const char **) &opaque, QEMU_IMG, 0);
+  disk_info_internal[devices].img->size = img_size;
+	
+
+  if (disk_info_internal[devices].img==NULL)
+  {
+    monitor_printf(default_mon, "img_open error! \n",opaque);
+  }
+
+  // TODO: AVB, also add an option of 56 as offset with sector size of 4k, Sector size is now assumed to be 512 by default
+  if(!(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 0 ,TSK_FS_TYPE_EXT_DETECT)) &&
+  	    !(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 63 * (disk_info_internal[devices].img)->sector_size, TSK_FS_TYPE_EXT_DETECT)) &&
+  	    	!(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 2048 * (disk_info_internal[devices].img)->sector_size , TSK_FS_TYPE_EXT_DETECT)) )
+  {
+	monitor_printf(default_mon, "fs_open error! \n",opaque);
+  }	
+  else
+  {
+  	monitor_printf(default_mon, "fs_open = %s \n",(disk_info_internal[devices].fs)->duname);
+  }
+
+  ++devices;
+}
+

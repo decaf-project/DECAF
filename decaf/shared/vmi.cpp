@@ -32,6 +32,7 @@ extern "C" {
 #endif /* __cplusplus */
 #include "windows_vmi.h"
 #include "linux_vmi.h"
+#include "linux_readelf.h"
 
 #include "hookapi.h"
 // AWH #include "read_linux.h"
@@ -444,5 +445,21 @@ void VMI_init()
 #endif
 
 }
+
+//AVB
+// This functions returns if the inode_number for this particular module is 0
+// THis would be the case for windows modules
+int VMI_extract_symbols(module *mod, target_ulong base)
+{
+	if(mod->inode_number == 0)
+		return 0;
+	if(!mod->symbols_extracted) {
+		read_elf_info(mod->name, base, mod->inode_number);
+		mod->symbols_extracted = 1;
+	}
+
+	return 1;
+}
+
 
 

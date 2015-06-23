@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
-my $BIN_DIR="/home/csrgyin/los_almos/decaf/DECAF/decaf/shared/sleuthkit/bin";
-my $DATA_DIR="/home/csrgyin/los_almos/decaf/DECAF/decaf/shared/sleuthkit/share";
+my $BIN_DIR="/home/csrgyin/decaf_to_update/DECAF/decaf/shared/sleuthkit/bin";
+my $DATA_DIR="/home/csrgyin/decaf_to_update/DECAF/decaf/shared/sleuthkit/share";
 my $VER="4.1.3";
 #
 # The Sleuth Kit

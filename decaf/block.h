@@ -14,6 +14,7 @@ extern "C" {
 /* block.c */
 typedef struct BlockDriver BlockDriver;
 
+
 typedef struct BlockDriverInfo {
     /* in bytes, 0 if irrelevant */
     int cluster_size;
@@ -405,6 +406,11 @@ static inline unsigned int get_physical_block_exp(BlockConf *conf)
 
     return exp;
 }
+
+
+// TODO: AVB, add comment
+void DECAF_blocks_init(void);
+
 
 #define DEFINE_BLOCK_PROPERTIES(_state, _conf)                          \
     DEFINE_PROP_DRIVE("drive", _state, _conf.bs),                       \

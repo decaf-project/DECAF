@@ -1524,7 +1524,7 @@ int printProcInfo(ProcInfo* pPI)
       "       %"T_FMT"d, /* offset of cred */\n"
       "       %"T_FMT"d, /* offset of comm */\n"
       "       %"T_FMT"d, /* size of comm */\n",
-
+	  "       %"T_FMT"d, /* inode index number*/\n",
       pPI->strName,
       pPI->init_task_addr,
       pPI->init_task_size,
@@ -1539,7 +1539,8 @@ int printProcInfo(ProcInfo* pPI)
       pPI->ts_real_cred,
       pPI->ts_cred,
       pPI->ts_comm,
-      SIZEOF_COMM
+      SIZEOF_COMM,
+      pPI->inode_ino
   );
   
   monitor_printf(default_mon,
@@ -1674,10 +1675,12 @@ void _load_one_section(const boost::property_tree::ptree &pt, int iSectionNum, P
     FILL_TARGET_ULONG_FIELD(vma_vm_flags    );
     FILL_TARGET_ULONG_FIELD(vma_vm_pgoff    );
     FILL_TARGET_ULONG_FIELD(file_dentry     );
+	FILL_TARGET_ULONG_FIELD(file_inode		);
     FILL_TARGET_ULONG_FIELD(dentry_d_name   );
     FILL_TARGET_ULONG_FIELD(dentry_d_iname  );
     FILL_TARGET_ULONG_FIELD(dentry_d_parent );
     FILL_TARGET_ULONG_FIELD(ti_task         );
+	FILL_TARGET_ULONG_FIELD(inode_ino		);
 #ifdef TARGET_MIPS
     FILL_TARGET_ULONG_FIELD(mips_pgd_current);
 #endif
