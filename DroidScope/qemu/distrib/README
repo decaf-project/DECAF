@@ -39,12 +39,4 @@ it is based on QEMU 0.8.2 with many changes used to support the following featur
     "dynamic ticks" that make this mode un-necessary for Android.
 
 
-it also uses a patched version of LibSDL-1.2.12 which implements the following:
-
-  - prevent a fatal bug in Quartz Extreme's QuickDraw emulation to crash the program
-    whenever SDL_WINDOW_POS is set in the environment before starting the program.
-    the patch implements a simple workaround to this system-level problem.
-
-  - new APIs: SDL_WM_GetPos() and SDL_WM_SetPos() are used to retrieve and set the emulator
-    window position. this allows us to implement a simple-yet-useful feature: the emulator remembers
-    its position among restarts.
+it also uses a patched version of LibSDL-1.2.15.

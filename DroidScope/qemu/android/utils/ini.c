@@ -298,8 +298,18 @@ EXIT:
     return ini;
 }
 
-int
-iniFile_saveToFile( IniFile*  f, const char*  filepath )
+/* Common routine for saving IniFile instance to the given file.
+ * Param:
+ *  f - IniFile instance to save.
+ *  filepath - Path to a file where to save the instance.
+ *  strip - If 1, ignore (don't save) pairs with empty values. If 0, save all
+ *      pairs found in the IniFile instance, including the ones that contain
+ *      empty values.
+ * Returns:
+ *  0 on success, -1 on error (see errno for error code)
+ */
+static int
+iniFile_saveToFileCommon( IniFile*  f, const char*  filepath, int strip )
 {
     FILE*  fp = fopen(filepath, "wt");
     IniPair*  pair    = f->pairs;
@@ -313,16 +323,45 @@ iniFile_saveToFile( IniFile*  f, const char*  filepath )
     }
 
     for ( ; pair < pairEnd; pair++ ) {
-        char  temp[PATH_MAX], *p=temp, *end=p+sizeof(temp);
-        p = bufprint(temp, end, "%s = %s\n", pair->key, pair->value);
-        if (fwrite(temp, p - temp, 1, fp) != 1) {
-            result = -1;
-            break;
+        if ((pair->value && *pair->value) || !strip) {
+            char  temp[PATH_MAX], *p=temp, *end=p+sizeof(temp);
+            p = bufprint(temp, end, "%s = %s\n", pair->key, pair->value);
+            if (fwrite(temp, p - temp, 1, fp) != 1) {
+                result = -1;
+                break;
+            }
         }
     }
 
     fclose(fp);
     return result;
+}
+
+int
+iniFile_saveToFile( IniFile*  f, const char*  filepath )
+{
+    return iniFile_saveToFileCommon(f, filepath, 0);
+}
+
+int
+iniFile_saveToFileClean( IniFile*  f, const char*  filepath )
+{
+    return iniFile_saveToFileCommon(f, filepath, 1);
+}
+
+int
+iniFile_getEntry(IniFile* f, int index, char** key, char** value)
+{
+    if (index >= f->numPairs) {
+        D("Index %d exceeds the number of ini file entries %d",
+          index, f->numPairs);
+        return -1;
+    }
+
+    *key = ASTRDUP(f->pairs[index].key);
+    *value = ASTRDUP(f->pairs[index].value);
+
+    return 0;
 }
 
 char*

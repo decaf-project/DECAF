@@ -77,7 +77,7 @@ these simple steps:
   1/ First, build Android's patched libSDL as a static library,
      this can be done as:
 
-        cd $TOP/external/qemu/distrib/sdl-1.2.12
+        cd $TOP/external/qemu/distrib/sdl-1.2.15
         ./android-configure --prefix=<PATH>
         make
         make install

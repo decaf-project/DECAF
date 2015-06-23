@@ -337,6 +337,13 @@ static const char* const  body_mode_str[BODY_MODE_MAX] = {
     "NONE", "KNOWN_LENGTH", "UNTIL_CLOSE", "CHUNKED"
 };
 
+enum {
+    CHUNK_HEADER,    // Waiting for a chunk header + CR LF
+    CHUNK_DATA,      // Waiting for chunk data
+    CHUNK_DATA_END,  // Waiting for the CR LF after the chunk data
+    CHUNK_TRAILER    // Waiting for the chunk trailer + CR LF
+};
+
 typedef struct {
     ProxyConnection   root[1];
     int               slirp_fd;
@@ -348,6 +355,7 @@ typedef struct {
     int64_t           body_sent;
     int64_t           chunk_length;
     int64_t           chunk_total;
+    int               chunk_state;
     char              body_has_data;
     char              body_is_full;
     char              body_is_closed;
@@ -660,6 +668,7 @@ rewrite_connection_get_body_length( RewriteConnection*  conn,
             conn->parse_chunk_trailer = 0;
             conn->chunk_length        = -1;
             conn->chunk_total         = 0;
+            conn->chunk_state         = CHUNK_HEADER;
         }
     }
     if (conn->body_mode == BODY_NONE) {
@@ -725,9 +734,32 @@ rewrite_connection_read_body( RewriteConnection*  conn, int  fd )
         break;
 
     case BODY_CHUNKED:
-        if (conn->chunk_length < 0) {
-            /* chunk_length < 0 means we need to read a chunk header */
-            /* ensure that 'str' is flushed before doing this */
+        if (conn->chunk_state == CHUNK_DATA_END) {
+            /* We're waiting for the CR LF after the chunk data */
+            ret = proxy_connection_receive_line(root, fd);
+            if (ret != DATA_COMPLETED)
+                return ret;
+
+            if (str->s[0] != 0) { /* this should be an empty line */
+                PROXY_LOG("%s: invalid chunk data end: '%s'",
+                            root->name, str->s);
+                return DATA_ERROR;
+            }
+            /* proxy_connection_receive_line() did remove the
+            * trailing \r\n, but we must preserve it when we
+            * send the chunk size end to the proxy.
+            */
+            stralloc_add_str(root->str, "\r\n");
+            conn->chunk_state = CHUNK_HEADER;
+            /* fall-through */
+        }
+
+        if (conn->chunk_state == CHUNK_HEADER) {
+            char*      line;
+            char*      end;
+            long long  length;
+            /* Ensure that the previous chunk was flushed before
+             * accepting a new header */
             if (!conn->parse_chunk_header) {
                 if (conn->body_has_data)
                     return DATA_NEED_MORE;
@@ -735,40 +767,40 @@ rewrite_connection_read_body( RewriteConnection*  conn, int  fd )
                 conn->parse_chunk_header = 1;
             }
             ret = proxy_connection_receive_line(root, fd);
-            if (ret == DATA_COMPLETED) {
-                char*      line = str->s;
-                char*      end;
-                long long  length;
+            if (ret != DATA_COMPLETED) {
+                return ret;
+            }
+            conn->parse_chunk_header = 0;
 
-                length = strtoll(line, &end, 16);
-                if (line[0] == ' ' || (end[0] != '\0' && end[0] != ';')) {
-                    PROXY_LOG("%s: invalid chunk header: %s",
-                              root->name, line);
-                    return DATA_ERROR;
-                }
-                if (length < 0) {
-                    PROXY_LOG("%s: invalid chunk length %lld",
-                              root->name, length);
-                    return DATA_ERROR;
-                }
-                /* proxy_connection_receive_line() did remove the
-                 * trailing \r\n, but we must preserve it when we
-                 * send the chunk size to the proxy.
-                 */
-                stralloc_add_str(root->str, "\r\n");
+            line   = str->s;
+            length = strtoll(line, &end, 16);
+            if (line[0] == ' ' || (end[0] != '\0' && end[0] != ';')) {
+                PROXY_LOG("%s: invalid chunk header: %s",
+                        root->name, line);
+                return DATA_ERROR;
+            }
+            if (length < 0) {
+                PROXY_LOG("%s: invalid chunk length %lld",
+                        root->name, length);
+                return DATA_ERROR;
+            }
+            /* proxy_connection_receive_line() did remove the
+            * trailing \r\n, but we must preserve it when we
+            * send the chunk size to the proxy.
+            */
+            stralloc_add_str(root->str, "\r\n");
 
-                conn->chunk_length = length;
-                conn->chunk_total  = 0;
-                if (length == 0) {
-                    /* the last chunk, no we need to add the trailer */
-                    conn->parse_chunk_trailer = 0;
-                }
-                conn->parse_chunk_header = 0;
+            conn->chunk_length = length;
+            conn->chunk_total  = 0;
+            conn->chunk_state  = CHUNK_DATA;
+            if (length == 0) {
+                /* the last chunk, no we need to add the trailer */
+                conn->chunk_state         = CHUNK_TRAILER;
+                conn->parse_chunk_trailer = 0;
             }
         }
 
-        if (conn->chunk_length == 0) {
-            /* chunk_length == 0 means we're reading the chunk trailer */
+        if (conn->chunk_state == CHUNK_TRAILER) {
             /* ensure that 'str' is flushed before reading the trailer */
             if (!conn->parse_chunk_trailer) {
                 if (conn->body_has_data)
@@ -833,10 +865,11 @@ rewrite_connection_read_body( RewriteConnection*  conn, int  fd )
 
             if (conn->chunk_length == 0) {
                 D("%s: chunk completed (%lld bytes)", 
-                    root->name, conn->chunk_length);
+                    root->name, conn->chunk_total);
                 conn->body_total  += conn->chunk_total;
                 conn->chunk_total  = 0;
                 conn->chunk_length = -1;
+                conn->chunk_state  = CHUNK_DATA;
             }
             break;
 

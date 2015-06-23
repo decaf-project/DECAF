@@ -55,4 +55,18 @@ void trace_dev_init();
 void events_dev_init(uint32_t base, qemu_irq irq);
 void nand_dev_init(uint32_t base);
 
+#ifdef TARGET_I386
+/* Maximum IRQ number available for a device on x86. */
+#define GFD_MAX_IRQ      16
+/* IRQ reserved for keyboard. */
+#define GFD_KBD_IRQ      1
+/* IRQ reserved for mouse. */
+#define GFD_MOUSE_IRQ    12
+/* IRQ reserved for error (raising an exception in TB code). */
+#define GFD_ERR_IRQ      13
+#else
+/* Maximum IRQ number available for a device on ARM. */
+#define GFD_MAX_IRQ     32
 #endif
+
+#endif  /* GOLDFISH_DEVICE_H */

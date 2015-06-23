@@ -41,6 +41,17 @@ typedef enum {
 /* BEWARE: The following codes are defined by the Linux kernel headers.
  *         The Android "Menu" key is KEY_SOFT1, *not* KEY_MENU
  */
+/* NOTE: mingw's winnt.h define DELETE to constant
+   i586-mingw32msvc:       #define DELETE  0x00010000L
+   x86_64-w64-mingw32-gcc: #define DELETE  (0x00010000L)
+
+   KEY_CODE belows glues "KEY_" and "DELETE".
+   While KEY_0x00010000L may not mean anything,
+   KEY_(0x00010000L) is absolutely harmful to compiler.
+   Undefine DELETE below
+ */
+#undef DELETE
+
 #define  EVENT_KEY_LIST \
    KEY_CODE(ESC         ,1)     \
    KEY_CODE(1           ,2)     \

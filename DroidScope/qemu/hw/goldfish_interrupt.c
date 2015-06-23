@@ -166,7 +166,7 @@ qemu_irq*  goldfish_interrupt_init(uint32_t base, qemu_irq parent_irq, qemu_irq 
     qemu_irq*  qi;
 
     s = qemu_mallocz(sizeof(*s));
-    qi = qemu_allocate_irqs(goldfish_int_set_irq, s, 32);
+    qi = qemu_allocate_irqs(goldfish_int_set_irq, s, GFD_MAX_IRQ);
     s->dev.name = "goldfish_interrupt_controller";
     s->dev.id = -1;
     s->dev.base = base;

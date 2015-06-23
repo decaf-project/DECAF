@@ -57,4 +57,11 @@ int  androidHwConfig_write( AndroidHwConfig*  hwConfig,
 /* Finalize a given hardware configuration */
 void androidHwConfig_done( AndroidHwConfig* config );
 
+/* Checks if screen doesn't support touch, or multi-touch */
+int  androidHwConfig_isScreenNoTouch( AndroidHwConfig* config );
+/* Checks if screen supports touch (but not multi-touch). */
+int  androidHwConfig_isScreenTouch( AndroidHwConfig* config );
+/* Checks if screen supports multi-touch. */
+int  androidHwConfig_isScreenMultiTouch( AndroidHwConfig* config );
+
 #endif /* _ANDROID_AVD_HW_CONFIG_H */

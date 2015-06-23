@@ -20,8 +20,12 @@
 #include "hw/hw.h"
 #include "qemu-char.h"
 #include "qemu-timer.h"
+#include "android/sensors-port.h"
 
+#define  E(...)    derror(__VA_ARGS__)
+#define  W(...)    dwarning(__VA_ARGS__)
 #define  D(...)  VERBOSE_PRINT(sensors,__VA_ARGS__)
+#define  V(...)  VERBOSE_PRINT(init,__VA_ARGS__)
 
 /* define T_ACTIVE to 1 to debug transport communications */
 #define  T_ACTIVE  0
@@ -165,9 +169,10 @@ typedef struct {
 typedef struct HwSensorClient   HwSensorClient;
 
 typedef struct {
-    QemudService*    service;
-    Sensor           sensors[MAX_SENSORS];
-    HwSensorClient*  clients;
+    QemudService*       service;
+    Sensor              sensors[MAX_SENSORS];
+    HwSensorClient*     clients;
+    AndroidSensorsPort* sensors_port;
 } HwSensors;
 
 struct HwSensorClient {
@@ -301,7 +306,8 @@ _hwSensorClient_tick( void*  opaque )
 
     if (_hwSensorClient_enabled(cl, ANDROID_SENSOR_MAGNETIC_FIELD)) {
         sensor = &hw->sensors[ANDROID_SENSOR_MAGNETIC_FIELD];
-        snprintf(buffer, sizeof buffer, "magnetic-field:%g:%g:%g",
+        /* NOTE: sensors HAL expects "magnetic", not "magnetic-field" name here. */
+        snprintf(buffer, sizeof buffer, "magnetic:%g:%g:%g",
                  sensor->u.magnetic.x,
                  sensor->u.magnetic.y,
                  sensor->u.magnetic.z);
@@ -333,7 +339,7 @@ _hwSensorClient_tick( void*  opaque )
 
     now_ns = qemu_get_clock_ns(vm_clock);
 
-    snprintf(buffer, sizeof buffer, "sync:%lld", now_ns/1000);
+    snprintf(buffer, sizeof buffer, "sync:%" PRId64, now_ns/1000);
     _hwSensorClient_send(cl, (uint8_t*)buffer, strlen(buffer));
 
     /* rearm timer, use a minimum delay of 20 ms, just to
@@ -430,6 +436,16 @@ _hwSensorClient_receive( HwSensorClient*  cl, uint8_t*  msg, int  msglen )
             D("%s: %s %s sensor", __FUNCTION__,
                 (cl->enabledMask & (1 << id))  ? "enabling" : "disabling",  msg);
         }
+
+        /* If emulating device is connected update sensor state there too. */
+        if (hw->sensors_port != NULL) {
+            if (enabled) {
+                sensors_port_enable_sensor(hw->sensors_port, (const char*)msg);
+            } else {
+                sensors_port_disable_sensor(hw->sensors_port, (const char*)msg);
+            }
+        }
+
         _hwSensorClient_tick(cl);
         return;
     }
@@ -462,11 +478,14 @@ _hwSensorClient_load( QEMUFile*  f, QemudClient*  client, void*  opaque  )
 }
 
 static QemudClient*
-_hwSensors_connect( void*  opaque, QemudService*  service, int  channel )
+_hwSensors_connect( void*  opaque,
+                    QemudService*  service,
+                    int  channel,
+                    const char* client_param )
 {
     HwSensors*       sensors = opaque;
     HwSensorClient*  cl      = _hwSensorClient_new(sensors);
-    QemudClient*     client  = qemud_client_new(service, channel, cl,
+    QemudClient*     client  = qemud_client_new(service, channel, client_param, cl,
                                                 _hwSensorClient_recv,
                                                 _hwSensorClient_close,
                                                 _hwSensorClient_save,
@@ -642,14 +661,36 @@ _hwSensors_setCoarseOrientation( HwSensors*  h, AndroidCoarseOrientation  orient
 static void
 _hwSensors_init( HwSensors*  h )
 {
+    /* Try to see if there is a device attached that can be used for
+     * sensor emulation. */
+    h->sensors_port = sensors_port_create(h);
+    if (h->sensors_port == NULL) {
+        V("Realistic sensor emulation is not available, since the remote controller is not accessible:\n %s",
+          strerror(errno));
+    }
+
     h->service = qemud_service_register("sensors", 0, h, _hwSensors_connect,
                                         _hwSensors_save, _hwSensors_load);
 
-    if (android_hw->hw_accelerometer)
+    if (android_hw->hw_accelerometer) {
         h->sensors[ANDROID_SENSOR_ACCELERATION].enabled = 1;
+    }
 
-    if (android_hw->hw_sensors_proximity)
+    if (android_hw->hw_sensors_proximity) {
         h->sensors[ANDROID_SENSOR_PROXIMITY].enabled = 1;
+    }
+
+    if (android_hw->hw_sensors_magnetic_field) {
+        h->sensors[ANDROID_SENSOR_MAGNETIC_FIELD].enabled = 1;
+    }
+
+    if (android_hw->hw_sensors_orientation) {
+        h->sensors[ANDROID_SENSOR_ORIENTATION].enabled = 1;
+    }
+
+    if (android_hw->hw_sensors_temperature) {
+        h->sensors[ANDROID_SENSOR_TEMPERATURE].enabled = 1;
+    }
 
     /* XXX: TODO: Add other tests when we add the corresponding
         * properties to hardware-properties.ini et al. */

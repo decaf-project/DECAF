@@ -57,7 +57,7 @@ typedef uint8_t flag;
 typedef uint8_t uint8;
 typedef int8_t int8;
 #ifndef _AIX
-typedef int uint16;
+typedef int16_t uint16;
 typedef int int16;
 #endif
 typedef unsigned int uint32;

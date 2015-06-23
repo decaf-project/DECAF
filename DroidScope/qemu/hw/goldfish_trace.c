@@ -15,6 +15,7 @@
  */
 #include "qemu_file.h"
 #include "goldfish_trace.h"
+#include "goldfish_vmem.h"
 #include "sysemu.h"
 #include "android-trace.h"
 #ifdef CONFIG_MEMCHECK
@@ -145,7 +146,7 @@ static void trace_dev_write(void *opaque, target_phys_addr_t offset, uint32_t va
         cmdlen = value;
         break;
     case TRACE_DEV_REG_CMDLINE:         // execve, process cmdline
-        cpu_memory_rw_debug(cpu_single_env, value, (uint8_t*)exec_arg, cmdlen, 0);
+        safe_memory_rw_debug(cpu_single_env, value, (uint8_t*)exec_arg, cmdlen, 0);
         if (trace_filename != NULL) {
             trace_execve(exec_arg, cmdlen);
         }

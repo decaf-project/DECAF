@@ -11,6 +11,7 @@
 */
 #include "android/avd/info.h"
 #include "android/avd/util.h"
+#include "android/avd/keys.h"
 #include "android/config/config.h"
 #include "android/utils/path.h"
 #include "android/utils/bufprint.h"
@@ -63,35 +64,6 @@ AvdInfo*        android_avdInfo;
  * Individual image disk search patch can be over-riden on the command-line
  * with one of the usual options.
  */
-
-/* the prefix of config.ini keys that will be used for search directories
- * of system images.
- */
-#define  SEARCH_PREFIX   "image.sysdir."
-
-/* the maximum number of search path keys we're going to read from the
- * config.ini file
- */
-#define  MAX_SEARCH_PATHS  2
-
-/* the config.ini key that will be used to indicate the full relative
- * path to the skin directory (including the skin name).
- */
-#define  SKIN_PATH       "skin.path"
-
-/* the config.ini key that will be used to indicate the default skin's name.
- * this is ignored if there is a valid SKIN_PATH entry in the file.
- */
-#define  SKIN_NAME       "skin.name"
-
-/* default skin name */
-#define  SKIN_DEFAULT    "HVGA"
-
-/* the config.ini key that is used to indicate the absolute path
- * to the SD Card image file, if you don't want to place it in
- * the content directory.
- */
-#define  SDCARD_PATH     "sdcard.path"
 
 /* the name of the .ini file that will contain the complete hardware
  * properties for the AVD. This will be used to launch the corresponding
@@ -476,15 +448,30 @@ _avdInfo_getRootIni( AvdInfo*  i )
 static int
 _avdInfo_getContentPath( AvdInfo*  i )
 {
-#   define  ROOT_PATH_KEY    "path"
+    char temp[PATH_MAX], *p=temp, *end=p+sizeof(temp);
 
-    i->contentPath = iniFile_getString(i->rootIni, ROOT_PATH_KEY, NULL);
+    i->contentPath = iniFile_getString(i->rootIni, ROOT_ABS_PATH_KEY, NULL);
 
     if (i->contentPath == NULL) {
         derror("bad config: %s",
-               "virtual device file lacks a "ROOT_PATH_KEY" entry");
+               "virtual device file lacks a "ROOT_ABS_PATH_KEY" entry");
         return -1;
     }
+
+    if (!path_is_dir(i->contentPath)) {
+        // If the absolute path doesn't match an actual directory, try
+        // the relative path if present.
+        const char* relPath = iniFile_getString(i->rootIni, ROOT_REL_PATH_KEY, NULL);
+        if (relPath != NULL) {
+            p = bufprint_config_path(temp, end);
+            p = bufprint(p, end, PATH_SEP "%s", relPath);
+            if (p < end && path_is_dir(temp)) {
+                AFREE(i->contentPath);
+                i->contentPath = ASTRDUP(temp);
+            }
+        }
+    }
+
     D("virtual device content at %s", i->contentPath);
     return 0;
 }
@@ -780,11 +767,22 @@ _avdInfo_getBuildSkinHardwareIni( AvdInfo*  i )
 {
     char* skinName;
     char* skinDirPath;
-    char  temp[PATH_MAX], *p=temp, *end=p+sizeof(temp);
 
     avdInfo_getSkinInfo(i, &skinName, &skinDirPath);
     if (skinDirPath == NULL)
         return 0;
+
+    int result = avdInfo_getSkinHardwareIni(i, skinName, skinDirPath);
+
+    AFREE(skinName);
+    AFREE(skinDirPath);
+
+    return result;
+}
+
+int avdInfo_getSkinHardwareIni( AvdInfo* i, char* skinName, char* skinDirPath)
+{
+    char  temp[PATH_MAX], *p=temp, *end=p+sizeof(temp);
 
     p = bufprint(temp, end, "%s/%s/hardware.ini", skinDirPath, skinName);
     if (p >= end || !path_exists(temp)) {
@@ -793,6 +791,8 @@ _avdInfo_getBuildSkinHardwareIni( AvdInfo*  i )
     }
 
     D("found skin-specific hardware.ini: %s", temp);
+    if (i->skinHardwareIni != NULL)
+        iniFile_free(i->skinHardwareIni);
     i->skinHardwareIni = iniFile_newFromFile(temp);
     if (i->skinHardwareIni == NULL)
         return -1;
@@ -886,9 +886,20 @@ avdInfo_getKernelPath( AvdInfo*  i )
          * for our target architecture.
          */
         char temp[PATH_MAX], *p = temp, *end = p + sizeof(temp);
+        const char* suffix = "";
+        char* abi;
 
-        p = bufprint(temp, end, "%s/prebuilt/android-%s/kernel/kernel-qemu",
-                     i->androidBuildRoot, i->targetArch);
+        /* If the target ABI is armeabi-v7a, then look for
+         * kernel-qemu-armv7 instead of kernel-qemu in the prebuilt
+         * directory. */
+        abi = path_getBuildTargetAbi(i->androidOut);
+        if (!strcmp(abi,"armeabi-v7a")) {
+            suffix = "-armv7";
+        }
+        AFREE(abi);
+
+        p = bufprint(temp, end, "%s/prebuilts/qemu-kernel/%s/kernel-qemu%s",
+                     i->androidBuildRoot, i->targetArch, suffix);
         if (p >= end || !path_exists(temp)) {
             derror("bad workspace: cannot find prebuilt kernel in: %s", temp);
             exit(1);
@@ -1024,6 +1035,16 @@ avdInfo_inAndroidBuild( AvdInfo*  i )
 }
 
 char*
+avdInfo_getTargetAbi( AvdInfo* i )
+{
+    /* For now, we can't get the ABI from SDK AVDs */
+    if (!i->inAndroidBuild)
+        return NULL;
+
+    return path_getBuildTargetAbi(i->androidOut);
+}
+
+char*
 avdInfo_getTracePath( AvdInfo*  i, const char*  traceName )
 {
     char   tmp[MAX_PATH], *p=tmp, *end=p + sizeof(tmp);
@@ -1061,7 +1082,7 @@ avdInfo_getSkinInfo( AvdInfo*  i, char** pSkinName, char** pSkinDir )
     /* First, see if the config.ini contains a SKIN_PATH entry that
      * names the full directory path for the skin.
      */
-    if ( i->configIni != NULL ) {
+    if (i->configIni != NULL ) {
         skinPath = iniFile_getString( i->configIni, SKIN_PATH, NULL );
         if (skinPath != NULL) {
             /* If this skin name is magic or a direct directory path
@@ -1117,6 +1138,17 @@ avdInfo_getSkinInfo( AvdInfo*  i, char** pSkinName, char** pSkinDir )
                 if (skinPath != NULL)
                     break;
             }
+
+            /* or in the parent directory of the system dir */
+            {
+                char* parentDir = path_parent(i->androidOut, 1);
+                if (parentDir != NULL) {
+                    skinPath = _checkSkinSkinsDir(parentDir, skinName);
+                    AFREE(parentDir);
+                    if (skinPath != NULL)
+                        break;
+                }
+            }
         }
 
         /* look in the search paths. For each <dir> in the list,
@@ -1137,6 +1169,7 @@ avdInfo_getSkinInfo( AvdInfo*  i, char** pSkinName, char** pSkinDir )
         }
 
         /* We didn't find anything ! */
+        *pSkinName = skinName;
         return;
 
     } while (0);
@@ -1149,4 +1182,45 @@ avdInfo_getSkinInfo( AvdInfo*  i, char** pSkinName, char** pSkinDir )
     DD("found skin '%s' in directory: %s", *pSkinName, *pSkinDir);
     AFREE(skinPath);
     return;
+}
+
+int
+avdInfo_shouldUseDynamicSkin( AvdInfo* i)
+{
+    if (i == NULL || i->configIni == NULL)
+        return 0;
+    return iniFile_getBoolean( i->configIni, SKIN_DYNAMIC, "no" );
+}
+
+char*
+avdInfo_getCharmapFile( AvdInfo* i, const char* charmapName )
+{
+    char        fileNameBuff[PATH_MAX];
+    const char* fileName;
+
+    if (charmapName == NULL || charmapName[0] == '\0')
+        return NULL;
+
+    if (strstr(charmapName, ".kcm") == NULL) {
+        snprintf(fileNameBuff, sizeof fileNameBuff, "%s.kcm", charmapName);
+        fileName = fileNameBuff;
+    } else {
+        fileName = charmapName;
+    }
+
+    return _avdInfo_getContentOrSdkFilePath(i, fileName);
+}
+
+int avdInfo_getAdbdCommunicationMode( AvdInfo* i )
+{
+    return path_getAdbdCommunicationMode(i->androidOut);
+}
+
+int avdInfo_getSnapshotPresent(AvdInfo* i)
+{
+    if (i->configIni == NULL) {
+        return 0;
+    } else {
+        return iniFile_getBoolean(i->configIni, "snapshot.present", "no");
+    }
 }

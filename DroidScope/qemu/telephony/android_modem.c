@@ -2223,7 +2223,7 @@ handleSignalStrength( const char*  cmd, AModem  modem )
     int ber = modem->ber;
     rssi = (0 > rssi && rssi > 31) ? 99 : rssi ;
     ber = (0 > ber && ber > 7 ) ? 99 : ber;
-    amodem_add_line( modem, "+CSQ: %i,%i\r\n", rssi, ber );
+    amodem_add_line( modem, "+CSQ: %i,%i,85,130,90,6,4,25,9,50,68,12\r\n", rssi, ber );
     return amodem_end_line( modem );
 }
 

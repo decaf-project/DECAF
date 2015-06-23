@@ -54,6 +54,8 @@
 #include "android/hw-kmsg.h"
 #include "android/hw-pipe-net.h"
 #include "android/hw-qemud.h"
+#include "android/camera/camera-service.h"
+#include "android/multitouch-port.h"
 #include "android/charmap.h"
 #include "android/globals.h"
 #include "android/utils/bufprint.h"
@@ -65,6 +67,8 @@
 #include "android/display-core.h"
 #include "android/utils/timezone.h"
 #include "android/snapshot.h"
+#include "android/opengles.h"
+#include "android/multitouch-screen.h"
 #include "targphys.h"
 #include "tcpdump.h"
 
@@ -196,6 +200,7 @@ int qemu_main(int argc, char **argv, char **envp);
 #include "audio/audio.h"
 #include "migration.h"
 #include "kvm.h"
+#include "hax.h"
 #ifdef CONFIG_KVM
 #include "kvm-android.h"
 #endif
@@ -205,6 +210,8 @@ int qemu_main(int argc, char **argv, char **envp);
 #include "android/hw-control.h"
 #include "android/core-init-utils.h"
 #include "android/audio-test.h"
+
+#include "android/snaphost-android.h"
 
 #ifdef CONFIG_STANDALONE_CORE
 /* Verbose value used by the standalone emulator core (without UI) */
@@ -232,8 +239,6 @@ extern void  android_emulator_set_base_port(int  port);
 #if defined(CONFIG_SLIRP)
 #include "libslirp.h"
 #endif
-
-
 
 #define DEFAULT_RAM_SIZE 128
 
@@ -296,6 +301,7 @@ int smp_cpus = 1;
 const char *vnc_display;
 int acpi_enabled = 1;
 int no_hpet = 0;
+int hax_disabled = 0;
 int no_virtio_balloon = 0;
 int fd_bootchk = 1;
 int no_reboot = 0;
@@ -1987,6 +1993,11 @@ static void main_loop(void)
     qemu_cond_broadcast(&qemu_system_cond);
 #endif
 
+#ifdef CONFIG_HAX
+    if (hax_enabled())
+        hax_sync_vcpus();
+#endif
+
     for (;;) {
         do {
 #ifdef CONFIG_PROFILER
@@ -2023,6 +2034,10 @@ static void main_loop(void)
                 no_shutdown = 0;
             } else {
                 if (savevm_on_exit != NULL) {
+                  /* Prior to saving VM to the snapshot file, save HW config
+                   * settings for that VM, so we can match them when VM gets
+                   * loaded from the snapshot. */
+                  snaphost_save_config(savevm_on_exit);
                   do_savevm(cur_mon, savevm_on_exit);
                 }
                 break;
@@ -2256,7 +2271,7 @@ char *qemu_find_file(int type, const char *name)
             buf = qemu_find_file_with_subdir(data_dir, "../usr/share/pc-bios/", name);
         /* Finally, try this for standalone builds under external/qemu */
         if (buf == NULL)
-            buf = qemu_find_file_with_subdir(data_dir, "../../../prebuilt/common/pc-bios/", name);
+            buf = qemu_find_file_with_subdir(data_dir, "../../../prebuilts/qemu-kernel/x86/pc-bios/", name);
     }
 #endif
     return buf;
@@ -2367,7 +2382,7 @@ net_slirp_forward(const char *optarg)
     char *dst_net, *dst_mask, *dst_port;
     char *redirect_ip, *redirect_port;
     uint32_t dnet, dmask, rip;
-    unsigned short dlport, dhport, rport;
+    unsigned short dlport = 0, dhport = 0, rport;
 
 
     dst_net = strtok(p, ":");
@@ -2433,7 +2448,7 @@ slirp_allow(const char *optarg, u_int8_t proto)
   char *argument = strdup(optarg), *p = argument;
   char *dst_ip_str, *dst_port_str;
   uint32_t dst_ip;
-  unsigned short dst_lport, dst_hport;
+  unsigned short dst_lport = 0, dst_hport = 0;
 
   dst_ip_str = strtok(p, ":");
   dst_port_str = strtok(NULL, ":");
@@ -3368,7 +3383,11 @@ int main(int argc, char **argv, char **envp)
             case QEMU_OPTION_nand:
                 nand_add_dev(optarg);
                 break;
+
 #endif
+            case QEMU_OPTION_disable_hax:
+                hax_disabled = 1;
+                break;
             case QEMU_OPTION_android_ports:
                 android_op_ports = (char*)optarg;
                 break;
@@ -3482,6 +3501,11 @@ int main(int argc, char **argv, char **envp)
             case QEMU_OPTION_snapshot_no_time_update:
                 android_snapshot_update_time = 0;
                 break;
+
+            case QEMU_OPTION_list_webcam:
+                android_list_web_cameras();
+                exit(0);
+
             default:
                 os_parse_cmd_args(popt->index, optarg);
             }
@@ -3520,6 +3544,12 @@ int main(int argc, char **argv, char **envp)
 
     androidHwConfig_init(android_hw, 0);
     androidHwConfig_read(android_hw, hw_ini);
+
+    /* If we're loading VM from a snapshot, make sure that the current HW config
+     * matches the one with which the VM has been saved. */
+    if (loadvm && *loadvm && !snaphost_match_configs(hw_ini, loadvm)) {
+        exit(0);
+    }
 
     iniFile_free(hw_ini);
 
@@ -3564,10 +3594,10 @@ int main(int argc, char **argv, char **envp)
         uint64_t    sysBytes = android_hw->disk_systemPartition_size;
 
         if (sysBytes == 0) {
-            PANIC("Invalid system partition size: %" PRUd64, sysBytes);
+            PANIC("Invalid system partition size: %" PRIu64, sysBytes);
         }
 
-        snprintf(tmp,sizeof(tmp),"system,size=0x%" PRUx64, sysBytes);
+        snprintf(tmp,sizeof(tmp),"system,size=0x%" PRIx64, sysBytes);
 
         if (sysImage && *sysImage) {
             if (filelock_create(sysImage) == NULL) {
@@ -3599,10 +3629,10 @@ int main(int argc, char **argv, char **envp)
         uint64_t    dataBytes = android_hw->disk_dataPartition_size;
 
         if (dataBytes == 0) {
-            PANIC("Invalid data partition size: %" PRUd64, dataBytes);
+            PANIC("Invalid data partition size: %" PRIu64, dataBytes);
         }
 
-        snprintf(tmp,sizeof(tmp),"userdata,size=0x%" PRUx64, dataBytes);
+        snprintf(tmp,sizeof(tmp),"userdata,size=0x%" PRIx64, dataBytes);
 
         if (dataImage && *dataImage) {
             if (filelock_create(dataImage) == NULL) {
@@ -3699,6 +3729,9 @@ int main(int argc, char **argv, char **envp)
         hwLcd_setBootProperty(density);
     }
 
+    /* Initialize presence of hardware nav button */
+    boot_property_add("qemu.hw.mainkeys", android_hw->hw_mainKeys ? "1" : "0");
+
     /* Initialize TCP dump */
     if (android_op_tcpdump) {
         if (qemu_tcpdump_start(android_op_tcpdump) < 0) {
@@ -3738,17 +3771,45 @@ int main(int argc, char **argv, char **envp)
 
     /* Initialize audio. */
     if (android_op_audio) {
-        char temp[128];
         if ( !audio_check_backend_name( 0, android_op_audio ) ) {
             PANIC("'%s' is not a valid audio output backend. see -help-audio-out",
                     android_op_audio);
         }
-        snprintf(temp, sizeof temp, "QEMU_AUDIO_DRV=%s", android_op_audio);
-        putenv(temp);
+        setenv("QEMU_AUDIO_DRV", android_op_audio, 1);
     }
 
     /* Initialize OpenGLES emulation */
     //android_hw_opengles_init();
+
+    /* Initialize fake camera */
+    if (strcmp(android_hw->hw_camera_back, "emulated") &&
+        strcmp(android_hw->hw_camera_front, "emulated")) {
+        /* Fake camera is not used for camera emulation. */
+        boot_property_add("qemu.sf.fake_camera", "none");
+    } else {
+        /* Fake camera is used for at least one camera emulation. */
+        if (!strcmp(android_hw->hw_camera_back, "emulated") &&
+            !strcmp(android_hw->hw_camera_front, "emulated")) {
+            /* Fake camera is used for both, front and back camera emulation. */
+            boot_property_add("qemu.sf.fake_camera", "both");
+        } else if (!strcmp(android_hw->hw_camera_back, "emulated")) {
+            boot_property_add("qemu.sf.fake_camera", "back");
+        } else {
+            boot_property_add("qemu.sf.fake_camera", "front");
+        }
+    }
+
+    /* Set LCD density (if required by -qemu, and AVD is missing it. */
+    if (android_op_lcd_density && !android_hw->hw_lcd_density) {
+        int density;
+        if (parse_int(android_op_lcd_density, &density) || density <= 0) {
+            PANIC("-lcd-density : %d", density);
+        }
+        hwLcd_setBootProperty(density);
+    }
+
+    /* Initialize camera emulation. */
+    android_camera_service_init();
 
     if (android_op_cpu_delay) {
         char*   end;
@@ -3811,7 +3872,7 @@ int main(int argc, char **argv, char **envp)
         const char* partPath = android_hw->disk_cachePartition_path;
         uint64_t    partSize = android_hw->disk_cachePartition_size;
 
-        snprintf(tmp,sizeof(tmp),"cache,size=0x%" PRUx64, partSize);
+        snprintf(tmp,sizeof(tmp),"cache,size=0x%" PRIx64, partSize);
 
         if (partPath && *partPath && strcmp(partPath, "<temp>") != 0) {
             if (filelock_create(partPath) == NULL) {
@@ -3830,6 +3891,39 @@ int main(int argc, char **argv, char **envp)
             }
         }
         nand_add_dev(tmp);
+    }
+
+    /* qemu.gles will be read by the OpenGL ES emulation libraries.
+     * If set to 0, the software GL ES renderer will be used as a fallback.
+     * If the parameter is undefined, this means the system image runs
+     * inside an emulator that doesn't support GPU emulation at all.
+     *
+     * We always start the GL ES renderer so we can gather stats on the
+     * underlying GL implementation. If GL ES acceleration is disabled,
+     * we just shut it down again once we have the strings. */
+    {
+        int qemu_gles = 0;
+        if (android_initOpenglesEmulation() == 0 &&
+            android_startOpenglesRenderer(android_hw->hw_lcd_width, android_hw->hw_lcd_height) == 0)
+        {
+            android_getOpenglesHardwareStrings(
+                    android_gl_vendor, sizeof(android_gl_vendor),
+                    android_gl_renderer, sizeof(android_gl_renderer),
+                    android_gl_version, sizeof(android_gl_version));
+            if (android_hw->hw_gpu_enabled) {
+                qemu_gles = 1;
+            } else {
+                android_stopOpenglesRenderer();
+                qemu_gles = 0;
+            }
+        } else {
+            dwarning("Could not initialize OpenglES emulation, using software renderer.");
+        }
+        if (qemu_gles) {
+            stralloc_add_str(kernel_params, " qemu.gles=1");
+        } else {
+            stralloc_add_str(kernel_params, " qemu.gles=0");
+        }
     }
 
     /* We always force qemu=1 when running inside QEMU */
@@ -3978,6 +4072,32 @@ int main(int argc, char **argv, char **envp)
         }
     }
 
+    /* Quite often (especially on older XP machines) attempts to allocate large
+     * VM RAM is going to fail, and crash the emulator. Since it's failing deep
+     * inside QEMU, it's not really possible to provide the user with a
+     * meaningful explanation for the crash. So, lets see if QEMU is going to be
+     * able to allocate requested amount of RAM, and if not, lets try to come up
+     * with a recomendation. */
+    {
+        ram_addr_t r_ram = ram_size;
+        void* alloc_check = malloc(r_ram);
+        while (alloc_check == NULL && r_ram > 1024 * 1024) {
+        /* Make it 25% less */
+            r_ram -= r_ram / 4;
+            alloc_check = malloc(r_ram);
+        }
+        if (alloc_check != NULL) {
+            free(alloc_check);
+        }
+        if (r_ram != ram_size) {
+            /* Requested RAM is too large. Report this, as well as calculated
+             * recomendation. */
+            dwarning("Requested RAM size of %dMB is too large for your environment, and is reduced to %dMB.",
+                     (int)(ram_size / 1024 / 1024), (int)(r_ram / 1024 / 1024));
+            ram_size = r_ram;
+        }
+    }
+
 #ifdef CONFIG_KQEMU
     /* FIXME: This is a nasty hack because kqemu can't cope with dynamic
        guest ram allocation.  It needs to go away.  */
@@ -4093,6 +4213,18 @@ int main(int argc, char **argv, char **envp)
         }
     }
 
+#ifdef CONFIG_HAX
+    if (!hax_disabled)
+    {
+        int ret;
+
+        hax_set_ramsize(ram_size);
+        ret = hax_init(smp_cpus);
+        fprintf(stderr, "HAX is %s and emulator runs in %s mode\n",
+            !ret ? "working" :"not working", !ret ? "fast virt" : "emulation");
+    }
+#endif
+
     if (monitor_device) {
         monitor_hd = qemu_chr_open("monitor", monitor_device, NULL);
         if (!monitor_hd) {
@@ -4148,7 +4280,7 @@ int main(int argc, char **argv, char **envp)
                 android_hw->hw_cpu_arch);
         exit(1);
     }
-#elif defined(TARGET_X86)
+#elif defined(TARGET_I386)
     if (strcmp(android_hw->hw_cpu_arch,"x86") != 0) {
         fprintf(stderr, "-- Invalid CPU architecture: %s, expected 'x86'\n",
                 android_hw->hw_cpu_arch);
@@ -4201,10 +4333,14 @@ int main(int argc, char **argv, char **envp)
                       initrd_filename,
                       cpu_model);
 
+        /* Initialize multi-touch emulation. */
+        if (androidHwConfig_isScreenMultiTouch(android_hw)) {
+            mts_port_create(NULL);
+        }
+
         stralloc_reset(kernel_params);
         stralloc_reset(kernel_config);
     }
-
 
     for (env = first_cpu; env != NULL; env = env->next_cpu) {
         for (i = 0; i < nb_numa_nodes; i++) {
@@ -4225,6 +4361,11 @@ int main(int argc, char **argv, char **envp)
             PANIC("failed to initialize vcpus");
         }
     }
+
+#ifdef CONFIG_HAX
+    if (hax_enabled())
+        hax_sync_vcpus();
+#endif
 
     /* init USB devices */
     if (usb_enabled) {

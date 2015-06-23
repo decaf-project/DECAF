@@ -7,7 +7,9 @@ LIBPNG_SOURCES := png.c pngerror.c pngget.c pngmem.c pngpread.c pngread.c \
 # Enable MMX code path for x86, except on Darwin where it fails
 PNG_MMX := no
 ifeq ($(HOST_ARCH),x86)
+ifneq ($(BUILD_DEBUG_EMULATOR),true)
     PNG_MMX := yes
+endif
 endif
 ifeq ($(HOST_OS),darwin)
     PNG_MMX := no
@@ -20,4 +22,3 @@ else
 endif
 
 LIBPNG_SOURCES := $(LIBPNG_SOURCES:%=$(LIBPNG_DIR)/%)
-

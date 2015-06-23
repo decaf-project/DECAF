@@ -114,9 +114,9 @@ help_build_images( stralloc_t*  out )
     "    - kernel-qemu  : the emulator-specific Linux kernel image.\n\n"
 
     "  If the kernel image is not found in the out directory, then it is searched\n"
-    "  in <build-root>/prebuilt/android-arm/kernel/.\n\n"
+    "  in <build-root>/prebuilts/qemu-kernel/.\n\n"
 
-    "  Skins will be looked in <build-root>/sdk/emulator/skins/\n\n"
+    "  Skins will be looked in <build-root>/development/tools/emulator/skins/\n\n"
 
     "  You can use the -sysdir, -system, -kernel, -ramdisk, -datadir, -data options\n"
     "  to specify different search directories or specific image files. You can\n"
@@ -585,6 +585,15 @@ help_cache(stralloc_t*  out)
 }
 
 static void
+help_cache_size(stralloc_t*  out)
+{
+    PRINTF(
+    "  use '-cache <size>' to specify a /cache partition size in MB. By default,\n"
+    "  the cache partition size is set to 66MB\n\n"
+    );
+}
+
+static void
 help_no_cache(stralloc_t*  out)
 {
     PRINTF(
@@ -748,6 +757,15 @@ help_skin(stralloc_t*  out)
     PRINTF(
     "  note that <skin> can also be '<width>x<height>' (e.g. '320x480') to\n"
     "  specify an exact framebuffer size, without any visual ornaments.\n\n" );
+}
+
+static void
+help_dynamic_skin(stralloc_t* out)
+{
+    PRINTF(
+    "  use '-dynamic_skin' to dynamically generate a skin based on the settings\n"
+    "  in the AVD. This option only has effect if the -skin WxH option is used\n"
+    "  to specify the width and height of the framebuffer\n");
 }
 
 /* default network settings for emulator */
@@ -1428,6 +1446,93 @@ help_shared_net_id(stralloc_t*  out)
     );
 }
 
+static void
+help_gpu(stralloc_t* out)
+{
+    PRINTF(
+    "  Use -gpu <mode> to override the mode of hardware OpenGL ES emulation\n"
+    "  indicated by the AVD. Valid values for <mode> are:\n\n"
+
+    "     on       -> enable GPU emulation\n"
+    "     off      -> disable GPU emulation\n"
+    "     auto     -> use the setting from the AVD\n"
+    "     enabled  -> same as 'on'\n"
+    "     disabled -> same as 'off'\n\n"
+
+    "  Note that enabling GPU emulation if the system image does not support it\n"
+    "  will prevent the proper display of the emulated framebuffer.\n\n"
+
+    "  You can always disable GPU emulation (i.e. '-gpu off'), and this will\n"
+    "  force the virtual device to use the slow software renderer instead.\n"
+    "  Note that OpenGLES 2.0 is _not_ supported by it.\n\n"
+
+    "  The 'auto' mode is the default. In this mode, the hw.gpu.enabled setting\n"
+    "  in the AVD's hardware-qemu.ini file will determine whether GPU emulation\n"
+    "  is enabled.\n\n"
+
+    "  Even if hardware GPU emulation is enabled, if the host-side OpenGL ES\n"
+    "  emulation library cannot be initialized, the emulator will run with GPU\n"
+    "  emulation disabled rather than failing to start.\n"
+    );
+}
+
+static void
+help_camera_back(stralloc_t* out)
+{
+    PRINTF(
+    "  Use -camera-back <mode> to control emulation of a camera facing back.\n"
+    "  Valid values for <mode> are:\n\n"
+
+    "     emulated  -> camera will be emulated using software ('fake') camera emulation\n"
+    "     webcam<N> -> camera will be emulated using a webcamera connected to the host\n"
+    "     none      -> camera emulation will be disabled\n\n"
+    );
+}
+
+static void
+help_camera_front(stralloc_t* out)
+{
+    PRINTF(
+    "  Use -camera-front <mode> to control emulation of a camera facing front.\n"
+    "  Valid values for <mode> are:\n\n"
+
+    "     emulated  -> camera will be emulated using software ('fake') camera emulation\n"
+    "     webcam<N> -> camera will be emulated using a webcamera connected to the host\n"
+    "     none      -> camera emulation will be disabled\n\n"
+    );
+}
+
+static void
+help_webcam_list(stralloc_t* out)
+{
+    PRINTF(
+    "  Use -webcam-list to list web cameras available for emulation.\n\n"
+    );
+}
+
+static void
+help_screen(stralloc_t* out)
+{
+    PRINTF(
+    "  Use -screen <mode> to set the emulated screen mode.\n"
+    "  Valid values for <mode> are:\n\n"
+
+    "     touch       -> emulate a touch screen\n"
+    "     multi-touch -> emulate a multi-touch screen\n"
+    "     no-touch    -> disable touch and multi-touch screen emulation\n\n"
+
+    "  Default mode for screen emulation is 'touch'.\n\n"
+    );
+}
+
+static void
+help_force_32bit(stralloc_t* out)
+{
+    PRINTF(
+    "  Use -force-32bit to use 32-bit emulator on 64-bit platforms\n\n"
+
+    );
+}
 
 #define  help_no_skin   NULL
 #define  help_netspeed  help_shaper

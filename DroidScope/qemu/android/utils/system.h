@@ -14,6 +14,7 @@
 
 #include <string.h>
 #include <stdint.h>
+#define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>  /* for PRId64 et al. */
 #include "android/utils/assert.h"
 
@@ -173,11 +174,8 @@ extern  void   sleep_ms( int  timeout );
 #ifndef PRIx64
 #  define PRIx64  "llx"
 #endif
-#ifndef PRUd64
-#  define PRUd64  "llu"
-#endif
-#ifndef PRUx64
-#  define PRUx64  "llx"
+#ifndef PRIu64
+#  define PRIu64  "llu"
 #endif
 
 /* */

@@ -28,6 +28,7 @@
 #include "exec-all.h"
 #include "qemu-common.h"
 #include "kvm.h"
+#include "hax.h"
 
 //#define DEBUG_MMU
 
@@ -661,6 +662,11 @@ void cpu_dump_state(CPUState *env, FILE *f,
 
     if (kvm_enabled())
         kvm_arch_get_registers(env);
+
+#ifdef CONFIG_HAX
+    if (hax_enabled())
+        hax_arch_get_registers(env);
+#endif
 
     eflags = env->eflags;
 #ifdef TARGET_X86_64
@@ -1590,8 +1596,15 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         break;
     case 1:
         *eax = env->cpuid_version;
+        if (kvm_enabled() && !env->cpuid_vendor_override) {
+            /* take only subset of ext features which processor can handle */
+            uint32_t unused;
+            host_cpuid(1, 0, NULL, &unused, ecx, &unused);
+        } else {
+            *ecx = UINT32_MAX;
+        }
         *ebx = (env->cpuid_apic_id << 24) | 8 << 8; /* CLFLUSH size in quad words, Linux wants it. */
-        *ecx = env->cpuid_ext_features;
+        *ecx &= env->cpuid_ext_features;
         *edx = env->cpuid_features;
 
         /* "Hypervisor present" bit required for Microsoft SVVP */

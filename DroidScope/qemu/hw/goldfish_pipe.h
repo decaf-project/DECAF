@@ -85,7 +85,7 @@ typedef struct {
     int          (*recvBuffers)( void* pipe, GoldfishPipeBuffer* buffers, int numBuffers );
 
     /* Called when guest wants to poll the read/write status for the pipe.
-     * Should return a combination of PIPE_WAKE_XXX flags.
+     * Should return a combination of PIPE_POLL_XXX flags.
      */
     unsigned     (*poll)( void* pipe );
 
@@ -94,6 +94,27 @@ typedef struct {
      * then the pipe implementation shall call goldfish_pipe_wake().
      */
     void         (*wakeOn)( void* opaque, int flags );
+
+    /* Called to save the pipe's state to a QEMUFile, i.e. when saving
+     * snapshots. This can be NULL to indicate that no state can be saved.
+     * In this case, when the pipe is loaded, the emulator will automatically
+     * force-close so the next operation the guest performs on it will return
+     * a PIPE_ERROR_IO error code.
+     */
+    void         (*save)( void* pipe, QEMUFile* file );
+
+    /* Called to load the sate of a pipe from a QEMUFile. This will always
+     * correspond to the state of the pipe as saved by a previous call to
+     * the 'save' method. Can be NULL to indicate that the pipe state cannot
+     * be loaded. In this case, the emulator will automatically force-close
+     * it.
+     *
+     * In case of success, this returns 0, and the new pipe object is returned
+     * in '*ppipe'. In case of errno code is returned to indicate a failure.
+     * 'hwpipe' and 'pipeOpaque' are the same arguments than those passed
+     * to 'init'.
+     */
+    void*        (*load)( void* hwpipe, void* pipeOpaque, const char* args, QEMUFile* file);
 } GoldfishPipeFuncs;
 
 /* Register a new pipe handler type. 'pipeOpaque' is passed directly
@@ -122,7 +143,7 @@ extern void goldfish_pipe_wake( void* hwpipe, unsigned flags );
  *
  * Where $KERNEL points to the android-goldfish-2.6.xx branch on:
  *
- *     android.git.kernel.org/kernel/qemu.git.
+ *     android.googlesource.com/kernel/goldfish.git.
  */
 
 /* pipe device registers */
@@ -132,6 +153,11 @@ extern void goldfish_pipe_wake( void* hwpipe, unsigned flags );
 #define PIPE_REG_SIZE               0x0c  /* read/write: buffer size */
 #define PIPE_REG_ADDRESS            0x10  /* write: physical address */
 #define PIPE_REG_WAKES              0x14  /* read: wake flags */
+/* read/write: parameter buffer address */
+#define PIPE_REG_PARAMS_ADDR_LOW     0x18
+#define PIPE_REG_PARAMS_ADDR_HIGH    0x1c
+/* write: access with paremeter buffer */
+#define PIPE_REG_ACCESS_PARAMS       0x20
 
 /* list of commands for PIPE_REG_COMMAND */
 #define PIPE_CMD_OPEN               1  /* open new channel */
@@ -167,5 +193,15 @@ extern void goldfish_pipe_wake( void* hwpipe, unsigned flags );
 #define PIPE_WAKE_WRITE        (1 << 2)  /* pipe can now be written to */
 
 void pipe_dev_init(void);
+
+struct access_params{
+    uint32_t channel;
+    uint32_t size;
+    uint32_t address;
+    uint32_t cmd;
+    uint32_t result;
+    /* reserved for future extension */
+    uint32_t flags;
+};
 
 #endif /* _HW_GOLDFISH_PIPE_H */

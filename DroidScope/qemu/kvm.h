@@ -136,7 +136,9 @@ uint32_t kvm_arch_get_supported_cpuid(CPUState *env, uint32_t function,
                                       int reg);
 
 /* generic hooks - to be moved/refactored once there are more users */
-
+#ifdef CONFIG_HAX
+void hax_vcpu_sync_state(CPUState *env, int modified);
+#endif
 static inline void cpu_synchronize_state(CPUState *env, int modified)
 {
     if (kvm_enabled()) {
@@ -145,6 +147,12 @@ static inline void cpu_synchronize_state(CPUState *env, int modified)
         else
             kvm_arch_get_registers(env);
     }
+#ifdef CONFIG_HAX
+    hax_vcpu_sync_state(env, modified);
+#endif
 }
+
+int kvm_get_sregs(CPUState *env);
+
 
 #endif

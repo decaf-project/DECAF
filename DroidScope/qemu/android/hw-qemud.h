@@ -89,8 +89,9 @@ typedef int (*QemudClientLoad) ( QEMUFile*  f, QemudClient*  client, void*  opaq
  * You should typically use this function within a QemudServiceConnect callback
  * (see below).
  */
-extern QemudClient*  qemud_client_new( QemudService*     service,
+extern QemudClient*  qemud_client_new( QemudService*      service,
                                         int               channel_id,
+                                        const char*       client_param,
                                         void*             clie_opaque,
                                         QemudClientRecv   clie_recv,
                                         QemudClientClose  clie_close,
@@ -114,7 +115,10 @@ extern void   qemud_client_close( QemudClient*  client );
  * system tries to connect to a given qemud service. This should typically
  * call qemud_client_new() to register a new client.
  */
-typedef QemudClient*  (*QemudServiceConnect)( void*   opaque, QemudService*  service, int  channel );
+typedef QemudClient*  (*QemudServiceConnect)( void*   opaque,
+                                              QemudService*  service,
+                                              int  channel,
+                                              const char* client_param );
 
 /* A function that will be called when the state of the service should be
  * saved to a snapshot.

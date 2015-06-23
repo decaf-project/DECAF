@@ -25,6 +25,7 @@
 #include "pc.h"
 #include "isa.h"
 #include "monitor.h"
+#include "goldfish_device.h"
 
 /* debug PIC */
 //#define DEBUG_PIC
@@ -559,7 +560,7 @@ qemu_irq *i8259_init(qemu_irq parent_irq)
     s->pics[0].pics_state = s;
     s->pics[1].pics_state = s;
     isa_pic = s;
-    return qemu_allocate_irqs(i8259_set_irq, s, 16);
+    return qemu_allocate_irqs(i8259_set_irq, s, GFD_MAX_IRQ);
 }
 
 void pic_set_alt_irq_func(PicState2 *s, SetIRQFunc *alt_irq_func,

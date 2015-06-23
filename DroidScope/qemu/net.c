@@ -1357,7 +1357,7 @@ static int launch_script(const char *setup_script, const char *ifname, int fd)
         *parg++ = (char *)ifname;
         *parg++ = NULL;
         execv(setup_script, args);
-        _exit(1);
+        exit(1);
     } else if (pid > 0) {
         while (waitpid(pid, &status, 0) != pid) {
             /* loop */

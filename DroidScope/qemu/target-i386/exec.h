@@ -29,7 +29,7 @@
 
 #include "cpu-defs.h"
 
-register struct CPUX86State *env asm(AREG0);
+GLOBAL_REGISTER_VARIABLE_DECL struct CPUX86State *env asm(AREG0);
 
 #include "qemu-common.h"
 #include "qemu-log.h"

@@ -12,13 +12,10 @@
 #include "qemu_file.h"
 #include "goldfish_nand_reg.h"
 #include "goldfish_nand.h"
+#include "goldfish_vmem.h"
 #include "android/utils/tempfile.h"
 #include "qemu_debug.h"
 #include "android/android.h"
-
-#ifdef TARGET_I386
-#include "kvm.h"
-#endif
 
 #define  DEBUG  1
 #if DEBUG
@@ -130,6 +127,8 @@ typedef struct {
     uint32_t addr_high;
     uint32_t transfer_size;
     uint32_t data;
+    uint32_t batch_addr_low;
+    uint32_t batch_addr_high;
     uint32_t result;
 } nand_dev_controller_state;
 
@@ -138,7 +137,7 @@ typedef struct {
  * 2: saving actual disk contents as well
  * 3: use the correct data length and truncate to avoid padding.
  */
-#define  NAND_DEV_STATE_SAVE_VERSION  3
+#define  NAND_DEV_STATE_SAVE_VERSION  4
 
 #define  QFIELD_STRUCT  nand_dev_controller_state
 QFIELD_BEGIN(nand_dev_controller_state_fields)
@@ -147,6 +146,8 @@ QFIELD_BEGIN(nand_dev_controller_state_fields)
     QFIELD_INT32(addr_high),
     QFIELD_INT32(transfer_size),
     QFIELD_INT32(data),
+    QFIELD_INT32(batch_addr_low),
+    QFIELD_INT32(batch_addr_high),
     QFIELD_INT32(result),
 QFIELD_END
 
@@ -378,11 +379,7 @@ static uint32_t nand_dev_read_file(nand_dev *dev, uint32_t data, uint64_t addr, 
         if(!eof) {
             read_len = do_read(dev->fd, dev->data, read_len);
         }
-#ifdef TARGET_I386
-        if (kvm_enabled())
-            cpu_synchronize_state(cpu_single_env, 0);
-#endif
-        cpu_memory_rw_debug(cpu_single_env, data, dev->data, read_len, 1);
+        safe_memory_rw_debug(cpu_single_env, data, dev->data, read_len, 1);
         data += read_len;
         len -= read_len;
     }
@@ -401,11 +398,7 @@ static uint32_t nand_dev_write_file(nand_dev *dev, uint32_t data, uint64_t addr,
     while(len > 0) {
         if(len < write_len)
             write_len = len;
-#ifdef TARGET_I386
-        if (kvm_enabled())
-                cpu_synchronize_state(cpu_single_env, 0);
-#endif
-        cpu_memory_rw_debug(cpu_single_env, data, dev->data, write_len, 0);
+        safe_memory_rw_debug(cpu_single_env, data, dev->data, write_len, 0);
         ret = do_write(dev->fd, dev->data, write_len);
         if(ret < write_len) {
             XLOG("nand_dev_write_file, write failed: %s\n", strerror(errno));
@@ -457,6 +450,18 @@ uint32_t nand_dev_do_cmd(nand_dev_controller_state *s, uint32_t cmd)
     uint64_t addr;
     nand_dev *dev;
 
+    if (cmd == NAND_CMD_WRITE_BATCH || cmd == NAND_CMD_READ_BATCH ||
+        cmd == NAND_CMD_ERASE_BATCH) {
+        struct batch_data bd;
+        uint64_t bd_addr = ((uint64_t)s->batch_addr_high << 32) | s->batch_addr_low;
+
+        cpu_physical_memory_read(bd_addr, (void*)&bd, sizeof(struct batch_data));
+        s->dev = bd.dev;
+        s->addr_low = bd.addr_low;
+        s->addr_high = bd.addr_high;
+        s->transfer_size = bd.transfer_size;
+        s->data = bd.data;
+    }
     addr = s->addr_low | ((uint64_t)s->addr_high << 32);
     size = s->transfer_size;
     if(s->dev >= nand_dev_count)
@@ -467,12 +472,9 @@ uint32_t nand_dev_do_cmd(nand_dev_controller_state *s, uint32_t cmd)
     case NAND_CMD_GET_DEV_NAME:
         if(size > dev->devname_len)
             size = dev->devname_len;
-#ifdef TARGET_I386
-        if (kvm_enabled())
-                cpu_synchronize_state(cpu_single_env, 0);
-#endif
-        cpu_memory_rw_debug(cpu_single_env, s->data, (uint8_t*)dev->devname, size, 1);
+        safe_memory_rw_debug(cpu_single_env, s->data, (uint8_t*)dev->devname, size, 1);
         return size;
+    case NAND_CMD_READ_BATCH:
     case NAND_CMD_READ:
         if(addr >= dev->max_size)
             return 0;
@@ -480,12 +482,9 @@ uint32_t nand_dev_do_cmd(nand_dev_controller_state *s, uint32_t cmd)
             size = dev->max_size - addr;
         if(dev->fd >= 0)
             return nand_dev_read_file(dev, s->data, addr, size);
-#ifdef TARGET_I386
-        if (kvm_enabled())
-                cpu_synchronize_state(cpu_single_env, 0);
-#endif
-        cpu_memory_rw_debug(cpu_single_env,s->data, &dev->data[addr], size, 1);
+        safe_memory_rw_debug(cpu_single_env,s->data, &dev->data[addr], size, 1);
         return size;
+    case NAND_CMD_WRITE_BATCH:
     case NAND_CMD_WRITE:
         if(dev->flags & NAND_DEV_FLAG_READ_ONLY)
             return 0;
@@ -495,12 +494,9 @@ uint32_t nand_dev_do_cmd(nand_dev_controller_state *s, uint32_t cmd)
             size = dev->max_size - addr;
         if(dev->fd >= 0)
             return nand_dev_write_file(dev, s->data, addr, size);
-#ifdef TARGET_I386
-        if (kvm_enabled())
-                cpu_synchronize_state(cpu_single_env, 0);
-#endif
-        cpu_memory_rw_debug(cpu_single_env,s->data, &dev->data[addr], size, 0);
+        safe_memory_rw_debug(cpu_single_env,s->data, &dev->data[addr], size, 0);
         return size;
+    case NAND_CMD_ERASE_BATCH:
     case NAND_CMD_ERASE:
         if(dev->flags & NAND_DEV_FLAG_READ_ONLY)
             return 0;
@@ -542,6 +538,12 @@ static void nand_dev_write(void *opaque, target_phys_addr_t offset, uint32_t val
     case NAND_ADDR_LOW:
         s->addr_low = value;
         break;
+    case NAND_BATCH_ADDR_LOW:
+        s->batch_addr_low = value;
+        break;
+    case NAND_BATCH_ADDR_HIGH:
+        s->batch_addr_high = value;
+        break;
     case NAND_TRANSFER_SIZE:
         s->transfer_size = value;
         break;
@@ -550,6 +552,13 @@ static void nand_dev_write(void *opaque, target_phys_addr_t offset, uint32_t val
         break;
     case NAND_COMMAND:
         s->result = nand_dev_do_cmd(s, value);
+        if (value == NAND_CMD_WRITE_BATCH || value == NAND_CMD_READ_BATCH ||
+            value == NAND_CMD_ERASE_BATCH) {
+            struct batch_data bd;
+            uint64_t bd_addr = ((uint64_t)s->batch_addr_high << 32) | s->batch_addr_low;
+            bd.result = s->result;
+            cpu_physical_memory_write(bd_addr, (void*)&bd, sizeof(struct batch_data));
+        }
         break;
     default:
         cpu_abort(cpu_single_env, "nand_dev_write: Bad offset %x\n", offset);
@@ -765,7 +774,18 @@ void nand_add_dev(const char *arg)
     }
 
     if(rwfilename) {
-        rwfd = open(rwfilename, O_BINARY | (read_only ? O_RDONLY : O_RDWR));
+        if (initfilename) {
+            /* Overwrite with content of the 'initfilename'. */
+            if (read_only) {
+                /* Cannot be readonly when initializing the device from another file. */
+                XLOG("incompatible read only option is requested while initializing %.*s from %s\n",
+                     devname_len, devname, initfilename);
+                exit(1);
+            }
+            rwfd = open(rwfilename, O_BINARY | O_TRUNC | O_RDWR);
+        } else {
+            rwfd = open(rwfilename, O_BINARY | (read_only ? O_RDONLY : O_RDWR));
+        }
         if(rwfd < 0) {
             XLOG("could not open file %s, %s\n", rwfilename, strerror(errno));
             exit(1);
@@ -810,6 +830,9 @@ void nand_add_dev(const char *arg)
     if(dev->data == NULL)
         goto out_of_memory;
     dev->flags = read_only ? NAND_DEV_FLAG_READ_ONLY : 0;
+#ifdef TARGET_I386
+    dev->flags |= NAND_DEV_FLAG_BATCH_CAP;
+#endif
 
     if (initfd >= 0) {
         do {

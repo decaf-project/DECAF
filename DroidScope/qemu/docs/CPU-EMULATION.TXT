@@ -85,7 +85,7 @@ port for the Goldfish platform.
 
 "Goldfish" is simply the name of the virtual Linux platform used to build
 the Android-emulator-specific kernel image. The corresponding sources are
-located in the origin/android-goldfish-2.6.27 branch of
-git://android.git.kernel.org/kernel/common.git. You can have a look at
+located in the origin/android-goldfish-2.6.29 branch of
+https://android.googlesource.com/kernel/goldfish.git. You can have a look at
 arch/arm/mach-goldfish/ for the corresponding kernel driver sources.
 

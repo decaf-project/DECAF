@@ -13,9 +13,9 @@ DEFINES+=$(TARGET_CFLAGS)
 
 CC=gcc
 CPP=g++
-CFLAGS=-Wall -O2 -g -fPIC -MMD 
+CFLAGS=-Wall -O2 -g -fPIC             -m32 
 # CFLAGS=-Wall -g -fPIC 
-LDFLAGS=-g -shared 
+LDFLAGS=-g -shared                        -m32
 
 OBJS=DalvikInstructionTracer.o
 # temu, qemu-tools removed as target

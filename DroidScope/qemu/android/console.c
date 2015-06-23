@@ -1867,7 +1867,7 @@ do_event_send( ControlClient  client, char*  args )
         if (q == p)
             break;
 
-        snprintf(temp, sizeof temp, "%.*s", q-p, p);
+        snprintf(temp, sizeof temp, "%.*s", (int)(intptr_t)(q-p), p);
         ret = android_event_from_str( temp, &type, &code, &value );
         if (ret < 0) {
             if (ret == -1) {

@@ -319,7 +319,11 @@ compute_fb_update_rect_linear(FbUpdateState*  fbs,
 
             xx1 = 0;
             DUFF4(width, {
-                if (src[xx1] != dst[xx1])
+                uint16_t spix = src[xx1];
+#if defined(HOST_WORDS_BIGENDIAN) != defined(TARGET_WORDS_BIGENDIAN)
+                spix = (uint16_t)((spix << 8) | (spix >> 8));
+#endif
+                if (spix != dst[xx1])
                     break;
                 xx1++;
             });
@@ -332,8 +336,8 @@ compute_fb_update_rect_linear(FbUpdateState*  fbs,
                     break;
                 xx2--;
             });
-#if HOST_WORDS_BIGENDIAN
-            /* Convert the guest little-endian pixels into big-endian ones */
+#if defined(HOST_WORDS_BIGENDIAN) != defined(TARGET_WORDS_BIGENDIAN)
+            /* Convert the guest pixels into host ones */
             int xx = xx1;
             DUFF4(xx2-xx1+1,{
                 unsigned   spix = src[xx];
@@ -382,7 +386,12 @@ compute_fb_update_rect_linear(FbUpdateState*  fbs,
 
             xx1 = 0;
             DUFF4(width, {
-                if (src[xx1] != dst[xx1]) {
+                uint32_t spix = src[xx1];
+#if defined(HOST_WORDS_BIGENDIAN) != defined(TARGET_WORDS_BIGENDIAN)
+                spix = (spix << 16) | (spix >> 16);
+                spix = ((spix << 8) & 0xff00ff00) | ((spix >> 8) & 0x00ff00ff);
+#endif
+                if (spix != dst[xx1]) {
                     break;
                 }
                 xx1++;
@@ -397,8 +406,8 @@ compute_fb_update_rect_linear(FbUpdateState*  fbs,
                 }
                 xx2--;
             });
-#if HOST_WORDS_BIGENDIAN
-            /* Convert the guest little-endian pixels into big-endian ones */
+#if defined(HOST_WORDS_BIGENDIAN) != defined(TARGET_WORDS_BIGENDIAN)
+            /* Convert the guest pixels into host ones */
             int xx = xx1;
             DUFF4(xx2-xx1+1,{
                 uint32_t   spix = src[xx];

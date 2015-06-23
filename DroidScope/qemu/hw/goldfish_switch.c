@@ -11,6 +11,7 @@
 */
 #include "qemu_file.h"
 #include "goldfish_device.h"
+#include "goldfish_vmem.h"
 
 enum {
     SW_NAME_LEN     = 0x00,
@@ -93,7 +94,7 @@ static void goldfish_switch_write(void *opaque, target_phys_addr_t offset, uint3
 
     switch(offset) {
         case SW_NAME_PTR:
-            cpu_memory_rw_debug(cpu_single_env, value, (void*)s->name, strlen(s->name), 1);
+            safe_memory_rw_debug(cpu_single_env, value, (void*)s->name, strlen(s->name), 1);
             break;
 
         case SW_STATE:

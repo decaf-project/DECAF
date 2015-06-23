@@ -35,6 +35,18 @@
     _VERBOSE_TAG(avd_config,   "android virtual device configuration") \
     _VERBOSE_TAG(sensors,      "emulated sensors") \
     _VERBOSE_TAG(memcheck,     "memory checker") \
+    _VERBOSE_TAG(camera,       "camera") \
+    _VERBOSE_TAG(adevice,      "android device connected via port forwarding") \
+    _VERBOSE_TAG(sensors_port, "sensors emulator connected to android device") \
+    _VERBOSE_TAG(mtport,       "multi-touch emulator connected to android device") \
+    _VERBOSE_TAG(mtscreen,     "multi-touch screen emulation") \
+    _VERBOSE_TAG(gles,         "hardware OpenGLES emulation") \
+    _VERBOSE_TAG(adbserver,    "ADB server") \
+    _VERBOSE_TAG(adbclient,    "ADB QEMU client") \
+    _VERBOSE_TAG(adb,          "ADB debugger") \
+    _VERBOSE_TAG(asconnector,  "Asynchronous socket connector") \
+    _VERBOSE_TAG(asyncsocket,  "Asynchronous socket") \
+    _VERBOSE_TAG(sdkctlsocket, "Socket tethering to SdkControl server") \
 
 #define  _VERBOSE_TAG(x,y)  VERBOSE_##x,
 typedef enum {

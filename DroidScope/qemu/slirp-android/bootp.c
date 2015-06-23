@@ -65,7 +65,7 @@ static BOOTPClient *get_new_addr(SockAddress*  paddr,
  found:
     bc = &bootp_clients[i];
     bc->allocated = 1;
-    sock_address_init_inet( paddr, 
+    sock_address_init_inet( paddr,
                             special_addr_ip | (i+START_ADDR),
                             BOOTP_CLIENT );
     return bc;
@@ -170,7 +170,7 @@ static void bootp_reply(const struct bootp_t *bp)
     dhcp_decode(bp, &dhcp_msg_type, &preq_addr);
     dprintf("bootp packet op=%d msgtype=%d", bp->bp_op, dhcp_msg_type);
     if (preq_addr) {
-        dprintf(" req_addr=%08x\n", ntohl(*preq_addr));
+        dprintf(" req_addr=%08x\n", ntohl(*(uint32_t*)preq_addr));
     } else {
         dprintf("\n");
     }

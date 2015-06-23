@@ -101,6 +101,20 @@ typedef enum {
     kKeyCodeMenu                    = KEY_SOFT1,
     kKeyCodeNotification            = KEY_NOTIFICATION,
     kKeyCodeSearch                  = KEY_SEARCH,
+    kKeyCodeTV                      = KEY_TV,
+    kKeyCodeEPG                     = KEY_PROGRAM,
+    kKeyCodeDVR                     = KEY_PVR,
+    kKeyCodePrevious                = KEY_PREVIOUS,
+    kKeyCodeNext                    = KEY_NEXT,
+    kKeyCodePlay                    = KEY_PLAY,
+    kKeyCodePause                   = KEY_PAUSE,
+    kKeyCodeStop                    = KEY_STOP,
+    kKeyCodeRewind                  = KEY_REWIND,
+    kKeyCodeFastForward             = KEY_FASTFORWARD,
+    kKeyCodeBookmarks               = KEY_BOOKMARKS,
+    kKeyCodeCycleWindows            = KEY_CYCLEWINDOWS,
+    kKeyCodeChannelUp               = KEY_CHANNELUP,
+    kKeyCodeChannelDown             = KEY_CHANNELDOWN,
 
 } AndroidKeyCode;
 

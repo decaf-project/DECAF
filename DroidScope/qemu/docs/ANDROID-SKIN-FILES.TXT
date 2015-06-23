@@ -1,8 +1,10 @@
 Android Emulator Skin File Specification:
 =========================================
 
+Revisions:
+----------
     Revision 2. Dated 2009-12-07
-
+    Dynamic Layout support added 10/2012
 
 Introduction:
 -------------
@@ -18,6 +20,9 @@ corresponding to different orientation / physical configurations of the
 emulated handset.
 
 This document specifies how to generate a new skin for the emulator.
+The emulator also supports dynamically creating the layout section of
+the skin, thereby removing the necessity to create skins for each new
+handset type. See the last section regarding info on dynamic controls.
 
 General File Format:
 --------------------
@@ -219,3 +224,16 @@ file instead:
 - 'network.delay':
     Default network latency for this skin. Values correspond to the
     -netdelay <delay> emulator command-line option.
+
+Dynamic Layouts:
+----------------
+
+The emulator also supports a skin that is dynamically generated. This
+skin (present in folder "dynamic" in the skins folder) follows the same
+format as other skins, except that it only defines the list of parts/controls
+that can be used in the skin. The layouts section is generated at
+runtime by the emulator. The parts section describes all the controls that
+can be used in any handset. All these parts have both an enabled and a
+disabled version defined in the skin, and at runtime the emulator reads
+the hardware definition and decides which of those two controls to actually
+use.

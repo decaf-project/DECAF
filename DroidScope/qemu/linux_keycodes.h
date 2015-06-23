@@ -449,4 +449,60 @@
 #define KEY_MIN_INTERESTING	KEY_MUTE
 #define KEY_MAX			0x1ff
 
+#ifndef ABS_MT_SLOT
+#define ABS_MT_SLOT             0x2f    /* MT slot being modified */
+#endif
+#ifndef ABS_MT_TOUCH_MAJOR
+#define ABS_MT_TOUCH_MAJOR      0x30    /* Major axis of touching ellipse */
+#endif
+#ifndef ABS_MT_TOUCH_MINOR
+#define ABS_MT_TOUCH_MINOR      0x31    /* Minor axis (omit if circular) */
+#endif
+#ifndef ABS_MT_WIDTH_MAJOR
+#define ABS_MT_WIDTH_MAJOR      0x32    /* Major axis of approaching ellipse */
+#endif
+#ifndef ABS_MT_WIDTH_MINOR
+#define ABS_MT_WIDTH_MINOR      0x33    /* Minor axis (omit if circular) */
+#endif
+#ifndef ABS_MT_ORIENTATION
+#define ABS_MT_ORIENTATION      0x34    /* Ellipse orientation */
+#endif
+#ifndef ABS_MT_POSITION_X
+#define ABS_MT_POSITION_X       0x35    /* Center X ellipse position */
+#endif
+#ifndef ABS_MT_POSITION_Y
+#define ABS_MT_POSITION_Y       0x36    /* Center Y ellipse position */
+#endif
+#ifndef ABS_MT_TOOL_TYPE
+#define ABS_MT_TOOL_TYPE        0x37    /* Type of touching device */
+#endif
+#ifndef ABS_MT_BLOB_ID
+#define ABS_MT_BLOB_ID          0x38    /* Group a set of packets as a blob */
+#endif
+#ifndef ABS_MT_TRACKING_ID
+#define ABS_MT_TRACKING_ID      0x39    /* Unique ID of initiated contact */
+#endif
+#ifndef ABS_MT_PRESSURE
+#define ABS_MT_PRESSURE         0x3a    /* Pressure on contact area */
+#endif
+#ifndef ABS_MT_DISTANCE
+#define ABS_MT_DISTANCE         0x3b    /* Contact hover distance */
+#endif
+#ifndef ABS_MAX
+#define ABS_MAX                 0x3f
+#endif
+
+#ifndef SYN_REPORT
+#define SYN_REPORT              0
+#endif
+#ifndef SYN_CONFIG
+#define SYN_CONFIG              1
+#endif
+#ifndef SYN_MT_REPORT
+#define SYN_MT_REPORT           2
+#endif
+#ifndef SYN_DROPPED
+#define SYN_DROPPED             3
+#endif
+
 #endif

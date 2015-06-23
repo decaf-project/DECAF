@@ -106,6 +106,9 @@ typedef struct {
  */
 AvdInfo*  avdInfo_new( const char*  name, AvdInfoParams*  params );
 
+/* Update the AvdInfo hardware config from a given skin name and path */
+int avdInfo_getSkinHardwareIni( AvdInfo* i, char* skinName, char* skinDirPath);
+
 /* A special function used to setup an AvdInfo for use when starting
  * the emulator from the Android build system. In this specific instance
  * we're going to create temporary files to hold all writable image
@@ -215,8 +218,24 @@ const char*  avdInfo_getContentPath( AvdInfo*  i );
  */
 void         avdInfo_getSkinInfo( AvdInfo*  i, char** pSkinName, char** pSkinDir );
 
+/* Returns whether the AVD specifies the use of a dynamic skin */
+int          avdInfo_shouldUseDynamicSkin( AvdInfo* i);
+
+/* Find a charmap file named <charmapName>.kcm for this AVD.
+ * Returns the path of the file on success, or NULL if not found.
+ * The result string must be freed by the caller.
+ */
+char*        avdInfo_getCharmapFile( AvdInfo* i, const char* charmapName );
+
 /* Returns TRUE iff in the Android build system */
 int          avdInfo_inAndroidBuild( AvdInfo*  i );
+
+/* Returns the target ABI for the corresponding platform image.
+ * This may return NULL if it cannot be determined. Otherwise this is
+ * a string like "armeabi", "armeabi-v7a" or "x86" that must be freed
+ * by the caller.
+ */
+char*        avdInfo_getTargetAbi( AvdInfo*  i );
 
 /* Reads the AVD's hardware configuration into 'hw'. returns -1 on error, 0 otherwise */
 int          avdInfo_initHwConfig( AvdInfo*  i, AndroidHwConfig*  hw );
@@ -229,6 +248,24 @@ char*        avdInfo_getTracePath( AvdInfo*  i, const char*  traceName );
  * core.
  */
 const char*  avdInfo_getCoreHwIniPath( AvdInfo* i );
+
+/* Returns mode in which ADB daemon running in the guest communicates with the
+ * emulator
+ * Return:
+ *  0 - ADBD communicates with the emulator via forwarded TCP port 5555 (a
+ *      "legacy" mode).
+ *  1 - ADBD communicates with the emulator via 'adb' QEMUD service.
+ */
+int          avdInfo_getAdbdCommunicationMode( AvdInfo* i );
+
+/* Returns config.ini snapshot presense status.
+ * This routine checks if snapshots are enabled in AVD config.ini file.
+ * Return:
+ *  1 - Snapshots are enabled in AVD config.ini file.
+ *  0 - Snapshots are disabled in AVD config.ini file, of config.ini file is not
+ *      found.
+*/
+int          avdInfo_getSnapshotPresent(AvdInfo* i);
 
 /* */
 
