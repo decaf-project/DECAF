@@ -1,3 +1,41 @@
-Read the documentation in qemu-doc.html.
+DroidScope (DS) is a dynamic analysis platform based on the Android Emulator. This version is for Android 4.3. Please see the original paper(https://www.usenix.org/conference/usenixsecurity12/droidscope-seamlessly-reconstructing-os-and-dalvik-semantic-views ) for more information on the concept. The instructions bellow show how to compile and run DroidScope from the scratch. 
 
-Fabrice Bellard.
+
+1. Download android 4.3 AOSP and compile it by following the instructions on the official website: http://source.android.com/source/building.html
+
+2. Download DroidScope source code and put it under /path/to/android4.3_src/external. 
+In our context, we denote it as /home/user/project/android4.3_r2.2/external/. 
+
+3. Install ia32-libs. They cannot be installed by running apt-get on ubuntu 14.04. Instead, we install them from the old version ubuntu's source, which is achieved by executing the following steps.
+    * sudo -i
+    * cd /etc/apt/sources.list.d
+    * echo "deb http://old-releases.ubuntu.com/ubuntu/ raring main restricted universe multiverse" >ia32-libs-raring.list
+    * apt-get update
+    * apt-get install ia32-libs
+
+4. Compile DroidScope
+    * ./android-configure.sh
+    * make
+
+5. Prepare the necessary symbol information required by DroidScope
+    * cd /home/user/project/android4.3_r2.2/external/DroidScope/
+    * cp -r scripts/* objs/
+    * cd objs
+    * ./setupdumps.sh
+
+6. Run DroidScope
+   * cd /home/user/project/android4.3_r2.2/external/DroidScope/objs
+   * ./emulator -sysdir /home/user/project/android4.3_r2.2/out/target/product/generic/ -kernel /home/user/Desktop/android-kernel/zImage -memory 512 -qemu -monitor stdio
+
+   We can use the commands such as "ps/guest_ps" in the qemu command line, and load plugins (e.g., dalvik instruction tracer) to get the further analysis.
+
+   Note that, we will get error "SDL init failure, reason is: No available video device" when running "emulator", if we do not install ia32-libs previously.
+
+7. If you want to extend DroidScope and re-compile it, you need to switch to DroidScope folder and run "make clean" and "./android-configure.sh"    
+    * cd /home/user/project/android4.3_r2.2/external/DroidScope/
+    * make clean
+    * ./android-configure.sh
+
+    After running these steps, 'dumps' and 'kernelinfo.conf' will not be removed, so you do not need to run step 5 again to prepare the symbol information. 
+
+
