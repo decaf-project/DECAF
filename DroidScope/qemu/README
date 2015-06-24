@@ -14,6 +14,7 @@ In our context, we denote it as /home/user/project/android4.3_r2.2/external/.
     * apt-get install ia32-libs
 
 4. Compile DroidScope
+    * cd /home/user/project/android4.3_r2.2/external/DroidScope/
     * ./android-configure.sh
     * make
 
