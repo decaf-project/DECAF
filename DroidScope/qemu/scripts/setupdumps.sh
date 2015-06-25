@@ -140,6 +140,12 @@ fi
 # main
 #########################
 scriptdir=`pwd`
+
+######################################################
+### add 'adb','objdump' and 'dexdump' to PATH
+PATH=`pwd`:$PATH
+######################################################
+
 if ( [[ $1 == "" ]] ); then 
   #setup the new dumps directory
   olddumps="dumps_"
