@@ -18,6 +18,8 @@
  */
 package org.sleuthkit.datamodel;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,16 +41,14 @@ import org.sleuthkit.datamodel.TskData.TSK_FS_NAME_TYPE_ENUM;
  * 
  * The class also supports reads of layout files, reading blocks across ranges in a sequence
  */
-public class LayoutFile extends AbstractFile {
-	
-	private long imageHandle = -1;
+public class LayoutFile extends AbstractFile{
 	
 	protected LayoutFile(SleuthkitCase db, long objId, String name, 
 			TSK_DB_FILES_TYPE_ENUM fileType, 
 			TSK_FS_NAME_TYPE_ENUM dirType, TSK_FS_META_TYPE_ENUM metaType, 
 			TSK_FS_NAME_FLAG_ENUM dirFlag, short metaFlags, 
 			long size, String md5Hash, FileKnown knownState, String parentPath) {
-		super(db, objId, TSK_FS_ATTR_TYPE_ENUM.TSK_FS_ATTR_TYPE_DEFAULT, (short)0, name, fileType, 0L, 0, dirType, metaType, dirFlag, metaFlags, size, 0L, 0L, 0L, 0L, (short)0, 0, 0, md5Hash, knownState, parentPath);
+		super(db, objId, TSK_FS_ATTR_TYPE_ENUM.TSK_FS_ATTR_TYPE_DEFAULT, (short)0, name, fileType, 0L, dirType, metaType, dirFlag, metaFlags, size, 0L, 0L, 0L, 0L, (short)0, 0, 0, md5Hash, knownState, parentPath);
 		//this.size = calcSize(); //update calculated size
 	}
 
@@ -61,7 +61,7 @@ public class LayoutFile extends AbstractFile {
 		try {
 			numParts = getRanges().size();
 		} catch (TskCoreException ex) {
-			Logger.getLogger(LayoutFile.class.getName()).log(Level.INFO, "Error getting layout content ranges for size", ex); //NON-NLS
+			Logger.getLogger(LayoutFile.class.getName()).log(Level.INFO, "Error getting layout content ranges for size", ex);
 		}
 		return numParts;
 	}
@@ -88,7 +88,7 @@ public class LayoutFile extends AbstractFile {
                 calcSize += range.getByteLen();
             }
         }catch (TskCoreException ex) {
-			Logger.getLogger(LayoutFile.class.getName()).log(Level.SEVERE, "Error calculating layout file size from ranges", ex); //NON-NLS
+			Logger.getLogger(LayoutFile.class.getName()).log(Level.SEVERE, "Error calculating layout file size from ranges", ex);
         }
         return calcSize;
     }
@@ -103,17 +103,6 @@ public class LayoutFile extends AbstractFile {
         long offsetInThisLayoutContent = 0; // current offset in this LayoutContent
         int bytesRead = 0; // Bytes read so far
 		
-		if (imageHandle == -1) {
-			Content dataSource = getDataSource();
-			if ((dataSource != null) && (dataSource instanceof Image)) {
-				Image image = (Image)dataSource;
-				imageHandle = image.getImageHandle();
-			}
-			else {
-				throw new TskCoreException ("Data Source of LayoutFile is not Image");
-			}
-		}
-		
         for (TskFileRange range : getRanges()) {
             if (bytesRead < len) { // we haven't read enough yet
                 if (offset < offsetInThisLayoutContent + range.getByteLen()) { // if we are in a range object we want to read from
@@ -123,7 +112,7 @@ public class LayoutFile extends AbstractFile {
                     }
                     long offsetInImage = range.getByteStart() + offsetInRange; // how far into the image to start reading
                     long lenToRead = Math.min(range.getByteLen() - offsetInRange, len-bytesRead); // how much we can read this time
-                    int lenRead = readImgToOffset(imageHandle, buf, bytesRead, offsetInImage, (int) lenToRead);
+                    int lenRead = readImgToOffset(getImage().getImageHandle(), buf, bytesRead, offsetInImage, (int) lenToRead);
                     bytesRead += lenRead;
                     if(lenToRead != lenRead) { // If image read failed or was cut short
                         break;
@@ -166,6 +155,11 @@ public class LayoutFile extends AbstractFile {
 		return v.visit(this);
 	}
 
+	@Override
+	public Image getImage() throws TskCoreException{
+		return getParent().getImage();
+	}
+
 	
 	@Override
 	public boolean isRoot() {
@@ -173,6 +167,6 @@ public class LayoutFile extends AbstractFile {
 	}
 	@Override
 	public String toString(boolean preserveState){
-		return super.toString(preserveState) + "LayoutFile [\t" + "]\t"; //NON-NLS
+		return super.toString(preserveState) + "LayoutFile [\t" + "]\t";
 	}
 }

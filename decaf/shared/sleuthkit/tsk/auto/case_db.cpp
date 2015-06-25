@@ -140,10 +140,7 @@ uint8_t
         autoDb.revertAddImage();
         return 1;
     }
-
-    if (autoDb.commitAddImage()) {
-        return 1;
-    }
+    autoDb.commitAddImage();
     
     return 0;
 }

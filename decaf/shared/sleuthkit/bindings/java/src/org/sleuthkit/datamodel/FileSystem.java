@@ -76,6 +76,7 @@ public class FileSystem extends AbstractContent {
 
 	@Override
 	public long getSize() {
+		// size of the file system
 		return blockSize * blockCount;
 	}
 
@@ -91,14 +92,7 @@ public class FileSystem extends AbstractContent {
 		if (filesystemHandle == 0) {
 			synchronized (this) {
 				if (filesystemHandle == 0) {
-					Content dataSource = getDataSource();
-					if ((dataSource != null) && (dataSource instanceof Image)) {
-						Image image = (Image)dataSource;
-						filesystemHandle = SleuthkitJNI.openFs(image.getImageHandle(), imgOffset);
-					}
-					else {
-						throw new TskCoreException ("Data Source of File System is not an image");
-					}
+					filesystemHandle = SleuthkitJNI.openFs(getImage().getImageHandle(), imgOffset);
 				}
 			}
 		}
@@ -206,16 +200,21 @@ public class FileSystem extends AbstractContent {
 
 	@Override
 	public List<Content> getChildren() throws TskCoreException {
-		return getSleuthkitCase().getAbstractFileChildren(this);
+		return getSleuthkitCase().getFileSystemChildren(this);
 	}
 
 	@Override
 	public List<Long> getChildrenIds() throws TskCoreException {
-		return getSleuthkitCase().getAbstractFileChildrenIds(this);
+		return getSleuthkitCase().getFileSystemChildrenIds(this);
+	}
+
+	@Override
+	public Image getImage() throws TskCoreException {
+		return getParent().getImage();
 	}
 
 	@Override
 	public String toString(boolean preserveState) {
-		return super.toString(preserveState) + "FileSystem [\t" + " blockCount " + blockCount + "\t" + "blockSize " + blockSize + "\t" + "firstInum " + firstInum + "\t" + "fsType " + fsType + "\t" + "imgOffset " + imgOffset + "\t" + "lastInum " + lastInum + "\t" + "rootInum " + rootInum + "\t" + "]"; //NON-NLS
+		return super.toString(preserveState) + "FileSystem [\t" + " blockCount " + blockCount + "\t" + "blockSize " + blockSize + "\t" + "firstInum " + firstInum + "\t" + "fsType " + fsType + "\t" + "imgOffset " + imgOffset + "\t" + "lastInum " + lastInum + "\t" + "rootInum " + rootInum + "\t" + "]";
 	}
 }

@@ -19,8 +19,6 @@
 
 package org.sleuthkit.datamodel;
 
-import java.text.MessageFormat;
-import java.util.ResourceBundle;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -30,21 +28,19 @@ import java.util.Set;
  */
 public class TskData {
 
-    private static ResourceBundle bundle = ResourceBundle.getBundle("org.sleuthkit.datamodel.Bundle");
-
 	// Enum for Directory Type
 	public enum TSK_FS_NAME_TYPE_ENUM {
 		UNDEF(0, "-"),     ///< Unknown type
-		FIFO(1, "p"),      ///< Named pipe NON-NLS
-		CHR(2, "c"),       ///< Character device NON-NLS
-		DIR(3, "d"),       ///< Directory NON-NLS
-		BLK(4, "b"),       ///< Block device NON-NLS
-		REG(5, "r"),       ///< Regular file NON-NLS
-		LNK(6, "l"),       ///< Symbolic link NON-NLS
-		SOCK(7, "s"),      ///< Socket NON-NLS
-		SHAD(8, "h"),      ///< Shadow inode (solaris) NON-NLS
-		WHT(9, "w"),       ///< Whiteout (openbsd) NON-NLS
-		VIRT(10, "v");     ///< Special (TSK added "Virtual" files) NON-NLS
+		FIFO(1, "p"),      ///< Named pipe
+		CHR(2, "c"),       ///< Character device
+		DIR(3, "d"),       ///< Directory
+		BLK(4, "b"),       ///< Block device
+		REG(5, "r"),       ///< Regular file
+		LNK(6, "l"),       ///< Symbolic link
+		SOCK(7, "s"),      ///< Socket
+		SHAD(8, "h"),      ///< Shadow inode (solaris)
+		WHT(9, "w"),       ///< Whiteout (openbsd)
+		VIRT(10, "v");     ///< Special (TSK added "Virtual" files)
 
 		private short dirType;
 		String label;
@@ -81,8 +77,7 @@ public class TskData {
 					return v;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskFsNameTypeEnum.exception.msg1.text"), dir_type));
+			throw new IllegalArgumentException("No TSK_FS_NAME_TYPE_ENUM matching type: " + dir_type);
 		}
 	}
 	
@@ -91,16 +86,16 @@ public class TskData {
 	 */
 	public enum TSK_FS_META_TYPE_ENUM {
 		TSK_FS_META_TYPE_UNDEF(0, "-"),
-		TSK_FS_META_TYPE_REG(1, "r"),        ///< Regular file NON-NLS
-		TSK_FS_META_TYPE_DIR(2, "d"),        ///< Directory file NON-NLS
-		TSK_FS_META_TYPE_FIFO(3, "p"),       ///< Named pipe (fifo) NON-NLS
-		TSK_FS_META_TYPE_CHR(4, "c"),        ///< Character device NON-NLS
-		TSK_FS_META_TYPE_BLK(5, "b"),        ///< Block device NON-NLS
-		TSK_FS_META_TYPE_LNK(6, "l"),        ///< Symbolic link NON-NLS
-		TSK_FS_META_TYPE_SHAD(7, "s"),       ///< SOLARIS ONLY NON-NLS
-		TSK_FS_META_TYPE_SOCK(8, "h"),       ///< UNIX domain socket NON-NLS
-		TSK_FS_META_TYPE_WHT(9, "w"),        ///< Whiteout NON-NLS
-		TSK_FS_META_TYPE_VIRT(10, "v");      ///< "Virtual File" created by TSK for file system areas NON-NLS
+		TSK_FS_META_TYPE_REG(1, "r"),        ///< Regular file
+		TSK_FS_META_TYPE_DIR(2, "d"),        ///< Directory file
+		TSK_FS_META_TYPE_FIFO(3, "p"),       ///< Named pipe (fifo)
+		TSK_FS_META_TYPE_CHR(4, "c"),        ///< Character device
+		TSK_FS_META_TYPE_BLK(5, "b"),        ///< Block device
+		TSK_FS_META_TYPE_LNK(6, "l"),        ///< Symbolic link
+		TSK_FS_META_TYPE_SHAD(7, "s"),       ///< SOLARIS ONLY
+		TSK_FS_META_TYPE_SOCK(8, "h"),       ///< UNIX domain socket
+		TSK_FS_META_TYPE_WHT(9, "w"),        ///< Whiteout
+		TSK_FS_META_TYPE_VIRT(10, "v");      ///< "Virtual File" created by TSK for file system areas
 
 		private short metaType;
 		private String metaTypeStr;
@@ -129,8 +124,7 @@ public class TskData {
 					return type;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskFsMetaTypeEnum.exception.msg1.text"), metaType));
+			throw new IllegalArgumentException("No TSK_FS_META_TYPE_ENUM of value: " + metaType);
 		}
 	}
 
@@ -138,8 +132,8 @@ public class TskData {
 	 * FS Flags
 	 */
 	public enum TSK_FS_NAME_FLAG_ENUM {
-		ALLOC(1, bundle.getString("TskData.tskFsNameFlagEnum.allocated")),      ///< Name is in an allocated state
-		UNALLOC(2, bundle.getString("TskData.tskFsNameFlagEnum.unallocated"));    ///< Name is in an unallocated state
+		ALLOC(1, "Allocated"),      ///< Name is in an allocated state
+		UNALLOC(2, "Unallocated");    ///< Name is in an unallocated state
 
 		private short dirFlag;
 		private String dirFlagStr;
@@ -173,8 +167,7 @@ public class TskData {
 					return flag;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskFsNameFlagEnum.exception.msg1.text"), dirFlag));
+			throw new IllegalArgumentException("No TSK_FS_NAME_FLAG_ENUM of value: " + dirFlag);
 		}
 	}
 
@@ -184,12 +177,12 @@ public class TskData {
 	 * META flags
 	 */
 	public enum TSK_FS_META_FLAG_ENUM {
-		ALLOC(1, bundle.getString("TskData.tskFsMetaFlagEnum.allocated")),      ///< Metadata structure is currently in an allocated state
-		UNALLOC(2, bundle.getString("TskData.tskFsMetaFlagEnum.unallocated")),  ///< Metadata structure is currently in an unallocated state
-		USED(4, bundle.getString("TskData.tskFsMetaFlagEnum.used")),            ///< Metadata structure has been allocated at least once
-		UNUSED(8, bundle.getString("TskData.tskFsMetaFlagEnum.unused")),        ///< Metadata structure has never been allocated.
-		COMP(16, bundle.getString("TskData.tskFsMetaFlagEnum.compressed")),     ///< The file contents are compressed.
-		ORPHAN(32, bundle.getString("TskData.tskFsMetaFlagEnum.orphan"));       ///< Return only metadata structures that have no file name pointing to the (inode_walk flag only)
+		ALLOC(1, "Allocated"),      ///< Metadata structure is currently in an allocated state
+		UNALLOC(2, "Unallocated"),  ///< Metadata structure is currently in an unallocated state
+		USED(4, "Used"),            ///< Metadata structure has been allocated at least once
+		UNUSED(8, "Unused"),        ///< Metadata structure has never been allocated.
+		COMP(16, "Compressed"),     ///< The file contents are compressed.
+		ORPHAN(32, "Orphan");       ///< Return only metadata structures that have no file name pointing to the (inode_walk flag only)
 
 		private short meta_flag;
 		private String label;
@@ -297,8 +290,7 @@ public class TskData {
 					return type;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskFsAttrTypeEnum.exception.msg1.text"), val));
+			throw new IllegalArgumentException("No TSK_FS_ATTR_TYPE_ENUM of value: " + val);
 		}
     };
 
@@ -404,7 +396,6 @@ public class TskData {
         TSK_FS_TYPE_FAT12 (0x00000002), ///< FAT12 file system
         TSK_FS_TYPE_FAT16 (0x00000004), ///< FAT16 file system
         TSK_FS_TYPE_FAT32 (0x00000008), ///< FAT32 file system
-        TSK_FS_TYPE_EXFAT (0x0000000A), ///< ExFAT file system
         TSK_FS_TYPE_FAT_DETECT (0x0000000e),    ///< FAT auto detection
         TSK_FS_TYPE_FFS1 (0x00000010),  ///< UFS1 (FreeBSD, OpenBSD, BSDI ...)
         TSK_FS_TYPE_FFS1B (0x00000020), ///< UFS1b (Solaris - has no type)
@@ -450,8 +441,7 @@ public class TskData {
 					return type;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskFsTypeEnum.exception.msg1.text"), fsTypeValue));
+			throw new IllegalArgumentException("No TSK_FS_TYPE_ENUM of value: " + fsTypeValue);
 		}
 		
     };
@@ -461,15 +451,15 @@ public class TskData {
 	 */
 	public enum TSK_IMG_TYPE_ENUM {
 		/* The following describe the image type */
-		TSK_IMG_TYPE_DETECT(0, bundle.getString("TskData.tskImgTypeEnum.autoDetect")),       // Auto Detection
-		TSK_IMG_TYPE_RAW_SING(1, bundle.getString("TskData.tskImgTypeEnum.rawSingle")),     // Single raw file (dd)
-		TSK_IMG_TYPE_RAW_SPLIT(2, bundle.getString("TskData.tskImgTypeEnum.rawSplit")),    // Split raw files
-		TSK_IMG_TYPE_AFF_AFF(4, "AFF"),      // Advanced Forensic Format NON-NLS
-		TSK_IMG_TYPE_AFF_AFD(8, "AFD"),      // AFF Multiple File NON-NLS
-		TSK_IMG_TYPE_AFF_AFM(16, "AFM"),     // AFF with external metadata NON-NLS
-		TSK_IMG_TYPE_AFF_ANY(32, "AFF"),     // All AFFLIB image formats (including beta ones) NON-NLS
-		TSK_IMG_TYPE_EWF_EWF(64, "E01"),     // Expert Witness format (encase) NON-NLS
-		TSK_IMG_TYPE_UNSUPP(65535, bundle.getString("TskData.tskImgTypeEnum.unknown"));   // Unsupported Image Type
+		TSK_IMG_TYPE_DETECT(0, "Auto Detect"),       // Auto Detection
+		TSK_IMG_TYPE_RAW_SING(1, "Raw Single"),     // Single raw file (dd)
+		TSK_IMG_TYPE_RAW_SPLIT(2, "Raw Split"),    // Split raw files
+		TSK_IMG_TYPE_AFF_AFF(4, "AFF"),      // Advanced Forensic Format
+		TSK_IMG_TYPE_AFF_AFD(8, "AFD"),      // AFF Multiple File
+		TSK_IMG_TYPE_AFF_AFM(16, "AFM"),     // AFF with external metadata
+		TSK_IMG_TYPE_AFF_ANY(32, "AFF"),     // All AFFLIB image formats (including beta ones)
+		TSK_IMG_TYPE_EWF_EWF(64, "E01"),     // Expert Witness format (encase)
+		TSK_IMG_TYPE_UNSUPP(65535, "Unknown");   // Unsupported Image Type
 
 		private long imgType;
 		private String name;
@@ -485,8 +475,7 @@ public class TskData {
 					return type;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskImgTypeEnum.exception.msg1.text"), imgType));
+			throw new IllegalArgumentException("No TSK_IMG_TYPE_ENUM of value: " + imgType);
 		}
 		
 		/**
@@ -510,14 +499,14 @@ public class TskData {
 	 * Volume System type
 	 */
     public enum TSK_VS_TYPE_ENUM {
-        TSK_VS_TYPE_DETECT(0x0000, bundle.getString("TskData.tskVSTypeEnum.autoDetect")),    ///< Use autodetection methods
-        TSK_VS_TYPE_DOS(0x0001, "DOS"),       ///< DOS Partition table NON-NLS
-        TSK_VS_TYPE_BSD(0x0002, "BSD"),       ///< BSD Partition table NON-NLS
-        TSK_VS_TYPE_SUN(0x0004, "SUN VTOC"),       ///< Sun VTOC NON-NLS
-        TSK_VS_TYPE_MAC(0x0008, "Mac"),       ///< Mac partition table NON-NLS
-        TSK_VS_TYPE_GPT(0x0010, "GPT"),       ///< GPT partition table NON-NLS
-        TSK_VS_TYPE_DBFILLER(0x00F0, bundle.getString("TskData.tskVSTypeEnum.fake")),  ///< fake partition table type for loaddb (for images that do not have a volume system)
-        TSK_VS_TYPE_UNSUPP(0xFFFF, bundle.getString("TskData.tskVSTypeEnum.unsupported"));    ///< Unsupported
+        TSK_VS_TYPE_DETECT(0x0000, "Auto Detect"),    ///< Use autodetection methods
+        TSK_VS_TYPE_DOS(0x0001, "DOS"),       ///< DOS Partition table
+        TSK_VS_TYPE_BSD(0x0002, "BSD"),       ///< BSD Partition table
+        TSK_VS_TYPE_SUN(0x0004, "SUN VTOC"),       ///< Sun VTOC
+        TSK_VS_TYPE_MAC(0x0008, "Mac"),       ///< Mac partition table
+        TSK_VS_TYPE_GPT(0x0010, "GPT"),       ///< GPT partition table
+        TSK_VS_TYPE_DBFILLER(0x00F0, "Fake"),  ///< fake partition table type for loaddb (for images that do not have a volume system)
+        TSK_VS_TYPE_UNSUPP(0xFFFF, "Unsupported");    ///< Unsupported
         
         private long vsType;
 		private String name;
@@ -532,8 +521,7 @@ public class TskData {
 					return type;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskVSTypeEnum.exception.msg1.text"), vsType));
+			throw new IllegalArgumentException("No TSK_VS_TYPE_ENUM of value: " + vsType);
 		}
         
 		
@@ -592,8 +580,7 @@ public class TskData {
 					return v;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.objectTypeEnum.exception.msg1.text"), objectType));
+			throw new IllegalArgumentException("No ObjectType of value: " + objectType);
 		}
 	}
 	
@@ -602,21 +589,19 @@ public class TskData {
 	 * DB files type
 	 */
 	public enum TSK_DB_FILES_TYPE_ENUM {
-		FS(0, "File System"), ///< File that can be found in file system tree. 
-		CARVED(1, "Carved"), ///< Set of blocks for a file found from carving.  Could be on top of a TSK_DB_FILES_TYPE_UNALLOC_BLOCKS range. 
-		DERIVED(2, "Derived"), ///< File derived from a parent file (i.e. from ZIP)
-		LOCAL(3, "Local"), ///< Local file that was added (not from a disk image)
-		UNALLOC_BLOCKS(4, "Unallocated Blocks"), ///< Set of blocks not allocated by file system.  Parent should be image, volume, or file system.  Many columns in tsk_files will be NULL. Set layout in tsk_file_layout. 
-		UNUSED_BLOCKS(5, "Unused Blocks"), ///< Set of blocks that are unallocated AND not used by a carved or other file type.  Parent should be UNALLOC_BLOCKS, many columns in tsk_files will be NULL, set layout in tsk_file_layout. 
-		VIRTUAL_DIR(6, "Virtual Directory"), ///< Virtual directory (not on fs) with no meta-data entry that can be used to group files of types other than TSK_DB_FILES_TYPE_FS. Its parent is either another TSK_DB_FILES_TYPE_FS or a root directory or type TSK_DB_FILES_TYPE_FS.
+		FS(0), ///< File that can be found in file system tree. 
+		CARVED(1), ///< Set of blocks for a file found from carving.  Could be on top of a TSK_DB_FILES_TYPE_UNALLOC_BLOCKS range. 
+		DERIVED(2), ///< File derived from a parent file (i.e. from ZIP)
+		LOCAL(3), ///< Local file that was added (not from a disk image)
+		UNALLOC_BLOCKS(4), ///< Set of blocks not allocated by file system.  Parent should be image, volume, or file system.  Many columns in tsk_files will be NULL. Set layout in tsk_file_layout. 
+		UNUSED_BLOCKS(5), ///< Set of blocks that are unallocated AND not used by a carved or other file type.  Parent should be UNALLOC_BLOCKS, many columns in tsk_files will be NULL, set layout in tsk_file_layout. 
+		VIRTUAL_DIR(6), ///< Virtual directory (not on fs) with no meta-data entry that can be used to group files of types other than TSK_DB_FILES_TYPE_FS. Its parent is either another TSK_DB_FILES_TYPE_FS or a root directory or type TSK_DB_FILES_TYPE_FS.
 		;
 		
-		private final short fileType;
-		private final String name;
+		private short fileType;
 		
-		private TSK_DB_FILES_TYPE_ENUM(int fileType, String name) {
+		private TSK_DB_FILES_TYPE_ENUM(int fileType) {
 			this.fileType = (short)fileType;
-			this.name = name;
 		}
 		
 		
@@ -631,8 +616,7 @@ public class TskData {
 					return type;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.tskDbFilesTypeEnum.exception.msg1.text"), fileType));
+			throw new IllegalArgumentException("No TSK_FILE_TYPE_ENUM of value: " + fileType);
 		}
 		
 		
@@ -643,10 +627,6 @@ public class TskData {
 		public short getFileType() {
 			return fileType;
 		}
-		
-		public String getName() {
-			return name;
-		}
 	}
 	
 	
@@ -654,9 +634,9 @@ public class TskData {
 	 * FileKnown status
 	 */
 	public enum FileKnown {
-		UNKNOWN(0, bundle.getString("TskData.fileKnown.unknown")), ///< File marked as unknown by hash db
-		KNOWN(1, bundle.getString("TskData.fileKnown.known")),  ///< File marked as a known by hash db
-		BAD(2, bundle.getString("TskData.fileKnown.knownBad")); ///< File marked as known and bad/notable/interesting by hash db
+		UKNOWN(0, "unknown"), ///< File marked as unknown by hash db
+		KNOWN(1, "known"),  ///< File marked as a known by hash db
+		BAD(2, "known bad"); ///< File marked as known and bad/notable/interesting by hash db
 		
 		private byte known;
 		private String name;
@@ -678,8 +658,7 @@ public class TskData {
 					return v;
 				}
 			}
-			throw new IllegalArgumentException(
-                    MessageFormat.format(bundle.getString("TskData.fileKnown.exception.msg1.text"), known));
+			throw new IllegalArgumentException("No FileKnown of value: " + known);
 		}
 		
 		

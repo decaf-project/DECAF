@@ -134,17 +134,13 @@ make_pt_tls_key()
 TSK_ERROR_INFO *
 tsk_error_get_info()
 {
-    TSK_ERROR_INFO *ptr = NULL;
+    TSK_ERROR_INFO *ptr = 0;
     (void) pthread_once(&pt_tls_key_once, make_pt_tls_key);
     if ((ptr = (TSK_ERROR_INFO *) pthread_getspecific(pt_tls_key)) == 0) {
-        // Under high memory presure malloc will return NULL.
         ptr = (TSK_ERROR_INFO *) malloc(sizeof(TSK_ERROR_INFO));
-
-        if( ptr != NULL ) {
-            ptr->t_errno = 0;
-            ptr->errstr[0] = 0;
-            ptr->errstr2[0] = 0;
-        }
+        ptr->t_errno = 0;
+        ptr->errstr[0] = 0;
+        ptr->errstr2[0] = 0;
         (void) pthread_setspecific(pt_tls_key, ptr);
     }
     return ptr;
@@ -306,7 +302,7 @@ tsk_error_get_errstr()
  * @param format the printf-style format string
  */
 void
-tsk_error_set_errstr(const char *format, ...)
+tsk_error_set_errstr(char const *format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -322,7 +318,7 @@ tsk_error_set_errstr(const char *format, ...)
  * @param args the printf-style args
  */
 void
-tsk_error_vset_errstr(const char *format, va_list args)
+tsk_error_vset_errstr(char const *format, va_list args)
 {
     vsnprintf(tsk_error_get_info()->errstr, TSK_ERROR_STRING_MAX_LENGTH,
         format, args);
@@ -347,7 +343,7 @@ tsk_error_get_errstr2()
  * @param format the printf-style format string
  */
 void
-tsk_error_set_errstr2(const char *format, ...)
+tsk_error_set_errstr2(char const *format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -363,7 +359,7 @@ tsk_error_set_errstr2(const char *format, ...)
  * @param args the printf-style format args
  */
 void
-tsk_error_vset_errstr2(const char *format, va_list args)
+tsk_error_vset_errstr2(char const *format, va_list args)
 {
     vsnprintf(tsk_error_get_info()->errstr2, TSK_ERROR_STRING_MAX_LENGTH,
         format, args);
@@ -375,7 +371,7 @@ tsk_error_vset_errstr2(const char *format, va_list args)
  * @param format
  */
 void
-tsk_error_errstr2_concat(const char *format, ...)
+tsk_error_errstr2_concat(char const *format, ...)
 {
     va_list args;
     char *errstr2 = tsk_error_get_info()->errstr2;
@@ -421,11 +417,8 @@ void
 tsk_error_reset()
 {
     TSK_ERROR_INFO *info = tsk_error_get_info();
-
-    if( info != NULL ) {
-       info->t_errno = 0;
-       info->errstr[0] = 0;
-       info->errstr2[0] = 0;
-       info->errstr_print[0] = 0;
-    }
+    info->t_errno = 0;
+    info->errstr[0] = 0;
+    info->errstr2[0] = 0;
+    info->errstr_print[0] = 0;
 }

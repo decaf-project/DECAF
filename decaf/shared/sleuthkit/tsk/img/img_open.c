@@ -75,7 +75,6 @@ tsk_img_open(int num_img,
     unsigned int a_ssize)
 {
     TSK_IMG_INFO *img_info = NULL;
-	char *to_send=NULL;
 
     // Get rid of any old error messages laying around
     tsk_error_reset();

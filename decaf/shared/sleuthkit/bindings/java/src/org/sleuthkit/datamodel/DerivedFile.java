@@ -18,12 +18,9 @@
  */
 package org.sleuthkit.datamodel;
 
-import java.text.MessageFormat;
-import java.util.ResourceBundle;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import org.sleuthkit.datamodel.TskData.FileKnown;
 import org.sleuthkit.datamodel.TskData.TSK_DB_FILES_TYPE_ENUM;
 import org.sleuthkit.datamodel.TskData.TSK_FS_META_TYPE_ENUM;
@@ -43,7 +40,6 @@ public class DerivedFile extends AbstractFile {
 
 	private volatile DerivedMethod derivedMethod;
 	private static final Logger logger = Logger.getLogger(DerivedFile.class.getName());
-    private static ResourceBundle bundle = ResourceBundle.getBundle("org.sleuthkit.datamodel.Bundle");
 	private boolean hasDerivedMethod = true; ///< whether it has the derived method to lazy load or not
 
 	/**
@@ -73,7 +69,7 @@ public class DerivedFile extends AbstractFile {
 			String md5Hash, FileKnown knownState, String parentPath, String localPath, long parentId) {
 
 			super(db, objId, TskData.TSK_FS_ATTR_TYPE_ENUM.TSK_FS_ATTR_TYPE_DEFAULT, (short) 0,
-				name, TSK_DB_FILES_TYPE_ENUM.LOCAL, 0L, 0, dirType, metaType, dirFlag,
+				name, TSK_DB_FILES_TYPE_ENUM.LOCAL, 0L, dirType, metaType, dirFlag,
 				metaFlags, size, ctime, crtime, atime, mtime, (short) 0, 0, 0, md5Hash, knownState, parentPath);
 		
 			//use the local path read infrastructure
@@ -87,19 +83,20 @@ public class DerivedFile extends AbstractFile {
 	}
 
 	@Override
-	public Content getDataSource() throws TskCoreException {
+	public Image getImage() throws TskCoreException {
 		//TODO need schema support to implement this more efficiently
-		Content parent = getParent();
-		Content dataSource = parent.getDataSource();
-		while (dataSource == null) {
-			parent = parent.getParent();
-			if (parent == null) {
+		Image image = null;
+		Content ancestor = getParent();
+		image = ancestor.getImage();
+		while (image == null) {
+			ancestor = ancestor.getParent();
+			if (ancestor == null) {
 				//should never happen
 				break;
 			}
-			dataSource = parent.getDataSource();
+			image = ancestor.getImage();
 		}
-		return dataSource;
+		return image;
 	}
 
 	@Override
@@ -140,7 +137,7 @@ public class DerivedFile extends AbstractFile {
 					hasDerivedMethod = false;  //do not attempt to lazy load
 				}
 			} catch (TskCoreException e) {
-				String msg = MessageFormat.format(bundle.getString("DerviedFile.derivedMethod.exception.msg1.text"), getId());
+				String msg = "Error getting derived method for file id: " + getId();
 				logger.log(Level.WARNING, msg, e);
 				throw new TskCoreException(msg, e);
 			}
@@ -160,9 +157,9 @@ public class DerivedFile extends AbstractFile {
 
 	@Override
 	public String toString(boolean preserveState) {
-		return super.toString(preserveState) + "DerivedFile{"  //NON-NLS
-				+  "derivedMethod=" + derivedMethod  //NON-NLS
-				+ ", hasDerivedMethod=" + hasDerivedMethod  //NON-NLS
+		return super.toString(preserveState) + "DerivedFile{" 
+				+  "derivedMethod=" + derivedMethod 
+				+ ", hasDerivedMethod=" + hasDerivedMethod 
 				+ '}';
 	}
 
@@ -223,7 +220,7 @@ public class DerivedFile extends AbstractFile {
 
 		@Override
 		public String toString() {
-			return "DerivedMethod{" + "derived_id=" + derivedId + ", toolName=" + toolName + ", toolVersion=" + toolVersion + ", other=" + other + ", rederiveDetails=" + rederiveDetails + '}'; //NON-NLS
+			return "DerivedMethod{" + "derived_id=" + derivedId + ", toolName=" + toolName + ", toolVersion=" + toolVersion + ", other=" + other + ", rederiveDetails=" + rederiveDetails + '}';
 		}
 	}
 }

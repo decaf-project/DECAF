@@ -192,14 +192,6 @@ main(int argc, char **argv1)
         exit(1);
     }
 
-
-    //AVB
-
-    tsk_fprintf(stderr,
-            "AVB Inode first (%" PRIuINUM ")\n",
-            fs->first_inum);
-
-
     if (inode < fs->first_inum) {
         tsk_fprintf(stderr,
             "Inode is too small for image (%" PRIuINUM ")\n",

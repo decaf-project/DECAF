@@ -28,15 +28,15 @@ import java.util.logging.Logger;
  */
 public class ReadContentInputStream extends InputStream {
 
-	private long currentOffset;
-	private long contentSize;
+	private long position;
+	private long length;
 	private Content content;
 	private static final Logger logger = Logger.getLogger(ReadContentInputStream.class.getName());
 
 	public ReadContentInputStream(Content content) {
 		this.content = content;
-		this.currentOffset = 0;
-		this.contentSize = content.getSize();
+		this.position = 0;
+		this.length = content.getSize();
 	}
 
 	@Override
@@ -60,25 +60,23 @@ public class ReadContentInputStream extends InputStream {
 		}
 
 		//would get an error from TSK if we try to read an empty file
-		if (contentSize == 0) {
+		if (length == 0) {
 			return -1;
 		}
 
-		// check off.  Must be in bounds of buffer
+		//check args more
 		if (off < 0 || off >= buffLen) {
 			return -1;
 		}
 
-		//eof, no data remains to be read
-		if (currentOffset >= contentSize) {
+		if (position >= length) {
+			//eof, no data remains to be read
 			return -1;
 		}
 
-		// Is the file big enough for the full request?
-		int lenToRead = (int) Math.min(contentSize - currentOffset, len);
-
-		// is the buffer big enough?
-		lenToRead = Math.min(lenToRead, buffLen - off);
+		//read into the user buffer
+		int lenToRead = (int) Math.min(length - position, buffLen - off);
+		lenToRead = Math.min(lenToRead, len);
 
 		byte[] retBuf = null;
 		if (off == 0) {
@@ -89,13 +87,13 @@ public class ReadContentInputStream extends InputStream {
 			retBuf = new byte[lenToRead];
 		}
 		try {
-			final int lenRead = content.read(retBuf, currentOffset, lenToRead);
+			final int lenRead = content.read(retBuf, position, lenToRead);
 
 			if (lenRead == 0 || lenRead == -1) {
 				//error or no more bytes to read, report EOF
 				return -1;
 			} else {
-				currentOffset += lenRead;
+				position += lenRead;
 
 				//if read into user-specified offset, copy back from temp buffer to user
 				if (off != 0) {
@@ -105,9 +103,9 @@ public class ReadContentInputStream extends InputStream {
 				return lenRead;
 			}
 		} catch (TskCoreException ex) {
-			logger.log(Level.WARNING, ("Error reading content into stream: " //NON-NLS
+			logger.log(Level.WARNING, ("Error reading content into stream: "
 					+ content.getId()) + ": " + content.getName()
-					+ ", at offset " + currentOffset + ", length to read: " + lenToRead, ex); //NON-NLS
+					+ ", at offset " + position + ", length to read: " + lenToRead, ex);
 			throw new IOException(ex);
 		}
 
@@ -115,19 +113,18 @@ public class ReadContentInputStream extends InputStream {
 	
 	@Override
 	public int available() throws IOException {
-		long len = contentSize - currentOffset;
-		if (len < 0) {
+		if (position > length) {
 			return 0;
 		}
-		return (int)len;
+        return (int)(length - position);
     }
 
 	@Override
 	public long skip(long n) throws IOException {
 		//more efficient skip() implementation than superclass
 		//as it does not involve reads
-		long toSkip = Math.min(n, contentSize - currentOffset);  //allow to skip to EOF
-		currentOffset += toSkip;
+		long toSkip = Math.min(n, length - position);  //allow to skip to EOF
+		position += toSkip;
 		return toSkip;
 		//0 1 2 3 4 5      len: 6
 	}
@@ -150,7 +147,7 @@ public class ReadContentInputStream extends InputStream {
 	 * @return number of bytes that can be read from this stream
 	 */
 	public long getLength() {
-		return contentSize;
+		return length;
 	}
 	
 	/**
@@ -158,7 +155,7 @@ public class ReadContentInputStream extends InputStream {
 	 * @return current offset in bytes
 	 */
 	public long getCurPosition() {
-		return currentOffset;
+		return position;
 	}
 	
 	/**
@@ -172,8 +169,9 @@ public class ReadContentInputStream extends InputStream {
 			throw new IllegalArgumentException ("Illegal negative new position in the stream");
 		}
 		
-		currentOffset = Math.min(newPosition, contentSize);
-		return currentOffset;
+		position = Math.min(newPosition, length);
+		return position;
 		
 	}
+	
 }

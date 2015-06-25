@@ -84,18 +84,11 @@ AX_PTHREAD([
     LDFLAGS="$LDFLAGS $PTHREAD_CFLAGS"
     CC="$PTHREAD_CC"],[])
 
-case "$host" in
-*-*-mingw*)
-  dnl Adding the native /usr/local is wrong for cross-compiling
-  ;;
-*)
-  dnl Not all compilers include /usr/local in the include and link path
-  if test -d /usr/local/include; then
+dnl Not all compilers include /usr/local in the include and link path
+if test -d /usr/local/include; then
     CPPFLAGS="$CPPFLAGS -I/usr/local/include"
     LDFLAGS="$LDFLAGS -L/usr/local/lib"
-  fi
-  ;;
-esac
+fi
 
 dnl Add enable/disable option
 AC_ARG_ENABLE([java],
@@ -186,13 +179,6 @@ AS_IF(
     [AC_MSG_NOTICE([NOT checking for zlib because with_zlib is no])]
 )
 AS_IF([test "x$ac_cv_lib_z_inflate" = "xyes"], [ax_zlib=yes], [ax_zlib=no])
-
-AM_CONDITIONAL([X_ZLIB],[test "x$with_zlib" != "xno" && test "x$with_zlib" != "xyes"])
-AS_IF([test "x$with_zlib" != "xno"],
-   [Z_PATH="${with_zlib}/lib"],
-   [AC_MSG_NOTICE([failed to make Z_PATH])]
-)
-AC_SUBST(Z_PATH, $Z_PATH)
 
 dnl needed for sqllite
 AC_CHECK_LIB(dl, dlopen)
@@ -287,22 +273,6 @@ AC_CONFIG_COMMANDS([tsk/tsk_incs.h],
     ac_cv_header_sys_param_h=$ac_cv_header_sys_param_h
     ax_pthread_ok=$ax_pthread_ok])
 
-AC_MSG_CHECKING([if libtool needs -no-undefined flag to build shared libraries])
-case "$host" in
-*-*-mingw*)
-  dnl Add -no-undefined flag to LDFLAGS to let libtool build DLLs.
-  AC_MSG_RESULT([yes])
-  LIBTSK_LDFLAGS="-no-undefined"
-  AC_SUBST([LIBTSK_LDFLAGS])
-  ;;
-  *)
-  dnl No additional flags needed.
-  AC_MSG_RESULT([no])
-  ;;
-esac
-
-AC_CHECK_FUNCS([getline], [], [AC_MSG_WARN([no getline, so fiwalk will not be built])])
-AM_CONDITIONAL([BUILD_FIWALK], [test "x$ac_cv_func_getline" = "xyes"])
 
 AC_CONFIG_FILES([
     Makefile
