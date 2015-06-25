@@ -38,25 +38,25 @@ import org.sleuthkit.datamodel.TskData.TSK_FS_NAME_TYPE_ENUM;
 public class VirtualDirectory extends AbstractFile {
 
 	//some built-in virtual directory names
-	public static final String NAME_UNALLOC = "$Unalloc"; //NON-NLS
-	public static final String NAME_CARVED = "$CarvedFiles"; //NON-NLS
+	public static final String NAME_UNALLOC = "$Unalloc";
+	public static final String NAME_CARVED = "$CarvedFiles";
 	
 	protected VirtualDirectory(SleuthkitCase db, long objId, String name, TSK_FS_NAME_TYPE_ENUM dirType, 
 			TSK_FS_META_TYPE_ENUM metaType, TSK_FS_NAME_FLAG_ENUM dirFlag, short metaFlags, 
 			long size, String md5Hash, FileKnown knownState, String parentPath) {
 		super(db, objId, TSK_FS_ATTR_TYPE_ENUM.TSK_FS_ATTR_TYPE_DEFAULT, (short)0, name, 
-				TskData.TSK_DB_FILES_TYPE_ENUM.VIRTUAL_DIR, 0L, 0, dirType, metaType, dirFlag, 
+				TskData.TSK_DB_FILES_TYPE_ENUM.VIRTUAL_DIR, 0L, dirType, metaType, dirFlag, 
 				metaFlags, 0L, 0L, 0L, 0L, 0L, (short)0, 0, 0, md5Hash, knownState, parentPath);
 	}
 
 	@Override
 	public List<Content> getChildren() throws TskCoreException {
-		return getSleuthkitCase().getAbstractFileChildren(this);
+		return getSleuthkitCase().getVirtualDirectoryChildren(this);
 	}
 
 	@Override
 	public List<Long> getChildrenIds() throws TskCoreException {
-		return getSleuthkitCase().getAbstractFileChildrenIds(this);
+		return getSleuthkitCase().getLayoutDirectoryChildrenIds(this);
 	}
 
 	@Override
@@ -87,19 +87,20 @@ public class VirtualDirectory extends AbstractFile {
 	}
 
 	@Override
-	public Content getDataSource() throws TskCoreException {
+	public Image getImage() throws TskCoreException {
 		Content parent =  getParent();
 		if (parent != null) {
-			return parent.getDataSource();
+			return parent.getImage();
 		}
 		else {
 			//root-level VirtualDirectory, such as local files container
-			return this;
+			return null;
 		}
+
 	}
 
 	@Override
 	public String toString(boolean preserveState){
-		return super.toString(preserveState) + "VirtualDirectory [\t" + "]\t"; //NON-NLS
+		return super.toString(preserveState) + "VirtualDirectory [\t" + "]\t";
 	}		
 }

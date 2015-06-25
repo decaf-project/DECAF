@@ -21,12 +21,9 @@ package org.sleuthkit.datamodel;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.ResourceBundle;
 import java.util.Set;
-import java.util.SortedSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.sleuthkit.datamodel.TskData.FileKnown;
@@ -49,7 +46,6 @@ public abstract class AbstractFile extends AbstractContent {
 	protected final Set<TSK_FS_META_FLAG_ENUM> metaFlags;
 	protected long size;
 	protected final long metaAddr, ctime, crtime, atime, mtime;
-	protected final int metaSeq;
 	protected final int uid, gid;
 	protected final short attrId;
 	protected final TskData.TSK_FS_ATTR_TYPE_ENUM attrType;
@@ -75,7 +71,6 @@ public abstract class AbstractFile extends AbstractContent {
 	 */
 	protected String md5Hash;
 	private static final Logger logger = Logger.getLogger(AbstractFile.class.getName());
-    private static final ResourceBundle bundle = ResourceBundle.getBundle("org.sleuthkit.datamodel.Bundle");
 
 	/**
 	 * Initializes common fields used by AbstactFile implementations (objects in
@@ -88,7 +83,6 @@ public abstract class AbstractFile extends AbstractContent {
 	 * @param name name field of the file
 	 * @param fileType type of the file
 	 * @param metaAddr
-	 * @param metaSeq
 	 * @param dirType
 	 * @param metaType
 	 * @param dirFlag
@@ -107,7 +101,7 @@ public abstract class AbstractFile extends AbstractContent {
 	 * @param parentPath
 	 */
 	protected AbstractFile(SleuthkitCase db, long objId, TskData.TSK_FS_ATTR_TYPE_ENUM attrType, short attrId,
-			String name, TskData.TSK_DB_FILES_TYPE_ENUM fileType, long metaAddr, int metaSeq, 
+			String name, TskData.TSK_DB_FILES_TYPE_ENUM fileType, long metaAddr,
 			TSK_FS_NAME_TYPE_ENUM dirType, TSK_FS_META_TYPE_ENUM metaType, TSK_FS_NAME_FLAG_ENUM dirFlag, short metaFlags,
 			long size, long ctime, long crtime, long atime, long mtime, short modes, int uid, int gid, String md5Hash, FileKnown knownState,
 			String parentPath) {
@@ -116,7 +110,6 @@ public abstract class AbstractFile extends AbstractContent {
 		this.attrId = attrId;
 		this.fileType = fileType;
 		this.metaAddr = metaAddr;
-		this.metaSeq = metaSeq;
 		this.dirType = dirType;
 		this.metaType = metaType;
 		this.dirFlag = dirFlag;
@@ -132,7 +125,7 @@ public abstract class AbstractFile extends AbstractContent {
 
 		this.md5Hash = md5Hash;
 		if (knownState == null) {
-			this.knownState = FileKnown.UNKNOWN;
+			this.knownState = FileKnown.UKNOWN;
 		} else {
 			this.knownState = knownState;
 		}
@@ -264,16 +257,6 @@ public abstract class AbstractFile extends AbstractContent {
 	public long getMetaAddr() {
 		return metaAddr;
 	}
-	
-	/**
-	 * Get the file meta address sequence.  Only useful with NTFS.
-	 * Incremented each time a structure is re-allocated.
-	 *
-	 * @return Address of the meta data structure sequence.
-	 */
-	public long getMetaSeq() {
-		return metaSeq;
-	}
 
 	/**
 	 * Get the file's mode as a user-displayable string
@@ -305,89 +288,89 @@ public abstract class AbstractFile extends AbstractContent {
 
 		// second and third characters = user permissions
 		if ((mode & irusr) == irusr) {
-			result += "r"; //NON-NLS
+			result += "r";
 		} else {
-			result += "-"; //NON-NLS
+			result += "-";
 		}
 		if ((mode & iwusr) == iwusr) {
-			result += "w"; //NON-NLS
+			result += "w";
 		} else {
-			result += "-"; //NON-NLS
+			result += "-";
 		}
 
 		// fourth character = set uid
 		if ((mode & isuid) == isuid) {
 			if ((mode & ixusr) == ixusr) {
-				result += "s"; //NON-NLS
+				result += "s";
 			} else {
-				result += "S"; //NON-NLS
+				result += "S";
 			}
 		} else {
 			if ((mode & ixusr) == ixusr) {
-				result += "x"; //NON-NLS
+				result += "x";
 			} else {
-				result += "-"; //NON-NLS
+				result += "-";
 			}
 		}
 
 		// fifth and sixth characters = group permissions
 		if ((mode & irgrp) == irgrp) {
-			result += "r"; //NON-NLS
+			result += "r";
 		} else {
-			result += "-"; //NON-NLS
+			result += "-";
 		}
 		if ((mode & iwgrp) == iwgrp) {
-			result += "w"; //NON-NLS
+			result += "w";
 		} else {
-			result += "-"; //NON-NLS
+			result += "-";
 		}
 
 		// seventh character = set gid
 		if ((mode & isgid) == isgid) {
 			if ((mode & ixgrp) == ixgrp) {
-				result += "s"; //NON-NLS
+				result += "s";
 			} else {
-				result += "S"; //NON-NLS
+				result += "S";
 			}
 		} else {
 			if ((mode & ixgrp) == ixgrp) {
-				result += "x"; //NON-NLS
+				result += "x";
 			} else {
-				result += "-"; //NON-NLS
+				result += "-";
 			}
 		}
 
 		// eighth and ninth character = other permissions
 		if ((mode & iroth) == iroth) {
-			result += "r"; //NON-NLS
+			result += "r";
 		} else {
-			result += "-"; //NON-NLS
+			result += "-";
 		}
 		if ((mode & iwoth) == iwoth) {
-			result += "w"; //NON-NLS
+			result += "w";
 		} else {
-			result += "-"; //NON-NLS
+			result += "-";
 		}
 
 		// tenth character = sticky bit
 		if ((mode & isvtx) == isvtx) {
 			if ((mode & ixoth) == ixoth) {
-				result += "t"; //NON-NLS
+				result += "t";
 			} else {
-				result += "T"; //NON-NLS
+				result += "T";
 			}
 		} else {
 			if ((mode & ixoth) == ixoth) {
-				result += "x"; //NON-NLS
+				result += "x";
 			} else {
-				result += "-"; //NON-NLS
+				result += "-";
 			}
 		}
 
 		// check the result
 		if (result.length() != 10) {
 			// throw error here
-			result = "ERROR"; //NON-NLS
+			result = "ERROR";
 		}
 		return result;
 	}
@@ -436,34 +419,7 @@ public abstract class AbstractFile extends AbstractContent {
 	public TskData.FileKnown getKnown() {
 		return knownState;
 	}
-	
-	/**
-	 * Figures out the extension from the filename, if there is one.
-	 * We assume that extensions only have ASCII alphanumeric chars
-	 * @return filename extension in lowercase (not including the period) or empty string if there is no extension
-	 */
-	public String getNameExtension() {
-		String ext;
-		int i = getName().lastIndexOf(".");
-		// > 0 because we assume it's not an extension if period is the first character
-		if ((i > 0) && ((i + 1) < getName().length())) {
-			ext = getName().substring(i + 1);
-		}
-		else {
-			return "";
-		}
-		
-		// we added this at one point to deal with files that had crazy names based on URLs
-		// it's too hard though to clean those up and not mess up basic extensions though.
-		// We need to add '-' to the below if we use it again
-//		String[] findNonAlphanumeric = ext.split("[^a-zA-Z0-9_]");
-//		if (findNonAlphanumeric.length > 1) {
-//			ext = findNonAlphanumeric[0];
-//		}		
-		
-		return ext.toLowerCase();
-	}
-	
+
 	/**
 	 * Get size of the file
 	 *
@@ -574,14 +530,14 @@ public abstract class AbstractFile extends AbstractContent {
 	public static String createNonUniquePath(String uniquePath) {
 
 		// split the path into parts
-		String[] pathSegments = uniquePath.split("/");
+		String[] pathSegments = uniquePath.split("/\\");
 
 		// see if uniquePath had an image and/or volume name
 		int index = 0;
-		if (pathSegments[0].startsWith("img_")) { //NON-NLS
+		if (pathSegments[0].startsWith("img_")) {
 			++index;
 		}
-		if (pathSegments[1].startsWith("vol_")) { //NON-NLS
+		if (pathSegments[1].startsWith("vol_")) {
 			++index;
 		}
 
@@ -598,7 +554,6 @@ public abstract class AbstractFile extends AbstractContent {
 	/**
 	 * @return a list of AbstractFiles that are the children of this Directory.
 	 * Only returns children of type TskData.TSK_DB_FILES_TYPE_ENUM.FS.
-	 * @throws org.sleuthkit.datamodel.TskCoreException
 	 */
 	public List<AbstractFile> listFiles() throws TskCoreException {
 		// first, get all children
@@ -716,8 +671,7 @@ public abstract class AbstractFile extends AbstractContent {
 	 */
 	protected final int readLocal(byte[] buf, long offset, long len) throws TskCoreException {
 		if (!localPathSet) {
-			throw new TskCoreException(
-                    bundle.getString("AbstractFile.readLocal.exception.msg1.text"));
+			throw new TskCoreException("Error reading local file, local path is not set");
 		}
 		
 		if (isDir()) {
@@ -726,12 +680,10 @@ public abstract class AbstractFile extends AbstractContent {
 
 		getLocalFile();
 		if (!localFile.exists()) {
-			throw new TskCoreException(
-                    MessageFormat.format(bundle.getString("AbstractFile.readLocal.exception.msg2.text"), localAbsPath));
+			throw new TskCoreException("Error reading local file, it does not exist at local path: " + localAbsPath);
 		}
 		if (!localFile.canRead()) {
-			throw new TskCoreException(
-                    MessageFormat.format(bundle.getString("AbstractFile.readLocal.exception.msg3.text"), localAbsPath));
+			throw new TskCoreException("Error reading local file, file not readable at local path: " + localAbsPath);
 		}
 
 		int bytesRead = 0;
@@ -742,9 +694,7 @@ public abstract class AbstractFile extends AbstractContent {
 					try {
 						localFileHandle = new RandomAccessFile(localFile, "r");
 					} catch (FileNotFoundException ex) {
-						final String msg = MessageFormat.format(bundle.getString(
-                                                               "AbstractFile.readLocal.exception.msg4.text"),
-                                                               localAbsPath);
+						final String msg = "Error reading local file: " + localAbsPath;
 						logger.log(Level.SEVERE, msg, ex);
 						//file could have been deleted or moved
 						throw new TskCoreException(msg, ex);
@@ -762,7 +712,7 @@ public abstract class AbstractFile extends AbstractContent {
 			//note, we are always writing at 0 offset of user buffer
 			bytesRead = localFileHandle.read(buf, 0, (int) len);
 		} catch (IOException ex) {
-			final String msg = MessageFormat.format(bundle.getString("AbstractFile.readLocal.exception.msg5.text"), localAbsPath);
+			final String msg = "Cannot read local file: " + localAbsPath;
 			logger.log(Level.SEVERE, msg, ex);
 			//local file could have been deleted / moved
 			throw new TskCoreException(msg, ex);
@@ -878,7 +828,7 @@ public abstract class AbstractFile extends AbstractContent {
 					try {
 						localFileHandle.close();
 					} catch (IOException ex) {
-						logger.log(Level.SEVERE, "Could not close file handle for file: " + getParentPath() + "/" + getName(), ex); //NON-NLS
+						logger.log(Level.SEVERE, "Could not close file handle for file: " + getParentPath() + "/" + getName(), ex);
 					}
 					localFileHandle = null;
 				}
@@ -898,22 +848,22 @@ public abstract class AbstractFile extends AbstractContent {
 
 	@Override
 	public String toString(boolean preserveState) {
-		return super.toString(preserveState) + "AbstractFile [\t" //NON-NLS
-				+ "\t" + "fileType " + fileType //NON-NLS
-				+ "\tctime " + ctime //NON-NLS
-				+ "\tcrtime " + crtime //NON-NLS
-				+ "\t" + "mtime " + mtime + "\t" + "atime " + atime //NON-NLS
-				+ "\t" + "attrId " + attrId //NON-NLS
-				+ "\t" + "attrType " + attrType //NON-NLS
-				+ "\t" + "dirFlag " + dirFlag + "\t" + "dirType " + dirType //NON-NLS
-				+ "\t" + "uid " + uid //NON-NLS
-				+ "\t" + "gid " + gid //NON-NLS
-				+ "\t" + "metaAddr " + metaAddr + "\t" +  "metaSeq " + metaSeq + "\t" + "metaFlags " + metaFlags //NON-NLS
-				+ "\t" + "metaType " + metaType + "\t" + "modes " + modes //NON-NLS
-				+ "\t" + "parentPath " + parentPath + "\t" + "size " + size //NON-NLS
-				+ "\t" + "knownState " + knownState + "\t" + "md5Hash " + md5Hash //NON-NLS
-				+ "\t" + "localPathSet " + localPathSet + "\t" + "localPath " + localPath //NON-NLS
-				+ "\t" + "localAbsPath " + localAbsPath + "\t" + "localFile " + localFile //NON-NLS
+		return super.toString(preserveState) + "AbstractFile [\t"
+				+ "\t" + "fileType " + fileType
+				+ "\tctime " + ctime
+				+ "\tcrtime " + crtime
+				+ "\t" + "mtime " + mtime + "\t" + "atime " + atime
+				+ "\t" + "attrId " + attrId
+				+ "\t" + "attrType " + attrType
+				+ "\t" + "dirFlag " + dirFlag + "\t" + "dirType " + dirType
+				+ "\t" + "uid " + uid
+				+ "\t" + "gid " + gid
+				+ "\t" + "metaAddr " + metaAddr + "\t" + "metaFlags " + metaFlags
+				+ "\t" + "metaType " + metaType + "\t" + "modes " + modes
+				+ "\t" + "parentPath " + parentPath + "\t" + "size " + size
+				+ "\t" + "knownState " + knownState + "\t" + "md5Hash " + md5Hash
+				+ "\t" + "localPathSet " + localPathSet + "\t" + "localPath " + localPath
+				+ "\t" + "localAbsPath " + localAbsPath + "\t" + "localFile " + localFile
 				+ "]\t";
 	}
 
@@ -950,41 +900,5 @@ public abstract class AbstractFile extends AbstractContent {
 		}
 
 		return epoch;
-	}
-	
-	
-	/**
-	 * Possible return values for comparing a file to a list of mime types
-	 */
-	public enum MimeMatchEnum {
-
-		UNDEFINED, /// file does not have a defined mime time in blackboard
-		TRUE, /// file has a defined mime type and it is one of the given ones
-		FALSE /// file has a defined mime type and it is not one of the given ones.
-	}
-
-	/**
-	 * Determines if this file's type is one of the ones passed in. Uses the
-	 * blackboard attribute for file type.
-	 *
-	 * @param mimeTypes Set of file types to compare against
-	 * @return
-	 */
-	public MimeMatchEnum isMimeType(SortedSet<String> mimeTypes) {
-		try {
-			List<BlackboardAttribute> attrs = getGenInfoAttributes(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_FILE_TYPE_SIG);
-			if (attrs.isEmpty()) {
-				return MimeMatchEnum.UNDEFINED;
-			}
-
-			for (BlackboardAttribute batt : attrs) {
-				if (mimeTypes.contains(batt.getValueString())) {
-					return MimeMatchEnum.TRUE;
-				}
-			}
-			return MimeMatchEnum.FALSE;
-		} catch (TskCoreException ex) {
-			return MimeMatchEnum.UNDEFINED;
-		}
 	}
 }

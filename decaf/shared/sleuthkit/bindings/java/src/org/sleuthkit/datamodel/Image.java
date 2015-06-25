@@ -18,8 +18,6 @@
  */
 package org.sleuthkit.datamodel;
 
-import java.text.MessageFormat;
-import java.util.ResourceBundle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,8 +37,7 @@ public class Image extends AbstractContent {
 	private long type, ssize, size;
 	private String[] paths;
 	private volatile long imageHandle = 0;
-	private String timezone,md5;
-    private static ResourceBundle bundle = ResourceBundle.getBundle("org.sleuthkit.datamodel.Bundle");
+	private String timezone;
 
 	/**
 	 * constructor most inputs are from the database
@@ -48,20 +45,18 @@ public class Image extends AbstractContent {
 	 * @param db database object
 	 * @param obj_id
 	 * @param type
-	 * @param ssize Sector Size
-	 * @param name Display Name
+	 * @param ssize
+	 * @param name
 	 * @param paths
 	 * @param timezone
-	 * @param md5
 	 */
-	protected Image(SleuthkitCase db, long obj_id, long type, long ssize, String name, String[] paths, String timezone, String md5) throws TskCoreException {
+	protected Image(SleuthkitCase db, long obj_id, long type, long ssize, String name, String[] paths, String timezone) throws TskCoreException {
 		super(db, obj_id, name);
 		this.type = type;
 		this.ssize = ssize;
 		this.paths = paths;
 		this.timezone = timezone;
 		this.size = 0;
-		this.md5= md5;
 	}
 
 	/**
@@ -78,7 +73,7 @@ public class Image extends AbstractContent {
 	}
 
 	@Override
-	public Content getDataSource() {
+	public Image getImage() {
 		return this;
 	}
 
@@ -116,7 +111,7 @@ public class Image extends AbstractContent {
 					size = SleuthkitJNI.findDeviceSize(paths[0]);
 				}
 			} catch (TskCoreException ex) {
-				Logger.getLogger(Image.class.getName()).log(Level.SEVERE, "Could not find image size, image: " + this.getId(), ex); //NON-NLS
+				Logger.getLogger(Image.class.getName()).log(Level.SEVERE, "Could not find image size, image: " + this.getId(), ex);
 			}
 		}
 		return size;
@@ -143,7 +138,7 @@ public class Image extends AbstractContent {
 
 	@Override
 	public String getUniquePath() throws TskCoreException {
-		return "/img_" + getName(); //NON-NLS
+		return "/img_" + getName();
 	}
 
 	/**
@@ -232,7 +227,7 @@ public class Image extends AbstractContent {
 	}
 	@Override
 	public String toString(boolean preserveState){
-		return super.toString(preserveState) + "Image [\t" + "\t" + "paths " + Arrays.toString(paths) + "\t" + "size " + size + "\t" + "ssize " + ssize + "\t" + "timezone " + timezone + "\t" + "type " + type + "]\t"; //NON-NLS
+		return super.toString(preserveState) + "Image [\t" + "\t" + "paths " + Arrays.toString(paths) + "\t" + "size " + size + "\t" + "ssize " + ssize + "\t" + "timezone " + timezone + "\t" + "type " + type + "]\t";
 	}
 	
 	/**
@@ -255,7 +250,7 @@ public class Image extends AbstractContent {
      * @returns String of error messages to display to user or empty string if there are no errors 
      */
     public String verifyImageSize() {
-        Logger logger1 = Logger.getLogger("verifyImageSizes"); //NON-NLS
+        Logger logger1 = Logger.getLogger("verifyImageSizes");
         String errorString = "";
         try {
             List<VolumeSystem> volumeSystems = getVolumeSystems();
@@ -267,12 +262,12 @@ public class Image extends AbstractContent {
                     try {
                         int readBytes = read(buf, endOffset, 512);
                         if (readBytes < 0) {
-                            logger1.warning("Possible Incomplete Image: Error reading volume at offset " + endOffset); //NON-NLS
-                            errorString = MessageFormat.format(bundle.getString("Image.verifyImageSize.errStr1.text"), endOffset);
+                            logger1.warning("Possible Incomplete Image: Error reading volume at offset " + endOffset);
+                            errorString = "\nPossible Incomplete Image: Error reading volume at offset " + endOffset;
                         }
                     } catch (TskCoreException ex) {
-                        logger1.warning("Possible Incomplete Image: Error reading volume at offset " + endOffset + ": " + ex.getLocalizedMessage()); //NON-NLS
-                        errorString = MessageFormat.format(bundle.getString("Image.verifyImageSize.errStr2.text"), endOffset);
+                        logger1.warning("Possible Incomplete Image: Error reading volume at offset " + endOffset + ": " + ex.getLocalizedMessage());
+                        errorString = "\nPossible Incomplete Image: Error reading volume at offset " + endOffset;
                     }
                 }
             }
@@ -285,12 +280,12 @@ public class Image extends AbstractContent {
                     byte[] buf = new byte[(int) block_size];
                     int readBytes = read(buf, endOffset, block_size);
                     if (readBytes < 0) {
-                        logger1.warning("Possible Incomplete Image: Error reading file system at offset " + endOffset); //NON-NLS
-                        errorString = MessageFormat.format(bundle.getString("Image.verifyImageSize.errStr3.text"), endOffset);
+                        logger1.warning("Possible Incomplete Image: Error reading file system at offset " + endOffset);
+                        errorString = "\nPossible Incomplete Image: Error reading file system at offset " + endOffset;
                     }
                 } catch (TskCoreException ex) {
-                    logger1.warning("Possible Incomplete Image: Error reading file system at offset " + endOffset + ": " + ex.getLocalizedMessage()); //NON-NLS
-                    errorString = MessageFormat.format(bundle.getString("Image.verifyImageSize.errStr4.text"), endOffset);
+                    logger1.warning("Possible Incomplete Image: Error reading file system at offset " + endOffset + ": " + ex.getLocalizedMessage());
+                    errorString = "\nPossible Incomplete Image: Error reading file system at offset " + endOffset;
                 }
             }
         } catch (TskException ex) {
@@ -298,13 +293,4 @@ public class Image extends AbstractContent {
         }
         return errorString;
     }
-	
-		/**
-     * gets the md5 hash value  
-     * 
-     * @returns md5 hash if attained(from database). returns null if not set. 
-     */
-	public String getMd5() {
-			return md5;	
-	}
 }

@@ -91,12 +91,13 @@ public interface Content extends SleuthkitVisitableItem {
 	public long getId();
 
 	/**
-	 * Get the root data source of this content (image, virtual directory, etc.)
+	 * Get the root image of this content, of null if there is no image associated with this content
+	 * (such as for LocalFile)
 	 *
-	 * @return Content associated with data source or null if one can't be found
+	 * @return image associated with this Content or null if there isn't any
 	 * @throws TskCoreException if critical error occurred within tsk core
 	 */
-	public Content getDataSource() throws TskCoreException;
+	public Image getImage() throws TskCoreException;
 
 	/**
 	 * Gets the child content objects of this content.
@@ -174,31 +175,12 @@ public interface Content extends SleuthkitVisitableItem {
 	
 	/**
 	 * Return the TSK_GEN_INFO artifact for the file so that individual attributes 
-	 * can be added to it.  Creates one if it does not already exist. 
+	 * can be added to it.
 	 * 
-	 * @return Instance of the TSK_GEN_INFO artifact
+	 * @returna Instance of the TSK_GEN_INFO artifact
 	 * @throws TskCoreException 
 	 */
 	public BlackboardArtifact getGenInfoArtifact() throws TskCoreException;
-	
-	/**
-	 * Return the TSK_GEN_INFO artifact for the file so that individual attributes 
-	 * can be added to it. If one does not create, behavior depends on the create 
-	 * argument. 
-	 * 
-	 * @param create If true, an artifact will be created if it does not already exist. 
-	 * @return Instance of the TSK_GEN_INFO artifact or null if artifact does not already exist and create was set to false
-	 * @throws TskCoreException 
-	 */
-	public BlackboardArtifact getGenInfoArtifact(boolean create) throws TskCoreException;
-		
-	
-	/**
-	 * Return attributes of a given type from TSK_GEN_INFO.
-	 * @param attr_type Attribute type to find inside of the TSK_GEN_INFO artifact.
-	 * @return Attributes 
-	 */
-	public ArrayList<BlackboardAttribute> getGenInfoAttributes(BlackboardAttribute.ATTRIBUTE_TYPE attr_type) throws TskCoreException;
 	
 	/**
 	 * Get all artifacts associated with this content that have the given type

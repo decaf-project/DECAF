@@ -51,147 +51,59 @@ JNIEXPORT void JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_closeCaseDbNat
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbOpenNat
+ * Method:    setDbNSRLNat
  * Signature: (Ljava/lang/String;)I
  */
-JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbOpenNat
+JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_setDbNSRLNat
   (JNIEnv *, jclass, jstring);
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbNewNat
+ * Method:    addDbKnownBadNat
  * Signature: (Ljava/lang/String;)I
  */
-JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbNewNat
+JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_addDbKnownBadNat
   (JNIEnv *, jclass, jstring);
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbBeginTransactionNat
- * Signature: (I)I
+ * Method:    getDbName
+ * Signature: (Ljava/lang/String;)Ljava/lang/String;
  */
-JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbBeginTransactionNat
-  (JNIEnv *, jclass, jint);
+JNIEXPORT jstring JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_getDbName
+  (JNIEnv *, jclass, jstring);
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbCommitTransactionNat
- * Signature: (I)I
- */
-JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbCommitTransactionNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbRollbackTransactionNat
- * Signature: (I)I
- */
-JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbRollbackTransactionNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbAddEntryNat
- * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)I
- */
-JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbAddEntryNat
-  (JNIEnv *, jclass, jstring, jstring, jstring, jstring, jstring, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbIsUpdateableNat
- * Signature: (I)Z
- */
-JNIEXPORT jboolean JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbIsUpdateableNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbIsReindexableNat
- * Signature: (I)Z
- */
-JNIEXPORT jboolean JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbIsReindexableNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbPathNat
- * Signature: (I)Ljava/lang/String;
- */
-JNIEXPORT jstring JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbPathNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbIndexPathNat
- * Signature: (I)Ljava/lang/String;
- */
-JNIEXPORT jstring JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbIndexPathNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbGetDisplayName
- * Signature: (I)Ljava/lang/String;
- */
-JNIEXPORT jstring JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbGetDisplayName
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbCloseAll
+ * Method:    closeDbLookupsNat
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbCloseAll
+JNIEXPORT void JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_closeDbLookupsNat
   (JNIEnv *, jclass);
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbClose
- * Signature: (I)V
+ * Method:    knownBadDbLookup
+ * Signature: (Ljava/lang/String;I)I
  */
-JNIEXPORT void JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbClose
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbCreateIndexNat
- * Signature: (I)V
- */
-JNIEXPORT void JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbCreateIndexNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbIndexExistsNat
- * Signature: (I)Z
- */
-JNIEXPORT jboolean JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbIndexExistsNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbIsIdxOnlyNat
- * Signature: (I)Z
- */
-JNIEXPORT jboolean JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbIsIdxOnlyNat
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbLookup
- * Signature: (Ljava/lang/String;I)Z
- */
-JNIEXPORT jboolean JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbLookup
+JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_knownBadDbLookup
   (JNIEnv *, jclass, jstring, jint);
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    hashDbLookupVerbose
- * Signature: (Ljava/lang/String;I)Lorg/sleuthkit/datamodel/HashHitInfo;
+ * Method:    nsrlDbLookup
+ * Signature: (Ljava/lang/String;)I
  */
-JNIEXPORT jobject JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_hashDbLookupVerbose
-  (JNIEnv *, jclass, jstring, jint);
+JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_nsrlDbLookup
+  (JNIEnv *, jclass, jstring);
+
+/*
+ * Class:     org_sleuthkit_datamodel_SleuthkitJNI
+ * Method:    getIndexSizeNat
+ * Signature: (Ljava/lang/String;)I
+ */
+JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_getIndexSizeNat
+  (JNIEnv *, jclass, jstring);
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
@@ -315,14 +227,6 @@ JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_readFileNat
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
- * Method:    saveFileMetaDataTextNat
- * Signature: (JLjava/lang/String;)I
- */
-JNIEXPORT jint JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_saveFileMetaDataTextNat
-  (JNIEnv *, jclass, jlong, jstring);
-
-/*
- * Class:     org_sleuthkit_datamodel_SleuthkitJNI
  * Method:    closeImgNat
  * Signature: (J)V
  */
@@ -355,6 +259,22 @@ JNIEXPORT void JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_closeFileNat
 
 /*
  * Class:     org_sleuthkit_datamodel_SleuthkitJNI
+ * Method:    createLookupIndexNat
+ * Signature: (Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_createLookupIndexNat
+  (JNIEnv *, jclass, jstring);
+
+/*
+ * Class:     org_sleuthkit_datamodel_SleuthkitJNI
+ * Method:    lookupIndexExistsNat
+ * Signature: (Ljava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_lookupIndexExistsNat
+  (JNIEnv *, jclass, jstring);
+
+/*
+ * Class:     org_sleuthkit_datamodel_SleuthkitJNI
  * Method:    findDeviceSizeNat
  * Signature: (Ljava/lang/String;)J
  */
@@ -369,28 +289,6 @@ JNIEXPORT jlong JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_findDeviceSize
 JNIEXPORT jstring JNICALL Java_org_sleuthkit_datamodel_SleuthkitJNI_getCurDirNat
   (JNIEnv *, jclass, jlong);
 
-#ifdef __cplusplus
-}
-#endif
-#endif
-/* Header for class org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle */
-
-#ifndef _Included_org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle
-#define _Included_org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle
-#ifdef __cplusplus
-extern "C" {
-#endif
-#ifdef __cplusplus
-}
-#endif
-#endif
-/* Header for class org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle_AddImageProcess */
-
-#ifndef _Included_org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle_AddImageProcess
-#define _Included_org_sleuthkit_datamodel_SleuthkitJNI_CaseDbHandle_AddImageProcess
-#ifdef __cplusplus
-extern "C" {
-#endif
 #ifdef __cplusplus
 }
 #endif
