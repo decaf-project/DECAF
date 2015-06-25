@@ -186,10 +186,10 @@ int qemu_accept(int s, struct sockaddr *addr, socklen_t *addrlen)
 }
 
 #ifdef WIN32
-int asprintf( char **, char *, ... );
-int vasprintf( char **, char *, va_list );
+int asprintf( char **, const char *, ... );
+int vasprintf( char **, const char *, va_list );
 
-int vasprintf( char **sptr, char *fmt, va_list argv )
+int vasprintf( char **sptr, const char *fmt, va_list argv )
 {
     int wanted = vsnprintf( *sptr = NULL, 0, fmt, argv );
     if( (wanted > 0) && ((*sptr = malloc( 1 + wanted )) != NULL) )
@@ -198,7 +198,7 @@ int vasprintf( char **sptr, char *fmt, va_list argv )
     return wanted;
 }
 
-int asprintf( char **sptr, char *fmt, ... )
+int asprintf( char **sptr, const char *fmt, ... )
 {
     int retval;
     va_list argv;

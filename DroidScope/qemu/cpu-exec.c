@@ -21,6 +21,7 @@
 #include "disas.h"
 #include "tcg.h"
 #include "kvm.h"
+#include "hax.h"
 #include "qemu-barrier.h"
 
 #if !defined(CONFIG_SOFTMMU)
@@ -223,6 +224,23 @@ static void cpu_handle_debug_exception(CPUState *env)
 
 volatile sig_atomic_t exit_request;
 
+/*
+ * Qemu emulation can happen because of MMIO or emulation mode,
+ * i.e. non-PG mode.  For MMIO cases, the pending interrupt should not
+ * be emulated in qemu because MMIO is emulated for only one
+ * instruction now and then back to the HAX kernel module.
+ */
+int need_handle_intr_request(CPUState *env)
+{
+#ifdef CONFIG_HAX
+    if (!hax_enabled() || hax_vcpu_emulation_mode(env))
+        return env->interrupt_request;
+    return 0;
+#else
+    return env->interrupt_request;
+#endif
+}
+
 int cpu_exec(CPUState *env1)
 {
     volatile host_reg_t saved_env_reg;
@@ -355,6 +373,11 @@ int cpu_exec(CPUState *env1)
                 }
             }
 
+#ifdef CONFIG_HAX
+            if (hax_enabled() && !hax_vcpu_exec(env))
+                longjmp(env->jmp_env, 1);
+#endif
+
             if (kvm_enabled()) {
                 kvm_cpu_exec(env);
                 longjmp(env->jmp_env, 1);
@@ -363,7 +386,7 @@ int cpu_exec(CPUState *env1)
             next_tb = 0; /* force lookup of first TB */
             for(;;) {
                 interrupt_request = env->interrupt_request;
-                if (unlikely(interrupt_request)) {
+                if (unlikely(need_handle_intr_request(env))) {
                     if (unlikely(env->singlestep_enabled & SSTEP_NOIRQ)) {
                         /* Mask out external interrupts for this step. */
                         interrupt_request &= ~CPU_INTERRUPT_SSTEP_MASK;
@@ -669,6 +692,10 @@ int cpu_exec(CPUState *env1)
                     }
                 }
                 env->current_tb = NULL;
+#ifdef CONFIG_HAX
+                if (hax_enabled() && hax_stop_emulation(env))
+                    cpu_loop_exit();
+#endif
                 /* reset soft MMU for next block (it can currently
                    only be set by a memory fault) */
             } /* for(;;) */

@@ -13,12 +13,49 @@
 ##############################################################################
 ##############################################################################
 ###
+###  gen-hw-config-defs: Generate hardware configuration definitions header
+###
+###  The 'gen-hw-config.py' script is used to generate the hw-config-defs.h
+###  header from the an .ini file like android/avd/hardware-properties.ini
+###
+###  Due to the way the Android build system works, we need to regenerate
+###  it for each module (the output will go into a module-specific directory).
+###
+###  This defines a function that can be used inside a module definition
+###
+###  $(call gen-hw-config-defs)
+###
+
+# First, define a rule to generate a dummy "emulator_hw_config_defs" module
+# which purpose is simply to host the generated header in its output directory.
+intermediates := $(call intermediates-dir-for,SHARED_LIBRARIES,emulator_hw_config_defs,true)
+
+QEMU_HARDWARE_PROPERTIES_INI := $(LOCAL_PATH)/android/avd/hardware-properties.ini
+QEMU_HW_CONFIG_DEFS_H := $(intermediates)/android/avd/hw-config-defs.h
+$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_PATH := $(LOCAL_PATH)
+$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PATH)/android/tools/gen-hw-config.py $< $@
+$(QEMU_HW_CONFIG_DEFS_H): $(QEMU_HARDWARE_PROPERTIES_INI) $(LOCAL_PATH)/android/tools/gen-hw-config.py
+	$(hide) rm -f $@
+	$(transform-generated-source)
+
+QEMU_HW_CONFIG_DEFS_INCLUDES := $(intermediates)
+
+# Second, define a function that needs to be called inside each module that contains
+# a source file that includes the generated header file.
+gen-hw-config-defs = \
+  $(eval LOCAL_GENERATED_SOURCES += $(QEMU_HW_CONFIG_DEFS_H))\
+  $(eval LOCAL_C_INCLUDES += $(QEMU_HW_CONFIG_DEFS_INCLUDES))
+
+##############################################################################
+##############################################################################
+###
 ###  emulator-common: LIBRARY OF COMMON FUNCTIONS
 ###
 ###  THESE ARE POTENTIALLY USED BY ALL COMPONENTS
 ###
 
-$(call start-emulator-library, emulator-common)
+common_LOCAL_CFLAGS =
+common_LOCAL_SRC_FILES =
 
 EMULATOR_COMMON_CFLAGS :=
 
@@ -47,6 +84,7 @@ ifeq ($(HOST_OS),linux)
 EMULATOR_COMMON_CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 endif
 
+
 ###########################################################
 # Zlib sources
 #
@@ -54,12 +92,12 @@ ZLIB_DIR := distrib/zlib-1.2.3
 include $(LOCAL_PATH)/$(ZLIB_DIR)/sources.make
 EMULATOR_COMMON_CFLAGS += -I$(LOCAL_PATH)/$(ZLIB_DIR)
 
-LOCAL_SRC_FILES += $(ZLIB_SOURCES)
+common_LOCAL_SRC_FILES += $(ZLIB_SOURCES)
 
 ###########################################################
 # Android utility functions
 #
-LOCAL_SRC_FILES += \
+common_LOCAL_SRC_FILES += \
 	sockets.c \
 	iolooper-select.c \
 	android/async-console.c \
@@ -74,6 +112,7 @@ LOCAL_SRC_FILES += \
 	android/utils/assert.c \
 	android/utils/bufprint.c \
 	android/utils/debug.c \
+	android/utils/dll.c \
 	android/utils/dirscanner.c \
 	android/utils/filelock.c \
 	android/utils/ini.c \
@@ -90,9 +129,29 @@ LOCAL_SRC_FILES += \
 	android/utils/tempfile.c \
 	android/utils/vector.c \
 
-LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
+common_LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
 
+
+## one for 32-bit
+$(call start-emulator-library, emulator-common)
+LOCAL_CFLAGS += $(common_LOCAL_CFLAGS)
+LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+$(call gen-hw-config-defs)
 $(call end-emulator-library)
+
+## another for 64-bit
+# NOTE: only linux and darwin in non-standalone mode is supported, because
+#  1) For Windows: amd64-mingw32msvc-gcc doesn't work, see http://b/issue?id=5949152.
+#  2) Standalone has --try-64
+ifneq ($(filter linux darwin,$(HOST_OS)),)
+  ifneq ($(BUILD_STANDALONE_EMULATOR),true)
+    $(call start-emulator-library, emulator64-common)
+    LOCAL_CFLAGS += $(common_LOCAL_CFLAGS) -m64
+    LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+    $(call gen-hw-config-defs)
+    $(call end-emulator-library)
+  endif # BUILD_STANDALONE_EMULATOR == nil
+endif # HOST_OS == linux || darwin
 
 ##############################################################################
 ##############################################################################
@@ -102,11 +161,14 @@ $(call end-emulator-library)
 ###  THESE ARE USED BY 'emulator-ui' AND THE STANDALONE PROGRAMS
 ###
 
-$(call start-emulator-library, emulator-libui)
+common_LOCAL_CFLAGS =
+common_LOCAL_SRC_FILES =
 
-EMULATOR_LIBUI_CFLAGS :=
+ifneq ($(QEMU_OPENGLES_INCLUDE),)
+    EMULATOR_LIBUI_CFLAGS := -I$(QEMU_OPENGLES_INCLUDE)
+endif
 
-LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
+common_LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
 
 ###########################################################
 # Libpng configuration
@@ -118,7 +180,7 @@ EMULATOR_LIBUI_CFLAGS += \
     $(LIBPNG_CFLAGS) \
     -I$(LOCAL_PATH)/$(LIBPNG_DIR)
 
-LOCAL_SRC_FILES += $(LIBPNG_SOURCES) loadpng.c
+common_LOCAL_SRC_FILES += $(LIBPNG_SOURCES) loadpng.c
 
 ##############################################################################
 # SDL-related definitions
@@ -136,14 +198,6 @@ ifeq ($(QEMU_HOST_TAG),linux-x86)
     BUILD_SDL_FROM_SOURCES := false
 endif
 
-# On darwin-x86, a bug in the Android build system prevents the compilation
-# of Objective-C sources. Fixed recently in AOSP, but we still use the
-# prebuilts for the benefit of older platform branches.
-#
-ifeq ($(QEMU_HOST_TAG),darwin-x86)
-    BUILD_SDL_FROM_SOURCES := false
-endif
-
 # If we're building with android-configure.sh && make, always build from
 # sources to catch regressions as soon as they happen.
 #
@@ -153,13 +207,14 @@ endif
 
 # Except if we used android-configure.sh --sdl-config=<script>
 #
-ifneq ($(SDL_CONFIG),)
+ifneq ($(QEMU_SDL_CONFIG),)
    BUILD_SDL_FROM_SOURCES := false
+   SDL_CONFIG := $(QEMU_SDL_CONFIG)
 endif
 
 ifneq ($(BUILD_SDL_FROM_SOURCES),true)
 
-    SDL_CONFIG ?= prebuilt/$(QEMU_HOST_TAG)/sdl/bin/sdl-config
+    SDL_CONFIG ?= prebuilts/tools/$(QEMU_HOST_TAG)/sdl/bin/sdl-config
     SDL_CFLAGS := $(shell $(SDL_CONFIG) --cflags)
 
     # We need to filter out the _GNU_SOURCE variable because it breaks recent
@@ -171,12 +226,13 @@ ifneq ($(BUILD_SDL_FROM_SOURCES),true)
     # Circular dependencies between libSDL and libSDLmain
     # We repeat the libraries in the final link to work around it
     SDL_STATIC_LIBRARIES := libSDL libSDLmain libSDL libSDLmain
+    SDL_STATIC_LIBRARIES_64 := lib64SDL lib64SDLmain lib64SDL lib64SDLmain
 
 else # BUILD_SDL_FROM_SOURCES
 
-    SDL_DIR := distrib/sdl-1.2.12
+    SDL_DIR := distrib/sdl-1.2.15
     include $(LOCAL_PATH)/$(SDL_DIR)/sources.make
-    LOCAL_SRC_FILES += $(SDL_SOURCES)
+    common_LOCAL_SRC_FILES += $(SDL_SOURCES)
 
     EMULATOR_LIBUI_CFLAGS += \
         -I$(LOCAL_PATH)/$(SDL_DIR)/include
@@ -207,9 +263,9 @@ SKIN_SOURCES := rect.c \
                 composer.c \
                 surface.c \
 
-LOCAL_SRC_FILES += $(SKIN_SOURCES:%=android/skin/%)
+common_LOCAL_SRC_FILES += $(SKIN_SOURCES:%=android/skin/%)
 
-LOCAL_SRC_FILES += \
+common_LOCAL_SRC_FILES += \
              android/user-config.c \
              android/resource.c \
              android/qemulator.c \
@@ -217,12 +273,31 @@ LOCAL_SRC_FILES += \
 
 # enable MMX code for our skin scaler
 ifeq ($(HOST_ARCH),x86)
-LOCAL_CFLAGS += -DUSE_MMX=1 -mmmx
+common_LOCAL_CFLAGS += -DUSE_MMX=1 -mmmx
 endif
 
-LOCAL_CFLAGS += $(EMULATOR_LIBUI_CFLAGS)
+common_LOCAL_CFLAGS += $(EMULATOR_LIBUI_CFLAGS)
 
+
+## one for 32-bit
+$(call start-emulator-library, emulator-libui)
+LOCAL_CFLAGS += $(common_LOCAL_CFLAGS)
+LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+$(call gen-hw-config-defs)
 $(call end-emulator-library)
+
+
+## another for 64-bit, see note in emulator64-common
+ifneq ($(filter linux darwin,$(HOST_OS)),)
+  ifneq ($(BUILD_STANDALONE_EMULATOR),true)
+    $(call start-emulator-library, emulator64-libui)
+    LOCAL_CFLAGS += $(common_LOCAL_CFLAGS) -m64
+    LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+    $(call gen-hw-config-defs)
+    $(call end-emulator-library)
+  endif # BUILD_STANDALONE_EMULATOR == nil
+endif # HOST_OS == linux || darwin
+
 
 ##############################################################################
 ##############################################################################
@@ -232,17 +307,19 @@ $(call end-emulator-library)
 ###  THESE ARE USED BY EVERYTHING EXCEPT 'emulator-ui'
 ###
 
-$(call start-emulator-library, emulator-libqemu)
+common_LOCAL_CFLAGS =
+common_LOCAL_SRC_FILES =
+
 
 EMULATOR_LIBQEMU_CFLAGS :=
 
-LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
+common_LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
 
 AUDIO_SOURCES := noaudio.c wavaudio.c wavcapture.c mixeng.c
 AUDIO_CFLAGS  := -I$(LOCAL_PATH)/audio -DHAS_AUDIO
 AUDIO_LDLIBS  :=
 
-LOCAL_CFLAGS += -Wall -Wno-missing-field-initializers
+common_LOCAL_CFLAGS += -Wall $(GCC_W_NO_MISSING_FIELD_INITIALIZERS)
 
 ifeq ($(HOST_OS),darwin)
   CONFIG_COREAUDIO ?= yes
@@ -297,17 +374,17 @@ endif
 
 AUDIO_SOURCES := $(call sort,$(AUDIO_SOURCES:%=audio/%))
 
-LOCAL_CFLAGS += -Wno-sign-compare \
+common_LOCAL_CFLAGS += -Wno-sign-compare \
                 -fno-strict-aliasing -W -Wall -Wno-unused-parameter \
 
 # this is very important, otherwise the generated binaries may
 # not link properly on our build servers
 ifeq ($(HOST_OS),linux)
-LOCAL_CFLAGS += -fno-stack-protector
+common_LOCAL_CFLAGS += -fno-stack-protector
 endif
 
-LOCAL_SRC_FILES += $(AUDIO_SOURCES)
-LOCAL_SRC_FILES += \
+common_LOCAL_SRC_FILES += $(AUDIO_SOURCES)
+common_LOCAL_SRC_FILES += \
     android/audio-test.c
 
 # other flags
@@ -320,14 +397,14 @@ endif
 EMULATOR_LIBQEMU_CFLAGS += $(AUDIO_CFLAGS)
 EMULATOR_LIBQEMU_LDLIBS += $(AUDIO_LDLIBS)
 
-LOCAL_CFLAGS += -Wno-missing-field-initializers
+common_LOCAL_CFLAGS += $(GCC_W_NO_MISSING_FIELD_INITIALIZERS)
 
 # migration sources
 #
 ifeq ($(HOST_OS),windows)
-  LOCAL_SRC_FILES += migration-dummy-android.c
+  common_LOCAL_SRC_FILES += migration-dummy-android.c
 else
-  LOCAL_SRC_FILES += migration.c \
+  common_LOCAL_SRC_FILES += migration.c \
                      migration-exec.c \
                      migration-tcp-android.c
 endif
@@ -381,7 +458,19 @@ CORE_MISC_SOURCES = \
     android/hw-pipe-net.c \
     android/qemu-setup.c \
     android/snapshot.c \
+    android/async-socket-connector.c \
+    android/async-socket.c \
+    android/sdk-controller-socket.c \
+    android/sensors-port.c \
     android/utils/timezone.c \
+    android/camera/camera-format-converters.c \
+    android/camera/camera-service.c \
+    android/adb-server.c \
+    android/adb-qemud.c \
+    android/snaphost-android.c \
+    android/multitouch-screen.c \
+    android/multitouch-port.c \
+    android/utils/jpeg-compress.c
 
 ifeq ($(HOST_ARCH),x86)
     CORE_MISC_SOURCES += i386-dis.c
@@ -396,21 +485,28 @@ endif
 
 ifeq ($(HOST_OS),linux)
     CORE_MISC_SOURCES += usb-linux.c \
-                         qemu-thread.c
+                         qemu-thread.c \
+                         android/camera/camera-capture-linux.c
 else
     CORE_MISC_SOURCES += usb-dummy-android.c
 endif
 
 ifeq ($(HOST_OS),windows)
-  CORE_MISC_SOURCES   += tap-win32.c
+  CORE_MISC_SOURCES   += tap-win32.c \
+                         android/camera/camera-capture-windows.c
+
 else
   CORE_MISC_SOURCES   += posix-aio-compat.c
 endif
 
-LOCAL_SRC_FILES += $(CORE_MISC_SOURCES)
+ifeq ($(HOST_OS),darwin)
+  CORE_MISC_SOURCES   += android/camera/camera-capture-mac.m
+endif
+
+common_LOCAL_SRC_FILES += $(CORE_MISC_SOURCES)
 
 # Required
-LOCAL_CFLAGS += -D_XOPEN_SOURCE=600 -D_BSD_SOURCE=1
+common_LOCAL_CFLAGS += -D_XOPEN_SOURCE=600 -D_BSD_SOURCE=1 -I$(LOCAL_PATH)/distrib/jpeg-6b
 
 SLIRP_SOURCES := \
     bootp.c \
@@ -432,7 +528,7 @@ SLIRP_SOURCES := \
     tftp.c \
     udp.c
 
-LOCAL_SRC_FILES += $(SLIRP_SOURCES:%=slirp-android/%)
+common_LOCAL_SRC_FILES += $(SLIRP_SOURCES:%=slirp-android/%)
 EMULATOR_LIBQEMU_CFLAGS += -I$(LOCAL_PATH)/slirp-android
 
 # socket proxy support
@@ -443,7 +539,7 @@ PROXY_SOURCES := \
     proxy_http_connector.c \
     proxy_http_rewriter.c \
 
-LOCAL_SRC_FILES += $(PROXY_SOURCES:%=proxy/%)
+common_LOCAL_SRC_FILES += $(PROXY_SOURCES:%=proxy/%)
 EMULATOR_LIBQEMU_CFLAGS += -I$(LOCAL_PATH)/proxy
 
 # include telephony stuff
@@ -457,13 +553,13 @@ TELEPHONY_SOURCES := \
     sms.c \
     remote_call.c
 
-LOCAL_SRC_FILES += $(TELEPHONY_SOURCES:%=telephony/%)
+common_LOCAL_SRC_FILES += $(TELEPHONY_SOURCES:%=telephony/%)
 EMULATOR_LIBQEMU_CFLAGS += -I$(LOCAL_PATH)/telephony
 
 # sources inherited from upstream, but not fully
 # integrated into android emulator
 #
-LOCAL_SRC_FILES += \
+common_LOCAL_SRC_FILES += \
     json-lexer.c \
     json-parser.c \
     json-streamer.c \
@@ -475,44 +571,57 @@ LOCAL_SRC_FILES += \
     qlist.c \
     qstring.c \
 
-# hw-config-defs.h is generated from android/avd/hardware-properties.ini
-#
-QEMU_HARDWARE_PROPERTIES_INI := $(LOCAL_PATH)/android/avd/hardware-properties.ini
-QEMU_HW_CONFIG_DEFS_H := $(LOCAL_PATH)/android/avd/hw-config-defs.h
-$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_PATH := $(LOCAL_PATH)
-$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_SOURCES := $(QEMU_HARDWARE_PROPERTIES_INI)
-$(QEMU_HW_CONFIG_DEFS_H): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PATH)/android/tools/gen-hw-config.py $(QEMU_HARDWARE_PROPERTIES_INI) $@
-$(QEMU_HW_CONFIG_DEFS_H): $(QEMU_HARDWARE_PROPERTIES_INI) $(LOCAL_PATH)/android/tools/gen-hw-config.py
-	$(hide) rm -f $@
-	$(transform-generated-source)
-
-$(LOCAL_PATH)/android/avd/hw-config.h: $(QEMU_HW_CONFIG_DEFS_H)
-
-# gdbstub-xml.c contains C-compilable arrays corresponding to the content
-# of $(LOCAL_PATH)/gdb-xml/, and is generated with the 'feature_to_c.sh' script.
-#
-intermediates := $(call intermediates-dir-for,STATIC_LIBRARIES,$(LOCAL_MODULE),true)
-
 ifeq ($(QEMU_TARGET_XML_SOURCES),)
     QEMU_TARGET_XML_SOURCES := arm-core arm-neon arm-vfp arm-vfp3
     QEMU_TARGET_XML_SOURCES := $(QEMU_TARGET_XML_SOURCES:%=$(LOCAL_PATH)/gdb-xml/%.xml)
 endif
 
-QEMU_GDBSTUB_XML_C := $(intermediates)/gdbstub-xml.c
+common_LOCAL_CFLAGS += $(EMULATOR_LIBQEMU_CFLAGS)
+
+
+## one for 32-bit
+$(call start-emulator-library, emulator-libqemu)
+# gdbstub-xml.c contains C-compilable arrays corresponding to the content
+# of $(LOCAL_PATH)/gdb-xml/, and is generated with the 'feature_to_c.sh' script.
+#
+intermediates = $(call intermediates-dir-for,STATIC_LIBRARIES,$(LOCAL_MODULE),true)
+QEMU_GDBSTUB_XML_C = $(intermediates)/gdbstub-xml.c
 $(QEMU_GDBSTUB_XML_C): PRIVATE_PATH := $(LOCAL_PATH)
 $(QEMU_GDBSTUB_XML_C): PRIVATE_SOURCES := $(TARGET_XML_SOURCES)
 $(QEMU_GDBSTUB_XML_C): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PATH)/feature_to_c.sh $@ $(QEMU_TARGET_XML_SOURCES)
 $(QEMU_GDBSTUB_XML_C): $(QEMU_TARGET_XML_SOURCES) $(LOCAL_PATH)/feature_to_c.sh
 	$(hide) rm -f $@
 	$(transform-generated-source)
-
 LOCAL_GENERATED_SOURCES += $(QEMU_GDBSTUB_XML_C)
-
-EMULATOR_LIBQEMU_CFLAGS += -I$(intermediates)
-
-LOCAL_CFLAGS += $(EMULATOR_LIBQEMU_CFLAGS)
-
+LOCAL_CFLAGS += $(common_LOCAL_CFLAGS) -I$(intermediates)
+LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+$(call gen-hw-config-defs)
 $(call end-emulator-library)
+
+
+## another for 64-bit, see note in emulator64-common
+ifneq ($(filter linux darwin,$(HOST_OS)),)
+  ifneq ($(BUILD_STANDALONE_EMULATOR),true)
+    $(call start-emulator-library, emulator64-libqemu)
+    # gdbstub-xml.c contains C-compilable arrays corresponding to the content
+    # of $(LOCAL_PATH)/gdb-xml/, and is generated with the 'feature_to_c.sh' script.
+    #
+    intermediates = $(call intermediates-dir-for,STATIC_LIBRARIES,$(LOCAL_MODULE),true)
+    QEMU_GDBSTUB_XML_C = $(intermediates)/gdbstub-xml.c
+    $(QEMU_GDBSTUB_XML_C): PRIVATE_PATH := $(LOCAL_PATH)
+    $(QEMU_GDBSTUB_XML_C): PRIVATE_SOURCES := $(TARGET_XML_SOURCES)
+    $(QEMU_GDBSTUB_XML_C): PRIVATE_CUSTOM_TOOL = $(PRIVATE_PATH)/feature_to_c.sh $@ $(QEMU_TARGET_XML_SOURCES)
+    $(QEMU_GDBSTUB_XML_C): $(QEMU_TARGET_XML_SOURCES) $(LOCAL_PATH)/feature_to_c.sh
+	$(hide) rm -f $@
+	$(transform-generated-source)
+    LOCAL_GENERATED_SOURCES += $(QEMU_GDBSTUB_XML_C)
+    LOCAL_CFLAGS += $(common_LOCAL_CFLAGS) -I$(intermediates) -m64
+    LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+    $(call gen-hw-config-defs)
+    $(call end-emulator-library)
+  endif # BUILD_STANDALONE_EMULATOR == nil
+endif # HOST_OS == linux || darwin
+
 
 # Block sources, we must compile them with each executable because they
 # are only referenced by the rest of the code using constructor functions.
@@ -544,6 +653,46 @@ endif
 BLOCK_CFLAGS += $(EMULATOR_COMMON_CFLAGS)
 BLOCK_CFLAGS += -DCONFIG_BDRV_WHITELIST=""
 
+##############################################################################
+##############################################################################
+###
+###  emulator-libjpeg: TARGET-INDEPENDENT QEMU FUNCTIONS
+###
+###  THESE ARE USED BY EVERYTHING EXCEPT 'emulator-ui'
+###
+
+common_LOCAL_CFLAGS =
+common_LOCAL_SRC_FILES =
+
+###########################################################
+# Jpeg configuration
+#
+LIBJPEG_DIR := distrib/jpeg-6b
+include $(LOCAL_PATH)/$(LIBJPEG_DIR)/sources.make
+
+common_LOCAL_SRC_FILES += $(LIBJPEG_SOURCES)
+
+common_LOCAL_CFLAGS += \
+    $(LIBJPEG_CFLAGS) \
+    -I$(LOCAL_PATH)/$(LIBJPEG_DIR)
+
+## one for 32-bit
+$(call start-emulator-library, emulator-libjpeg)
+LOCAL_CFLAGS += $(common_LOCAL_CFLAGS)
+LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+$(call end-emulator-library)
+
+
+## another for 64-bit, see note in emulator64-common
+ifneq ($(filter linux darwin,$(HOST_OS)),)
+  ifneq ($(BUILD_STANDALONE_EMULATOR),true)
+    $(call start-emulator-library, emulator64-libjpeg)
+    LOCAL_CFLAGS += $(common_LOCAL_CFLAGS) -m64
+    LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+    $(call end-emulator-library)
+  endif # BUILD_STANDALONE_EMULATOR == nil
+endif # HOST_OS == linux
+
 
 ##############################################################################
 ##############################################################################
@@ -554,9 +703,8 @@ BLOCK_CFLAGS += -DCONFIG_BDRV_WHITELIST=""
 ###  THEM IN emulator-libqemu SINCE THE SOURCES ARE C++
 ###
 
-$(call start-emulator-library, emulator-libelff)
-
-LOCAL_CPP_EXTENSION := .cc
+common_LOCAL_CFLAGS =
+common_LOCAL_SRC_FILES =
 
 ELFF_CFLAGS := -I$(LOCAL_PATH)/elff
 ELFF_LDLIBS := -lstdc++
@@ -570,13 +718,31 @@ ELFF_SOURCES := \
     elf_mapped_section.cc \
     elff_api.cc \
 
-LOCAL_SRC_FILES += $(ELFF_SOURCES:%=elff/%)
+common_LOCAL_SRC_FILES += $(ELFF_SOURCES:%=elff/%)
 
-LOCAL_CFLAGS += \
+common_LOCAL_CFLAGS += \
     -fno-exceptions \
     $(ELFF_CFLAGS) \
 
+
+## one for 32-bit
+$(call start-emulator-library, emulator-libelff)
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_CFLAGS += $(common_LOCAL_CFLAGS)
+LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
 $(call end-emulator-library)
+
+
+## another for 64-bit, see note in emulator64-common
+ifneq ($(filter linux darwin,$(HOST_OS)),)
+  ifneq ($(BUILD_STANDALONE_EMULATOR),true)
+    $(call start-emulator-library, emulator64-libelff)
+    LOCAL_CPP_EXTENSION := .cc
+    LOCAL_CFLAGS += $(common_LOCAL_CFLAGS) -m64
+    LOCAL_SRC_FILES += $(common_LOCAL_SRC_FILES)
+    $(call end-emulator-library)
+  endif # BUILD_STANDALONE_EMULATOR == nil
+endif # HOST_OS == linux || darwin
 
 
 ##############################################################################
@@ -603,7 +769,7 @@ $(call end-emulator-library)
 gen-hx-header = $(eval $(call gen-hx-header-ev,$1,$2,$3))
 
 define gen-hx-header-ev
-intermediates := $$(call intermediates-dir-for,$$(EMULATOR_MODULE_TYPE),$$(LOCAL_MODULE),true)
+intermediates := $$(call intermediates-dir-for,$$(LOCAL_MODULE_CLASS),$$(LOCAL_MODULE),true)
 
 QEMU_HEADER_H := $$(intermediates)/$$2
 $$(QEMU_HEADER_H): PRIVATE_PATH := $$(LOCAL_PATH)
@@ -613,7 +779,5 @@ $$(QEMU_HEADER_H): $$(LOCAL_PATH)/$$1 $$(LOCAL_PATH)/hxtool
 
 LOCAL_GENERATED_SOURCES += $$(QEMU_HEADER_H)
 LOCAL_C_INCLUDES += $$(intermediates)
-_objects := $$(patsubst %,$$(intermediates)/%,$$(3:.c=.o))
-$$(_objects): $$(QEMU_HEADER_H)
 endef
 

@@ -12,9 +12,8 @@
 #include "qemu_file.h"
 #include "arm_pic.h"
 #include "goldfish_device.h"
-#ifdef TARGET_I386
-#include "kvm.h"
-#endif
+#include "goldfish_vmem.h"
+#include "android/utils/debug.h"
 
 #define PDEV_BUS_OP_DONE        (0x00)
 #define PDEV_BUS_OP_REMOVE_DEV  (0x04)
@@ -59,6 +58,18 @@ int goldfish_add_device_no_io(struct goldfish_device *dev)
     if(dev->irq == 0 && dev->irq_count > 0) {
         dev->irq = goldfish_free_irq;
         goldfish_free_irq += dev->irq_count;
+#ifdef TARGET_I386
+        /* Make sure that we pass by the reserved IRQs. */
+        while (goldfish_free_irq == GFD_KBD_IRQ ||
+               goldfish_free_irq == GFD_MOUSE_IRQ ||
+               goldfish_free_irq == GFD_ERR_IRQ) {
+            goldfish_free_irq++;
+        }
+#endif
+        if (goldfish_free_irq >= GFD_MAX_IRQ) {
+            derror("Goldfish device has exceeded available IRQ number.");
+            exit(1);
+        }
     }
     //printf("goldfish_add_device: %s, base %x %x, irq %d %d\n",
     //       dev->name, dev->base, dev->size, dev->irq, dev->irq_count);
@@ -152,11 +163,7 @@ static void goldfish_bus_write(void *opaque, target_phys_addr_t offset, uint32_t
             break;
         case PDEV_BUS_GET_NAME:
             if(s->current) {
-#ifdef TARGET_I386
-                if(kvm_enabled())
-                    cpu_synchronize_state(cpu_single_env, 0);
-#endif
-                cpu_memory_rw_debug(cpu_single_env, value, (void*)s->current->name, strlen(s->current->name), 1);
+                safe_memory_rw_debug(cpu_single_env, value, (void*)s->current->name, strlen(s->current->name), 1);
             }
             break;
         default:

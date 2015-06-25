@@ -413,6 +413,7 @@ int is_qemu_special_address(unsigned long dst_addr, unsigned long *redir_addr)
 int tcp_fconnect(struct socket *so)
 {
   int ret=0;
+    int try_proxy = 0;
     SockAddress    sockaddr;
     unsigned long       sock_ip;
     int                 sock_port;
@@ -518,13 +519,7 @@ int tcp_fconnect(struct socket *so)
           /* A normal connection - keep the original destination addr/port */
           else {
 
-            if (!proxy_manager_add(&sockaddr, SOCKET_STREAM,
-                                   (ProxyEventFunc) tcp_proxy_event, so)) {
-                soisfconnecting(so);
-                so->s         = -1;
-                so->so_state |= SS_PROXIFIED;
-                return 0;
-            }
+            try_proxy = 1;
 
             sock_ip = so->so_faddr_ip;  /* original dst addr */
             sock_port= so->so_faddr_port;   /* original dst port */
@@ -535,6 +530,16 @@ int tcp_fconnect(struct socket *so)
                     sock_address_to_string(&sockaddr), try_proxy));
 
         sock_address_init_inet( &sockaddr, sock_ip, sock_port );
+
+        if (try_proxy) {
+            if (!proxy_manager_add(&sockaddr, SOCKET_STREAM,
+                                   (ProxyEventFunc) tcp_proxy_event, so)) {
+                soisfconnecting(so);
+                so->s         = -1;
+                so->so_state |= SS_PROXIFIED;
+                return 0;
+            }
+        }
 
         /* We don't care what port we get */
         socket_connect(s, &sockaddr);

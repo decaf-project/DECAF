@@ -1,0 +1,63 @@
+#LibSDL 1.2.12
+#DS porting by Troy Davis(GPF)
+
+
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>devkitPro)
+endif
+ifeq ($(strip $(DEVKITARM)),)
+DEVKITARM := $(DEVKITPRO)/devkitARM
+endif
+
+
+SRCS = $(shell echo ./src/*.c ./src/audio/*.c ./src/cdrom/*.c ./src/cpuinfo/*.c ./src/events/*.c ./src/file/*.c ./src/stdlib/*.c ./src/thread/*.c ./src/timer/*.c ./src/video/*.c ./src/joystick/*.c ./src/joystick/nds/*.c ./src/cdrom/dummy/*.c ./src/thread/generic/*.c ./src/timer/nds/*.c ./src/loadso/dummy/*.c ./src/audio/dummy/*.c ./src/audio/nds/*.c ./src/video/dummy/*.c ./src/video/nds/*.c)
+
+OBJS = $(SRCS:.c=.o) 
+	
+
+SUBDIRS=
+
+CC=arm-eabi-gcc
+CXX=arm-eabi-g++ 
+LDSHARED=$(CXX)
+AR=arm-eabi-ar rc
+RANLIB=arm-eabi-ranlib 
+
+CFLAGS	=	-mthumb -mthumb-interwork \
+		-march=armv5te -mtune=arm946e-s \
+		-O2 -Wall -Wwrite-strings -Wpointer-arith \
+		-DARM9 -D__NDS__ -I$(DEVKITPRO)/libnds/include -Iinclude
+
+CXXFLAGS += $(CFLAGS)
+
+all: $(DEVKITPRO)/libnds/lib/libSDL.a       
+
+
+$(DEVKITPRO)/libnds/lib/libSDL.a:		$(OBJS)
+	$(AR) $@ $(OBJS)
+	-@ ($(RANLIB) $@ || true) >/dev/null 2>&1 	
+
+clean: 
+	find . -name "*.o" |xargs rm -f
+	find . -name "*.d" |xargs rm -f
+	-rm -f *.elf
+	-rm -f *.nds
+	-rm -f *.gba
+	-rm -f *.arm9
+	-rm -f *.map
+	-rm -f *.img
+	-rm -Rf *.d
+
+
+subdirs: $(patsubst %, _dir_%, $(SUBDIRS))
+
+$(patsubst %, _dir_%, $(SUBDIRS)):
+	$(MAKE) -C $(patsubst _dir_%, %, $@)
+
+clean_subdirs: $(patsubst %, _clean_dir_%, $(SUBDIRS))
+
+$(patsubst %, _clean_dir_%, $(SUBDIRS)):
+	$(MAKE) -C $(patsubst _clean_dir_%, %, $@) clean
+
+#include $(DEVKITARM)/ds_rules
+

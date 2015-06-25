@@ -77,7 +77,6 @@ static void android_arm_init_(ram_addr_t ram_size,
         cpu_model = "arm926";
 
     env = cpu_init(cpu_model);
-    register_savevm( "cpu", 0, ARM_CPU_SAVE_VERSION, cpu_save, cpu_load, env );
 
     ram_offset = qemu_ram_alloc(NULL,"android_arm",ram_size);
     cpu_register_physical_memory(0, ram_size, ram_offset | IO_MEM_RAM);

@@ -23,6 +23,8 @@
 #include "android/utils/path.h"
 #include "android/utils/system.h"
 #include "android/utils/bufprint.h"
+#include "android/adb-server.h"
+#include "android/adb-qemud.h"
 
 #define  D(...)  do {  if (VERBOSE_CHECK(init)) dprint(__VA_ARGS__); } while (0)
 
@@ -44,6 +46,11 @@ char* android_op_report_console = NULL;
 char* op_http_proxy = NULL;
 /* Base port for the emulated system. */
 int    android_base_port;
+
+/* Strings describing the host system's OpenGL implementation */
+char android_gl_vendor[ANDROID_GLSTRING_BUF_SIZE];
+char android_gl_renderer[ANDROID_GLSTRING_BUF_SIZE];
+char android_gl_version[ANDROID_GLSTRING_BUF_SIZE];
 
 /*** APPLICATION DIRECTORY
  *** Where are we ?
@@ -252,6 +259,8 @@ void  android_emulation_setup( void )
         exit(1);
     }
 
+    int legacy_adb = avdInfo_getAdbdCommunicationMode(android_avdInfo) ? 0 : 1;
+
     if (android_op_ports) {
         char* comma_location;
         char* end;
@@ -276,9 +285,16 @@ void  android_emulation_setup( void )
 
         // Set up redirect from host to guest system. adbd on the guest listens
         // on 5555.
-        slirp_redir( 0, adb_port, guest_ip, 5555 );
+        if (legacy_adb) {
+            slirp_redir( 0, adb_port, guest_ip, 5555 );
+        } else {
+            adb_server_init(adb_port);
+            android_adb_service_init();
+        }
         if ( control_console_start( console_port ) < 0 ) {
-            slirp_unredir( 0, adb_port );
+            if (legacy_adb) {
+                slirp_unredir( 0, adb_port );
+            }
         }
 
         base_port = console_port;
@@ -304,12 +320,20 @@ void  android_emulation_setup( void )
         for ( ; tries > 0; tries--, base_port += 2 ) {
 
             /* setup first redirection for ADB, the Android Debug Bridge */
-            if ( slirp_redir( 0, base_port+1, guest_ip, 5555 ) < 0 )
-                continue;
+            if (legacy_adb) {
+                if ( slirp_redir( 0, base_port+1, guest_ip, 5555 ) < 0 )
+                    continue;
+            } else {
+                if (adb_server_init(base_port+1))
+                    continue;
+                android_adb_service_init();
+            }
 
             /* setup second redirection for the emulator console */
             if ( control_console_start( base_port ) < 0 ) {
-                slirp_unredir( 0, base_port+1 );
+                if (legacy_adb) {
+                    slirp_unredir( 0, base_port+1 );
+                }
                 continue;
             }
 
@@ -464,6 +488,14 @@ void  android_emulation_setup( void )
         char         tmp[PATH_MAX];
         const char*  appdir = get_app_dir();
 
+        const size_t ARGSLEN =
+                PATH_MAX +                    // max ping program path
+                10 +                          // max VERSION_STRING length
+                3*ANDROID_GLSTRING_BUF_SIZE + // max GL string lengths
+                29 +                          // static args characters
+                1;                            // NUL terminator
+        char args[ARGSLEN];
+
         if (snprintf( tmp, PATH_MAX, "%s%s%s", appdir, PATH_SEP,
                       _ANDROID_PING_PROGRAM ) >= PATH_MAX) {
             dprint( "Application directory too long: %s", appdir);
@@ -488,10 +520,12 @@ void  android_emulation_setup( void )
             if (!comspec) comspec = "cmd.exe";
 
             // Run
-            char args[PATH_MAX + 30];
-            if (snprintf( args, PATH_MAX, "/C \"%s\" ping emulator " VERSION_STRING,
-                          tmp) >= PATH_MAX ) {
-                D( "DDMS path too long: %s", tmp);
+            if (snprintf(args, ARGSLEN,
+                    "/C \"%s\" ping emulator " VERSION_STRING " \"%s\" \"%s\" \"%s\"",
+                    tmp, android_gl_vendor, android_gl_renderer, android_gl_version)
+                >= ARGSLEN)
+            {
+                D( "DDMS command line too long: %s", args);
                 return;
             }
 
@@ -521,13 +555,17 @@ void  android_emulation_setup( void )
                     int  fd = open("/dev/null", O_WRONLY);
                     dup2(fd, 1);
                     dup2(fd, 2);
-                    execl( tmp, _ANDROID_PING_PROGRAM, "ping", "emulator", VERSION_STRING, NULL );
+                    execl( tmp, _ANDROID_PING_PROGRAM, "ping", "emulator", VERSION_STRING,
+                            android_gl_vendor, android_gl_renderer, android_gl_version,
+                            NULL );
                 }
             END_NOSIGALRM
 
             /* don't do anything in the parent or in case of error */
-            strncat( tmp, " ping emulator " VERSION_STRING, PATH_MAX - strlen(tmp) );
-            D( "ping command: %s", tmp );
+            snprintf(args, ARGSLEN,
+                    "%s ping emulator " VERSION_STRING " \"%s\" \"%s\" \"%s\"",
+                    tmp, android_gl_vendor, android_gl_renderer, android_gl_version);
+            D( "ping command: %s", args );
 #endif
         }
     }

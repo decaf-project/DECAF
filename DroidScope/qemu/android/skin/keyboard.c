@@ -72,15 +72,6 @@ skin_keyboard_set_keyset( SkinKeyboard*  keyboard, SkinKeyset*  kset )
 }
 
 
-const char*
-skin_keyboard_charmap_name( SkinKeyboard*  keyboard )
-{
-    if (keyboard && keyboard->charmap)
-        return keyboard->charmap->name;
-
-    return DEFAULT_ANDROID_CHARMAP;
-}
-
 void
 skin_keyboard_set_rotation( SkinKeyboard*     keyboard,
                             SkinRotation      rotation )
@@ -539,22 +530,15 @@ skin_keyboard_create_from_charmap_name(const char*  charmap_name,
 }
 
 SkinKeyboard*
-skin_keyboard_create_from_aconfig( AConfig*  aconfig, int  use_raw_keys )
+skin_keyboard_create( const char*  kcm_file_path, int  use_raw_keys )
 {
-    const char*    charmap_name = DEFAULT_ANDROID_CHARMAP;
-    AConfig*       node = aconfig_find( aconfig, "keyboard" );
-    if (node != NULL) {
-        charmap_name = aconfig_str(node, "charmap", charmap_name);
-    }
-    return skin_keyboard_create_from_charmap_name(charmap_name, use_raw_keys);
-}
+    const char* charmap_name = DEFAULT_ANDROID_CHARMAP;
+    char        cmap_buff[AKEYCHARMAP_NAME_SIZE];
 
-SkinKeyboard*
-skin_keyboard_create_from_kcm( const char*  kcm_file_path, int  use_raw_keys )
-{
-    char charmap_name[AKEYCHARMAP_NAME_SIZE];
-    kcm_extract_charmap_name(kcm_file_path, charmap_name,
-                             sizeof(charmap_name));
+    if (kcm_file_path != NULL) {
+        kcm_extract_charmap_name(kcm_file_path, cmap_buff, sizeof cmap_buff);
+        charmap_name = cmap_buff;
+    }
     return skin_keyboard_create_from_charmap_name(charmap_name, use_raw_keys);
 }
 

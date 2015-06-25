@@ -6,7 +6,9 @@ I. Overview:
 The Android system image includes a small daemon program named "qemud"
 which is started at boot time. Its purpose is to provide a multiplexing
 communication channel between the emulated system and the emulator program
-itself.
+itself. Another way to support communication between the emulated system and
+the emulator program is using qemu pipes (see ANDROID-QEMU-PIPE.TXT for details
+on qemu pipes).
 
 Its goal is to allow certain parts of the system to talk directly to the
 emulator without requiring special kernel support; this simplifies a lot of
@@ -169,6 +171,17 @@ Since the "cupcake" platform, this works as follows:
   Certain services do not need it at all (GSM, GPS) so it is optional and
   must be used depending on which service you talk to by clients.
 
+- QEMU pipe communication model works similarly to the serial port multiplexing,
+  but also has some differences as far as connecting client with the service is
+  concerned:
+
+     emulator <-+--> /dev/qemu_pipe/qemud:srv1 <---> client1
+                |
+                +--> /dev/qemu_pipe/qemud:srv2 <---> client2
+
+  In the pipe model each client gets connected to the emulator through a unique
+  handle to /dev/qemu_pipe (a "pipe"), so there is no need for multiplexing the
+  channels.
 
 III. Legacy 'qemud':
 --------------------
@@ -254,7 +267,7 @@ only uses a single socket and allows concurrent clients for a all services.
 IV. State snapshots:
 --------------------
 
-Support for snapshots relies on the symmetric qemud_*_save and qemud_*_load 
+Support for snapshots relies on the symmetric qemud_*_save and qemud_*_load
 functions which save the state of the various Qemud* structs defined in
 android/hw-qemud.c. The high-level process is as follows.
 

@@ -28,6 +28,7 @@
 #include "gdbstub.h"
 #include "dma.h"
 #include "kvm.h"
+#include "hax.h"
 
 #include "cpus.h"
 
@@ -191,6 +192,10 @@ void qemu_init_vcpu(void *_env)
 
     if (kvm_enabled())
         kvm_init_vcpu(env);
+#ifdef CONFIG_HAX
+    if (hax_enabled())
+        hax_init_vcpu(env);
+#endif
     return;
 }
 
@@ -222,7 +227,27 @@ void qemu_notify_event(void)
         if (env->kqemu_enabled)
             kqemu_cpu_interrupt(env);
 #endif
+    /*
+     * This is mainly for the Windows host, where the timer may be in
+     * a different thread with vcpu. Thus the timer function needs to
+     * notify the vcpu thread of more than simply cpu_exit.  If env is
+     * not NULL, it means that the vcpu is in execute state, we need
+     * only to set the flags.  If the guest is in execute state, the
+     * HAX kernel module will exit to qemu.  If env is NULL, vcpu is
+     * in main_loop_wait, and we need a event to notify it.
+     */
+#ifdef CONFIG_HAX
+        if (hax_enabled())
+            hax_raise_event(env);
+     } else {
+#ifdef _WIN32
+         if(hax_enabled())
+             SetEvent(qemu_event_handle);
+#endif
      }
+#else
+     }
+#endif
 }
 
 void qemu_mutex_lock_iothread(void)
@@ -361,7 +386,7 @@ void qemu_cpu_kick(void *_env)
 {
     CPUState *env = _env;
     qemu_cond_broadcast(env->halt_cond);
-    if (kvm_enabled())
+    if (kvm_enabled() || hax_enabled())
         qemu_thread_signal(env->thread, SIGUSR1);
 }
 
@@ -425,7 +450,7 @@ static void qemu_signal_lock(unsigned int msecs)
 
 void qemu_mutex_lock_iothread(void)
 {
-    if (kvm_enabled()) {
+    if (kvm_enabled() || hax_enabled()) {
         qemu_mutex_lock(&qemu_fair_mutex);
         qemu_mutex_lock(&qemu_global_mutex);
         qemu_mutex_unlock(&qemu_fair_mutex);

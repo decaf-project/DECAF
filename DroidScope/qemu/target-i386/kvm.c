@@ -493,7 +493,7 @@ static int kvm_get_fpu(CPUState *env)
     return 0;
 }
 
-static int kvm_get_sregs(CPUState *env)
+int kvm_get_sregs(CPUState *env)
 {
     struct kvm_sregs sregs;
     uint32_t hflags;

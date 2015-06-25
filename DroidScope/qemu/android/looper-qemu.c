@@ -46,7 +46,7 @@ qlooptimer_startAbsolute(void* impl, Duration deadline_ms)
     if (deadline_ms == DURATION_INFINITE)
         qemu_del_timer(tt);
     else
-        qemu_mod_timer(tt, deadline_ms*1000000);
+        qemu_mod_timer(tt, deadline_ms);
 }
 
 static void

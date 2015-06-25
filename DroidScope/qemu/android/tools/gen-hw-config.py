@@ -28,7 +28,7 @@ def quoteStringForC(str):
 # a dictionary that maps item types as they appear in the .ini
 # file into macro names in the generated C header
 #
-typesToMacros = { 
+typesToMacros = {
     'integer': 'HWCFG_INT',
     'string': 'HWCFG_STRING',
     'boolean': 'HWCFG_BOOL',
@@ -69,12 +69,27 @@ class Item:
         self.default  = None
         self.abstract = ""
         self.description = ""
+        self.enum_values = []
 
     def add(self,key,val):
         if key == 'type':
             self.type = val
+        elif key == 'enum':
+            # Build list of enumerated values
+            self.enum_values = [ s.strip() for s in val.split(',') ]
+            # If default value has been already set, make sure it's in the list
+            if self.default and not self.default in self.enum_values:
+                print "Property '" + self.name + "': Default value '" + self.default + "' is missing in enum: ",
+                print self.enum_values,
+                sys.exit(1)
         elif key == 'default':
-            self.default = val
+            # If this is an enum, make sure that default value is in the list.
+            if val and self.enum_values and not val in self.enum_values:
+                print "Property '" + self.name + "': Default value '" + val + "' is missing in enum: ",
+                print self.enum_values,
+                sys.exit(1)
+            else:
+                self.default = val
         elif key == 'abstract':
             self.abstract = val
         elif key == 'description':

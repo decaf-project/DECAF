@@ -457,11 +457,11 @@ check_android_build ()
     unset ANDROID_TOP
     IN_ANDROID_BUILD=no
 
-    if [ -z "$ANDROID_PRODUCT_OUT" ] ; then
+    if [ -z "$ANDROID_BUILD_TOP" ] ; then
         return ;
     fi
 
-    ANDROID_TOP=`cd $ANDROID_PRODUCT_OUT/../../../.. && pwd`
+    ANDROID_TOP=$ANDROID_BUILD_TOP
     log "ANDROID_TOP found at $ANDROID_TOP"
     # $ANDROID_TOP/config/envsetup.make is for the old tree layout
     # $ANDROID_TOP/build/envsetup.sh is for the new one
@@ -493,30 +493,42 @@ get_android_abs_build_var ()
 # Locate the Android prebuilt directory for your os
 # you should only call this if IN_ANDROID_BUILD is "yes"
 #
-# This will set ANDROID_PREBUILT_HOST_TAG and ANDROID_PREBUILT
+# This will set ANDROID_PREBUILT_HOST_TAG, ANDROID_PREBUILT and ANDROID_PREBUILTS
 #
 locate_android_prebuilt ()
 {
     # locate prebuilt directory
     ANDROID_PREBUILT_HOST_TAG=$OS
-    ANDROID_PREBUILT=$ANDROID_TOP/prebuilt/$ANDROID_PREBUILT_HOST_TAG
+    ANDROID_PREBUILT=$ANDROID_TOP/prebuilt/$ANDROID_PREBUILT_HOST_TAG  # AOSP still has it
+    ANDROID_PREBUILTS=$ANDROID_TOP/prebuilts/misc/$ANDROID_PREBUILT_HOST_TAG # AOSP does't have it yet
     if [ ! -d $ANDROID_PREBUILT ] ; then
-        # this can happen when building on x86_64
+        # this can happen when building on x86_64, or in AOSP
         case $OS in
             linux-x86_64)
                 ANDROID_PREBUILT_HOST_TAG=linux-x86
                 ANDROID_PREBUILT=$ANDROID_TOP/prebuilt/$ANDROID_PREBUILT_HOST_TAG
-                log "Forcing usage of 32-bit prebuilts"
-                force_32bit_binaries
                 ;;
             *)
         esac
         if [ ! -d $ANDROID_PREBUILT ] ; then
-            echo "Can't find the prebuilt directory $ANDROID_PREBUILT in Android build"
-            exit 1
+            ANDROID_PREBUILT=
+        fi
+    fi
+    if [ ! -d $ANDROID_PREBUILTS ] ; then
+        # this can happen when building on x86_64
+        case $OS in
+            linux-x86_64)
+                ANDROID_PREBUILT_HOST_TAG=linux-x86
+                ANDROID_PREBUILTS=$ANDROID_TOP/prebuilts/misc/$ANDROID_PREBUILT_HOST_TAG
+                ;;
+            *)
+        esac
+        if [ ! -d $ANDROID_PREBUILTS ] ; then
+            ANDROID_PREBUILTS=
         fi
     fi
     log "Prebuilt   : ANDROID_PREBUILT=$ANDROID_PREBUILT"
+    log "Prebuilts  : ANDROID_PREBUILTS=$ANDROID_PREBUILTS"
 }
 
 ## Build configuration file support
@@ -561,6 +573,7 @@ add_android_config_mk ()
     fi
     echo "HOST_PREBUILT_TAG := $HOST_TAG" >> $config_mk
     echo "PREBUILT          := $ANDROID_PREBUILT" >> $config_mk
+    echo "PREBUILTS         := $ANDROID_PREBUILTS" >> $config_mk
 }
 
 # Find pattern $1 in string $2

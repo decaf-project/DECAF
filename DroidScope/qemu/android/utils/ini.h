@@ -37,6 +37,11 @@ IniFile*  iniFile_newFromFile( const char*  filePath);
  */
 int       iniFile_saveToFile( IniFile*  f, const char*  filePath );
 
+/* try to write an IniFile into a given file, ignorig pairs with empty values.
+ * returns 0 on success, -1 on error (see errno for error code)
+ */
+int       iniFile_saveToFileClean( IniFile*  f, const char*  filepath );
+
 /* free an IniFile object */
 void      iniFile_free( IniFile*  f );
 
@@ -47,6 +52,18 @@ int       iniFile_getPairCount( IniFile*  f );
  * NULL if the key is not assigned in the corresponding configuration file
  */
 const char*  iniFile_getValue( IniFile*  f, const char*  key );
+
+/* Copies a 'key, value' pair for an entry in the file.
+ * Param:
+ *  f - Initialized IniFile instance.
+ *  index - Index of the entry to copy. Must be less than value returned from the
+ *      iniFile_getPairCount routine.
+ *  key, value - Receives key, and value strings for the entry. If this routine
+ *      succeeds, the caller must free the buffers allocated for the strings.
+ * Return:
+ *  0 on success, -1 if the index exceeds the capacity of the file
+ */
+int     iniFile_getEntry(IniFile* f, int index, char** key, char** value);
 
 /* returns a copy of the value of a given key, or NULL if defaultValue is NULL.
  * caller must free() it.

@@ -48,10 +48,29 @@ char* path_getAvdTargetArch( const char* avdName );
  */
 char* path_getBuildTargetArch( const char* androidOut );
 
+/* Retrieves a string corresponding to the target CPU ABI
+ * when in the Android platform tree. The only way to do that
+ * properly for now is to look at $OUT/system/build.prop:
+ *
+ *   ro.product.cpu-abi=<abi>
+ *
+ * Where <abi> can be 'armeabi', 'armeabi-v7a' or 'x86'.
+ */
+char* path_getBuildTargetAbi( const char* androidOut );
+
 /* Retrieve the target API level when in the Android platform tree.
  * This can be a very large number like 1000 if the value cannot
  * be extracted from the appropriate file
  */
 int path_getBuildTargetApiLevel( const char* androidOut );
+
+/* Returns mode in which ADB daemon running in the guest communicates with the
+ * emulator
+ * Return:
+ *  0 - ADBD communicates with the emulator via forwarded TCP port 5555 (a
+ *      "legacy" mode).
+ *  1 - ADBD communicates with the emulator via 'adb' QEMUD service.
+ */
+int path_getAdbdCommunicationMode( const char* androidOut );
 
 #endif /* _ANDROID_AVD_UTIL_H */

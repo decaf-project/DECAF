@@ -308,7 +308,6 @@ boot_property_client_recv( void*         opaque,
         /* Send a NUL to signal the end of the list. */
         qemud_client_send(client, (uint8_t*)"", 1);
 
-        qemud_client_close(client);
         return;
     }
 
@@ -319,11 +318,12 @@ boot_property_client_recv( void*         opaque,
 static QemudClient*
 boot_property_service_connect( void*          opaque,
                                QemudService*  serv,
-                               int            channel )
+                               int            channel,
+                               const char*    client_param )
 {
     QemudClient*  client;
 
-    client = qemud_client_new( serv, channel, NULL,
+    client = qemud_client_new( serv, channel, client_param, NULL,
                                boot_property_client_recv,
                                NULL, NULL, NULL );
 

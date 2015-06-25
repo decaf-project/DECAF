@@ -118,6 +118,12 @@ extern char*  path_basename( const char*  path );
  */
 extern char*  path_search_exec( const char* filename );
 
+/* Return the absolute version of a path. If 'path' is already absolute,
+ * this will be a simple copy. Otherwise, this function will prepend the
+ * current working directory to the result.
+ */
+extern char*  path_get_absolute( const char* path );
+
 /** OTHER FILE UTILITIES
  **
  **  path_empty_file() creates an empty file at a given path location.

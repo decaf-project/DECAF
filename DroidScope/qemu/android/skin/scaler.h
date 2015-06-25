@@ -26,6 +26,12 @@ extern int          skin_scaler_set( SkinScaler*  scaler,
                                      double       xDisp,
                                      double       yDisp );
 
+/* retrieve the position of the scaled source rectangle 'srect' into 'drect'
+ * you can use the same pointer for both parameters. */
+extern void         skin_scaler_get_scaled_rect( SkinScaler*  scaler,
+                                                  SkinRect*    srect,
+                                                  SkinRect*    drect );
+
 extern void         skin_scaler_free( SkinScaler*  scaler );
 
 extern void         skin_scaler_scale( SkinScaler*   scaler,

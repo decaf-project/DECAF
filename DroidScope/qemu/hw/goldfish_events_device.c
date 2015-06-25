@@ -13,6 +13,7 @@
 #include "android/hw-events.h"
 #include "android/charmap.h"
 #include "android/globals.h"  /* for android_hw */
+#include "android/multitouch-screen.h"
 #include "irq.h"
 #include "user-events.h"
 #include "console.h"
@@ -68,6 +69,18 @@ typedef struct
     size_t abs_info_count;
 } events_state;
 
+/* An entry in the array of ABS_XXX values */
+typedef struct ABSEntry {
+    /* Minimum ABS_XXX value. */
+    uint32_t    min;
+    /* Maximum ABS_XXX value. */
+    uint32_t    max;
+    /* 'fuzz;, and 'flat' ABS_XXX values are always zero here. */
+    uint32_t    fuzz;
+    uint32_t    flat;
+} ABSEntry;
+
+
 /* modify this each time you change the events_device structure. you
  * will also need to upadte events_state_load and events_state_save
  */
@@ -101,8 +114,6 @@ static int  events_state_load(QEMUFile*  f, void* opaque, int  version_id)
 
     return qemu_get_struct(f, events_state_fields, s);
 }
-
-extern const char*  android_skin_keycharmap;
 
 static void enqueue_event(events_state *s, unsigned int type, unsigned int code, int value)
 {
@@ -169,22 +180,11 @@ static unsigned dequeue_event(events_state *s)
     return n;
 }
 
-static const char*
-get_charmap_name(events_state *s)
-{
-    if (s->name != NULL)
-        return s->name;
-
-    s->name = android_get_charmap_name();
-    return s->name;
-}
-
-
 static int get_page_len(events_state *s)
 {
     int page = s->page;
     if (page == PAGE_NAME) {
-        const char* name = get_charmap_name(s);
+        const char* name = s->name;
         return strlen(name);
     } if (page >= PAGE_EVBITS && page <= PAGE_EVBITS + EV_MAX)
         return s->ev_bits[page - PAGE_EVBITS].len;
@@ -200,7 +200,7 @@ static int get_page_data(events_state *s, int offset)
     if (offset > page_len)
         return 0;
     if (page == PAGE_NAME) {
-        const char* name = get_charmap_name(s);
+        const char* name = s->name;
         return name[offset];
     } if (page >= PAGE_EVBITS && page <= PAGE_EVBITS + EV_MAX)
         return s->ev_bits[page - PAGE_EVBITS].bits[offset];
@@ -271,20 +271,27 @@ static void events_put_mouse(void *opaque, int dx, int dy, int dz, int buttons_s
      * in android/skin/trackball.c and android/skin/window.c
      */
     if (dz == 0) {
-        enqueue_event(s, EV_ABS, ABS_X, dx);
-        enqueue_event(s, EV_ABS, ABS_Y, dy);
-        enqueue_event(s, EV_ABS, ABS_Z, dz);
-        enqueue_event(s, EV_KEY, BTN_TOUCH, buttons_state&1);
+        if (androidHwConfig_isScreenMultiTouch(android_hw)) {
+            /* Convert mouse event into multi-touch event */
+            multitouch_update_pointer(MTES_MOUSE, 0, dx, dy,
+                                      (buttons_state & 1) ? 0x81 : 0);
+        } else if (androidHwConfig_isScreenTouch(android_hw)) {
+            enqueue_event(s, EV_ABS, ABS_X, dx);
+            enqueue_event(s, EV_ABS, ABS_Y, dy);
+            enqueue_event(s, EV_ABS, ABS_Z, dz);
+            enqueue_event(s, EV_KEY, BTN_TOUCH, buttons_state&1);
+            enqueue_event(s, EV_SYN, 0, 0);
+        }
     } else {
         enqueue_event(s, EV_REL, REL_X, dx);
         enqueue_event(s, EV_REL, REL_Y, dy);
+        enqueue_event(s, EV_SYN, 0, 0);
     }
-    enqueue_event(s, EV_SYN, 0, 0);
 }
 
 static void  events_put_generic(void*  opaque, int  type, int  code, int  value)
 {
-   events_state *s = (events_state *) opaque;
+    events_state *s = (events_state *) opaque;
 
     enqueue_event(s, type, code, value);
 }
@@ -347,9 +354,6 @@ void events_dev_init(uint32_t base, qemu_irq irq)
 
     s = (events_state *) qemu_mallocz(sizeof(events_state));
 
-    // charmap name will be determined on demand
-    s->name = NULL;
-
     /* now set the events capability bits depending on hardware configuration */
     /* apparently, the EV_SYN array is used to indicate which other
      * event classes to consider.
@@ -398,11 +402,13 @@ void events_dev_init(uint32_t base, qemu_irq irq)
     if (config->hw_trackBall) {
         events_set_bit(s, EV_KEY, BTN_MOUSE);
     }
-    if (config->hw_touchScreen) {
+    if (androidHwConfig_isScreenTouch(config)) {
         events_set_bit(s, EV_KEY, BTN_TOUCH);
     }
 
-    if (config->hw_camera) {
+    if (strcmp(config->hw_camera_back, "none") ||
+        strcmp(config->hw_camera_front, "none")) {
+        /* Camera emulation is enabled. */
         events_set_bit(s, EV_KEY, KEY_CAMERA);
     }
 
@@ -447,13 +453,13 @@ void events_dev_init(uint32_t base, qemu_irq irq)
      *
      * EV_ABS events are sent when the touchscreen is pressed
      */
-    if (config->hw_touchScreen) {
-        int32_t*  values;
+    if (!androidHwConfig_isScreenNoTouch(config)) {
+        ABSEntry* abs_values;
 
         events_set_bit (s, EV_SYN, EV_ABS );
         events_set_bits(s, EV_ABS, ABS_X, ABS_Z);
         /* Allocate the absinfo to report the min/max bounds for each
-         * absolute dimension. The array must contain 3 tuples
+         * absolute dimension. The array must contain 3, or ABS_MAX tuples
          * of (min,max,fuzz,flat) 32-bit values.
          *
          * min and max are the bounds
@@ -464,33 +470,39 @@ void events_dev_init(uint32_t base, qemu_irq irq)
          * There is no need to save/restore this array in a snapshot
          * since the values only depend on the hardware configuration.
          */
-        s->abs_info_count = 3*4;
-        s->abs_info = values = malloc(sizeof(uint32_t)*s->abs_info_count);
+        s->abs_info_count = androidHwConfig_isScreenMultiTouch(config) ? ABS_MAX * 4 : 3 * 4;
+        const int abs_size = sizeof(uint32_t) * s->abs_info_count;
+        s->abs_info = malloc(abs_size);
+        memset(s->abs_info, 0, abs_size);
+        abs_values = (ABSEntry*)s->abs_info;
 
-        /* ABS_X min/max/fuzz/flat */
-        values[0] = 0;
-        values[1] = config->hw_lcd_width-1;
-        values[2] = 0;
-        values[3] = 0;
-        values   += 4;
+        abs_values[ABS_X].max = config->hw_lcd_width-1;
+        abs_values[ABS_Y].max = config->hw_lcd_height-1;
+        abs_values[ABS_Z].max = 1;
 
-        /* ABS_Y */
-        values[0] = 0;
-        values[1] = config->hw_lcd_height-1;
-        values[2] = 0;
-        values[3] = 0;
-        values   += 4;
+        if (androidHwConfig_isScreenMultiTouch(config)) {
+            /*
+             * Setup multitouch.
+             */
+            events_set_bit(s, EV_ABS, ABS_MT_SLOT);
+            events_set_bit(s, EV_ABS, ABS_MT_POSITION_X);
+            events_set_bit(s, EV_ABS, ABS_MT_POSITION_Y);
+            events_set_bit(s, EV_ABS, ABS_MT_TRACKING_ID);
+            events_set_bit(s, EV_ABS, ABS_MT_TOUCH_MAJOR);
+            events_set_bit(s, EV_ABS, ABS_MT_PRESSURE);
 
-        /* ABS_Z */
-        values[0] = 0;
-        values[1] = 1;
-        values[2] = 0;
-        values[3] = 0;
+            abs_values[ABS_MT_SLOT].max = multitouch_get_max_slot();
+            abs_values[ABS_MT_TRACKING_ID].max = abs_values[ABS_MT_SLOT].max + 1;
+            abs_values[ABS_MT_POSITION_X].max = abs_values[ABS_X].max;
+            abs_values[ABS_MT_POSITION_Y].max = abs_values[ABS_Y].max;
+            abs_values[ABS_MT_TOUCH_MAJOR].max = 0x7fffffff; // TODO: Make it less random
+            abs_values[ABS_MT_PRESSURE].max = 0x100; // TODO: Make it less random
+        }
     }
 
     /* configure EV_SW array
      *
-     * EW_SW events are sent to indicate that the keyboard lid
+     * EV_SW events are sent to indicate that the keyboard lid
      * was closed or opened (done when we switch layouts through
      * KP-7 or KP-9).
      *
@@ -514,6 +526,7 @@ void events_dev_init(uint32_t base, qemu_irq irq)
     s->first = 0;
     s->last = 0;
     s->state = STATE_INIT;
+    s->name = qemu_strdup(config->hw_keyboard_charmap);
 
     /* This function migh fire buffered events to the device, so
      * ensure that it is called after initialization is complete

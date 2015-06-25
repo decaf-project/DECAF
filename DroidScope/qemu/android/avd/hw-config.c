@@ -125,3 +125,21 @@ androidHwConfig_done( AndroidHwConfig* config )
 
 #include "android/avd/hw-config-defs.h"
 }
+
+int
+androidHwConfig_isScreenNoTouch( AndroidHwConfig* config )
+{
+    return strcmp(config->hw_screen, "no-touch") == 0;
+}
+
+int
+androidHwConfig_isScreenTouch( AndroidHwConfig* config )
+{
+    return strcmp(config->hw_screen, "touch") == 0;
+}
+
+int
+androidHwConfig_isScreenMultiTouch( AndroidHwConfig* config )
+{
+    return strcmp(config->hw_screen, "multi-touch") == 0;
+}

@@ -18,6 +18,11 @@
 
 typedef struct SkinWindow  SkinWindow;
 
+/* Note: if scale is <= 0, we interpret this as 'auto-detect'.
+ *       The behaviour is to use 1.0 by default, unless the resulting
+ *       window is too large, in which case the window will automatically
+ *       be resized to fit the screen.
+ */
 extern SkinWindow*      skin_window_create( SkinLayout*  layout,
                                             int          x,
                                             int          y,

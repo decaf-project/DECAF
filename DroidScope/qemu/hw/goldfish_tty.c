@@ -12,10 +12,7 @@
 #include "qemu_file.h"
 #include "qemu-char.h"
 #include "goldfish_device.h"
-
-#ifdef TARGET_I386
-#include "kvm.h"
-#endif
+#include "goldfish_vmem.h"
 
 enum {
     TTY_PUT_CHAR       = 0x00,
@@ -130,11 +127,7 @@ static void goldfish_tty_write(void *opaque, target_phys_addr_t offset, uint32_t
                             if (to_write > len)
                                 to_write = len;
 
-#ifdef TARGET_I386
-                            if (kvm_enabled())
-                                cpu_synchronize_state(cpu_single_env, 0);
-#endif
-                            cpu_memory_rw_debug(cpu_single_env, buf, (uint8_t*)temp, to_write, 0);
+                            safe_memory_rw_debug(cpu_single_env, buf, (uint8_t*)temp, to_write, 0);
                             qemu_chr_write(s->cs, (const uint8_t*)temp, to_write);
                             buf += to_write;
                             len -= to_write;
@@ -146,11 +139,7 @@ static void goldfish_tty_write(void *opaque, target_phys_addr_t offset, uint32_t
                 case TTY_CMD_READ_BUFFER:
                     if(s->ptr_len > s->data_count)
                         cpu_abort (cpu_single_env, "goldfish_tty_write: reading more data than available %d %d\n", s->ptr_len, s->data_count);
-#ifdef TARGET_I386
-                    if (kvm_enabled())
-                        cpu_synchronize_state(cpu_single_env, 0);
-#endif
-                    cpu_memory_rw_debug(cpu_single_env,s->ptr, s->data, s->ptr_len,1);
+                    safe_memory_rw_debug(cpu_single_env,s->ptr, s->data, s->ptr_len,1);
                     //printf("goldfish_tty_write: read %d bytes to %x\n", s->ptr_len, s->ptr);
                     if(s->data_count > s->ptr_len)
                         memmove(s->data, s->data + s->ptr_len, s->data_count - s->ptr_len);

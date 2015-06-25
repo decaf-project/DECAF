@@ -25,6 +25,7 @@ asyncReader_init(AsyncReader* ar,
     ar->buffer   = buffer;
     ar->buffsize = buffsize;
     ar->pos      = 0;
+    ar->io       = io;
     if (buffsize > 0)
         loopIo_wantRead(io);
 }
@@ -71,6 +72,7 @@ asyncWriter_init(AsyncWriter*  aw,
     aw->buffer   = buffer;
     aw->buffsize = buffsize;
     aw->pos      = 0;
+    aw->io       = io;
     if (buffsize > 0)
         loopIo_wantWrite(io);
 }
@@ -118,6 +120,7 @@ asyncLineReader_init(AsyncLineReader* alr,
     alr->buffsize = buffsize;
     alr->pos      = 0;
     alr->io       = io;
+    alr->eol      = '\n';
     if (buffsize > 0)
         loopIo_wantRead(io);
 }
@@ -150,7 +153,7 @@ asyncLineReader_read(AsyncLineReader* alr)
             return ASYNC_ERROR;
         }
         alr->buffer[alr->pos++] = (uint8_t)ch;
-        if (ch == '\n') {
+        if (ch == alr->eol) {
             loopIo_dontWantRead(alr->io);
             return ASYNC_COMPLETE;
         }
@@ -187,14 +190,16 @@ asyncLineReader_getLine(AsyncLineReader* alr)
     pos--;
 
     /* Check that we have a proper terminator, and replace it with 0 */
-    if (buffer[pos] != '\n')
-        return NULL;
+    if (alr->eol == '\n') {
+        if (buffer[pos] != '\n')
+            return NULL;
 
-    buffer[pos] = '\0';
-
-    /* Also strip \r\n */
-    if (pos > 0 && buffer[--pos] == '\r') {
         buffer[pos] = '\0';
+
+        /* Also strip \r\n */
+        if (pos > 0 && buffer[--pos] == '\r') {
+            buffer[pos] = '\0';
+        }
     }
 
     return (const char*) buffer;
@@ -262,4 +267,15 @@ asyncConnector_run(AsyncConnector* ac)
     default:
         return ASYNC_COMPLETE;
     }
+}
+
+int
+asyncConnector_stop(AsyncConnector* ac)
+{
+    if (ac->state == CONNECT_CONNECTING) {
+        loopIo_dontWantWrite(ac->io);
+        ac->state = CONNECT_COMPLETED;
+        return 0;
+    }
+    return -1;
 }

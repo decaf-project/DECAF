@@ -1,0 +1,53 @@
+ADB COMMUNICATION OVER QEMUD SERVICE
+
+I. Overview:
+------------
+
+In certain cases ADB communication over TCP port forwarding might be unreliable.
+For instance, connection manager in the guest system may decide to reset all
+network connections, in which case connection between the ADB host, and ADB
+daemon running in the guest will be broken, and will not be reestablish until ADB
+host is killed, and then restarted. To address this issue ADB communication has
+been moved to use QEMUD pipe to transfer data between the emulator, and the
+ADB daemon running in the guest.
+
+
+II. Implementation:
+-------------------
+
+There are two major components implemented in the emulator to support ADB
+communication over QEMUD pipe:
+
+1. ADB server.
+2. ADB QEMUD service (or ADB client).
+
+ADB server is implemented as a socket server that is bound to the ADB port (which
+is the 'base port' + 1), and is responsible for accepting connections coming from
+the ADB host, and associatiating accepted connections with an ADB client.
+
+ADB client is implemented as QEMUD service (named 'adb'), and is responsible for
+accepting connections coming from the ADB daemon running in the guest, and
+associating accepted connections with ADB server.
+
+Essentially, ADB server, and ADB client serve as a bridge between ADB running on
+the host, and ADB running on the guest: ADB server receives data from ADB host,
+and channels them through ADB client to the ADB guest. Likewise, ADB client
+receives data from the ADB guest, and channels them through ADB server to the ADB
+host. The only tricky part here is establishing the connection. Once connection
+is established, everything is straight forward.
+
+II.III Establishing the connection:
+-----------------------------------
+
+The connection between ADB host and ADB guest is considered to be established,
+when there is an association between ADB socket connection in the ADB server, and
+QEMUD pipe connection in the ADB client, and ADB guest is ready to receive data
+from the ADB host.
+
+Since there is no particular order, in which ADB server, and ADB client
+connections are made, ADB server runs a list of pending host and guest
+connections. Every time either connection is made, that connection goes into a
+pending list on condition that there is no pending connection on the other side.
+If, however, there is already a pending connection from the other side, that
+pending connection is removed from the pending list, and gets associated with the
+new connection.

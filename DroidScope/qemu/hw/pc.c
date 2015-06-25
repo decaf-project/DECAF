@@ -41,6 +41,7 @@
 #include "console.h"
 
 #include "goldfish_device.h"
+#include "goldfish_pipe.h"
 
 char* audio_input_source = NULL;
 /* output Bochs bios info messages */
@@ -856,6 +857,11 @@ static struct goldfish_device event0_device = {
     .name = "goldfish_events",
     .id = 0,
     .size = 0x1000,
+    /* FIXME: This is just a work around before we have a permanent fix on
+     * increasing number of IRQs available for x86 sysimages. IRQ3 is normally
+     * assigned to COM2/COM4, and we have our own custom IRQs for those. So,
+     * it's safe to reserve it for the events device. */
+    .irq = 3,
     .irq_count = 1
 };
 
@@ -1032,7 +1038,7 @@ static void pc_init1(ram_addr_t ram_size,
 
     cpu_irq = qemu_allocate_irqs(pic_irq_request, NULL, 1);
     i8259 = i8259_init(cpu_irq[0]);
-    ferr_irq = i8259[13];
+    ferr_irq = i8259[GFD_ERR_IRQ];
 
 #define IRQ_PDEV_BUS 4
     goldfish_device_init(i8259, 0xff010000, 0x7f0000, 5, 5);
@@ -1046,6 +1052,7 @@ static void pc_init1(ram_addr_t ram_size,
 #ifdef CONFIG_NAND
     goldfish_add_device_no_io(&nand_device);
     nand_dev_init(nand_device.base);
+    pipe_dev_init();
 #endif
 
     {
@@ -1113,7 +1120,16 @@ static void pc_init1(ram_addr_t ram_size,
     }
 
     goldfish_tty_add(serial_hds[0], 0, 0, 0);
+    /* FIXME: This is just a work around before we have a permanent fix on
+     * increasing number of IRQs available for x86 sysimages. In order to free up
+     * some IRQs for a better use, we limit number of TTY devices by 2. Normally
+     * we don't need more than that, so always having 4 of them would waste two
+     * precious IRQs. */
+#if 0
     for(i = 1; i < MAX_SERIAL_PORTS; i++) {
+#else
+    for(i = 1; i < 2; i++) {
+#endif
         if(serial_hds[i]) {
             goldfish_tty_add(serial_hds[i], i, 0, 0);
         }
@@ -1175,7 +1191,7 @@ static void pc_init1(ram_addr_t ram_size,
     }
 #endif
 
-    i8042_init(i8259[1], i8259[12], 0x60);
+    i8042_init(i8259[GFD_KBD_IRQ], i8259[GFD_MOUSE_IRQ], 0x60);
     DMA_init(0);
 
     goldfish_fb_init(0);

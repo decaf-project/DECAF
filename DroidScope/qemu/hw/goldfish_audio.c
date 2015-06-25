@@ -263,7 +263,7 @@ static int   audio_state_load( QEMUFile*  f, void*  opaque, int  version_id )
         goldfish_audio_buff_get( s->out_buff2, f );
         goldfish_audio_buff_get (s->in_buff, f);
     }
-    return -1;
+    return ret;
 }
 
 static void enable_audio(struct goldfish_audio_state *s, int enable)
