@@ -196,8 +196,9 @@ static process *traverse_task_struct_remove(CPUState *env)
 }
 
 // Traverse the memory map for a process
-void traverse_mmap(CPUState *env, process *proc)
+void traverse_mmap(CPUState *env, void *opaque)
 {
+    process *proc = (process *)opaque;
     target_ulong mm, vma_curr, vma_file, f_dentry, f_inode, mm_mmap, vma_next=NULL;
     set<target_ulong> module_bases;
     unsigned int inode_number;
