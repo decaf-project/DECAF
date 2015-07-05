@@ -39,7 +39,7 @@ target_ulong funcmap_get_pc(const char *module_name, const char *function_name, 
 
 int funcmap_get_name_c(target_ulong pc, target_ulong cr3, char *mod_name, char *func_name);
 
-void funcmap_insert_function(const char *module, const char *fname, uint32_t offset);
+void funcmap_insert_function(const char *module, const char *fname, uint32_t offset, uint32_t inode_number);
 
 extern void parse_function(const char *message);
 

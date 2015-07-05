@@ -53,6 +53,13 @@ typedef struct _ProcInfo
 	target_ulong ti_task;
 	target_ulong file_inode;
 	target_ulong inode_ino;
+	
+	target_ulong proc_fork_connector;
+	target_ulong proc_exit_connector;
+	target_ulong proc_exec_connector;
+	target_ulong vma_link;
+	target_ulong remove_vma;
+	target_ulong vma_adjust;
 // #ifdef TARGET_MIPS
 	target_ulong mips_pgd_current;
 // #endif	

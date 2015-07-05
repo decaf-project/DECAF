@@ -31,7 +31,7 @@ extern "C" {
 };
 #endif /* __cplusplus */
 #include "windows_vmi.h"
-#include "linux_vmi.h"
+#include "linux_vmi_new.h"
 #include "linux_readelf.h"
 
 #include "hookapi.h"
@@ -127,6 +127,9 @@ process* VMI_find_process_by_name(const char *name)
 
 process * VMI_find_process_by_pgd(uint32_t pgd)
 {
+    if(-1UL == pgd)
+        return NULL;
+
     unordered_map < uint32_t, process * >::iterator iter =
 	process_map.find(pgd);
 
@@ -143,7 +146,7 @@ process *VMI_find_process_by_pid(uint32_t pid)
 		process_pid_map.find(pid);
 
 	if (iter == process_pid_map.end())
-		return NULL; 
+		return NULL;
 
 	return iter->second;
 }
@@ -151,6 +154,7 @@ process *VMI_find_process_by_pid(uint32_t pid)
 
 module* VMI_find_module_by_key(const char *key)
 {
+
 	string temp(key);
 	unordered_map < string, module * >::iterator iter =
 		module_name.find(temp);
@@ -169,6 +173,9 @@ module * VMI_find_module_by_base(target_ulong pgd, uint32_t base)
 		return NULL;
 
 	proc = iter->second;
+
+	if(!proc->modules_extracted)
+		traverse_mmap(cpu_single_env, proc);
 
 	unordered_map<uint32_t, module *>::iterator iter_m = proc->module_list.find(base);
 	if(iter_m == proc->module_list.end())
@@ -190,6 +197,9 @@ module * VMI_find_module_by_pc(target_ulong pc, target_ulong pgd, target_ulong *
 		proc = iter_p->second;
 	}
 
+	if(!proc->modules_extracted)
+		traverse_mmap(cpu_single_env, proc);
+
 	unordered_map< uint32_t, module * >::iterator iter;
 	for (iter = proc->module_list.begin(); iter != proc->module_list.end(); iter++) {
 		module *mod = iter->second;
@@ -209,6 +219,9 @@ module * VMI_find_module_by_name(const char *name, target_ulong pgd, target_ulon
 		return NULL;
 
 	process *proc = iter_p->second;
+
+	if(!proc->modules_extracted)
+		traverse_mmap(cpu_single_env, proc);
 
 	unordered_map< uint32_t, module * >::iterator iter;
 	for (iter = proc->module_list.begin(); iter != proc->module_list.end(); iter++) {
@@ -262,10 +275,17 @@ int VMI_unregister_callback(VMI_callback_type_t cb_type, DECAF_Handle handle)
   return (SimpleCallback_unregister(&VMI_callbacks[cb_type], handle));
 }
 
+int VMI_is_MoudleExtract_Required()
+{
+	if(LIST_EMPTY(&VMI_callbacks[VMI_LOADMODULE_CB])&& LIST_EMPTY(&VMI_callbacks[VMI_REMOVEMODULE_CB]))
+		return 0;
+
+	return 1;
+}
 
 int VMI_create_process(process *proc)
 {
-	
+
 	VMI_Callback_Params params;
 	params.cp.cr3 = proc->cr3;
 	params.cp.pid = proc->pid;
@@ -350,14 +370,19 @@ int VMI_insert_module(uint32_t pid, target_ulong base, module *mod)
 	proc = iter->second;
     params.lm.cr3 = proc->cr3;
 
+	//even if one module is loaded we just mark the the process's modules to be read.
+	proc->modules_extracted = true;
+
 	//Now the pages within the module's memory region are all resolved
 	//We also need to removed the previous modules if they happen to sit on the same region
+
 	for (uint32_t vaddr = base; vaddr < base + mod->size; vaddr += 4096) {
 		proc->resolved_pages.insert(vaddr >> 12);
 		proc->unresolved_pages.erase(vaddr >> 12);
 		//TODO: UnloadModule callback
 		proc->module_list.erase(vaddr);
 	}
+
 
 	//Now we insert the new module in module_list
 	proc->module_list[base] = mod;
@@ -394,12 +419,17 @@ int VMI_remove_module(uint32_t pid, uint32_t base)
 	params.rm.size = mod->size;
 	params.rm.full_name = mod->fullname;
 
+	proc->module_list.erase(m_iter);
+
+	SimpleCallback_dispatch(&VMI_callbacks[VMI_REMOVEMODULE_CB], &params);
+
+
 	for (uint32_t vaddr = base; vaddr < base + mod->size; vaddr += 4096) {
 		proc->resolved_pages.erase(vaddr >> 12);
 		proc->unresolved_pages.erase(vaddr >> 12);
 	}
 
-	proc->module_list.erase(m_iter);
+	//proc->module_list.erase(m_iter);
 
 	return 0;
 }
