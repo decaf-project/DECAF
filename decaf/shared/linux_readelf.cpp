@@ -112,9 +112,9 @@ write_action(TSK_FS_FILE * fs_file, TSK_OFF_T a_off, TSK_DADDR_T addr,
 
 // register symbol to DECAF
 static void register_symbol(const char * mod_name, const char * func_name,
-		const target_ulong func_addr)
+		const target_ulong func_addr, uint32_t inode_number)
 {
-	funcmap_insert_function(mod_name, func_name, func_addr);
+	funcmap_insert_function(mod_name, func_name, func_addr, inode_number);
 }
 
 
@@ -178,7 +178,7 @@ int read_elf_info(const char * mod_name, target_ulong start_addr, unsigned int i
 									   type, section_index, other );
 				//if( size>0  &&  type == STT_FUNC  && ( bind == STB_GLOBAL || bind == STB_WEAK  ) ) {
 				if(type == STT_FUNC ) {
-					register_symbol(mod_name, name.c_str(), (value-elf_entry));
+					register_symbol(mod_name, name.c_str(), (value-elf_entry), inode_number);
 					fprintf(fp, "mod_name=\"%s\" elf_name=\"%s\" base_addr=\"%x\" func_addr= \"%x\" \n",mod_name, name.c_str(),elf_entry ,value);
 					fflush(fp);
 				}

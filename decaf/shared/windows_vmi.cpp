@@ -425,7 +425,7 @@ static void extract_export_table(IMAGE_NT_HEADERS *nth, uint32_t cr3, uint32_t b
 			goto done;
 
 		name[127] = 0;
-		funcmap_insert_function(mod->name, name, func_addrs[index]);
+		funcmap_insert_function(mod->name, name, func_addrs[index], 0);
 /*		if(!strcasecmp(mod->name, "kernel32.dll"))
 			monitor_printf(default_mon, 
 				"i=%d name=%s index=%d func=%08x\n", i, name, index, func_addrs[index]); */

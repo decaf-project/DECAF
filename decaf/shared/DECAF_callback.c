@@ -705,11 +705,13 @@ int DECAF_unregister_callback(DECAF_callback_type_t cb_type, DECAF_Handle handle
     	goto done;
 #endif
 
+#if 0
     //Aravind - If going from non-empty to empty. Flush needed
     if(LIST_EMPTY(&callback_list_heads[cb_type]))
     {
        DECAF_flushTranslationCache(ALL_CACHE,0);
     }
+#endif
 
 #ifdef CONFIG_VMI_ENABLE
 done:

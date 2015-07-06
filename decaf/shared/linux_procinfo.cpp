@@ -1680,7 +1680,15 @@ void _load_one_section(const boost::property_tree::ptree &pt, int iSectionNum, P
     FILL_TARGET_ULONG_FIELD(dentry_d_iname  );
     FILL_TARGET_ULONG_FIELD(dentry_d_parent );
     FILL_TARGET_ULONG_FIELD(ti_task         );
-	FILL_TARGET_ULONG_FIELD(inode_ino		);
+	FILL_TARGET_ULONG_FIELD(inode_ino);
+
+	FILL_TARGET_ULONG_FIELD(proc_fork_connector);
+	FILL_TARGET_ULONG_FIELD(proc_exit_connector);
+	FILL_TARGET_ULONG_FIELD(proc_exec_connector);
+	FILL_TARGET_ULONG_FIELD(vma_link);
+	FILL_TARGET_ULONG_FIELD(remove_vma);
+	FILL_TARGET_ULONG_FIELD(vma_adjust);
+	
 #ifdef TARGET_MIPS
     FILL_TARGET_ULONG_FIELD(mips_pgd_current);
 #endif
@@ -1864,7 +1872,7 @@ private:
       }
       // insert function
       target_ulong addr = m_cur_section->get<target_ulong>(v.first);
-      funcmap_insert_function(m_cur_libpath.c_str(), v.first.c_str(), addr);
+      funcmap_insert_function(m_cur_libpath.c_str(), v.first.c_str(), addr, 0);
     }
   }
 

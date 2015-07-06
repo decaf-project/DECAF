@@ -56,11 +56,16 @@ public:
     uint32_t parent_pid;
     uint32_t EPROC_base_addr;
     char name[VMI_MAX_MODULE_PROCESS_NAME_LEN];
+    bool modules_extracted;
     //map base address to module pointer
     unordered_map < uint32_t,module * >module_list;
     //a set of virtual pages that have been resolved with module information
     unordered_set< uint32_t > resolved_pages;
     unordered_map< uint32_t, int > unresolved_pages;
+
+    process() {
+	modules_extracted = false;
+    }
 };
 
 
@@ -110,6 +115,8 @@ int VMI_insert_module(uint32_t pid, uint32_t base, module *mod);
 int VMI_remove_module(uint32_t pid, uint32_t base);
 int VMI_dipatch_lmm(process *proc);
 int VMI_dispatch_lm(module * m,process *proc, gva_t base);
+int VMI_is_MoudleExtract_Required();
+
 extern "C" void VMI_init();
 extern "C" int procmod_init();
 extern "C" void handle_guest_message(const char *message);
