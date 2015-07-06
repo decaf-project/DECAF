@@ -24,6 +24,7 @@
 
 #include "console.h"
 
+#include "android/avd/util.h"
 #include "android/utils/debug.h"
 #include "android/utils/path.h"
 #include "android/utils/bufprint.h"
@@ -232,7 +233,7 @@ sdl_set_window_icon( void )
 
         SDL_GetWMInfo(&wminfo);
 
-        SetClassLong( wminfo.window, GCL_HICON, (LONG)icon );
+        SetClassLongPtr( wminfo.window, GCLP_HICON, (LONG)icon );
 #else  /* !_WIN32 */
         unsigned              icon_w, icon_h;
         size_t                icon_bytes;
@@ -321,6 +322,215 @@ void sdl_display_init(DisplayState *ds, int full_screen, int  no_frame)
 #endif
 }
 
+typedef struct part_properties part_properties;
+struct part_properties {
+    const char*      name;
+    int              width;
+    int              height;
+    part_properties* next;
+};
+
+part_properties*
+read_all_part_properties(AConfig* parts)
+{
+    part_properties* head = NULL;
+    part_properties* prev = NULL;
+
+    AConfig *node = parts->first_child;
+    while (node) {
+        part_properties* t = calloc(1, sizeof(part_properties));
+        t->name = node->name;
+
+        AConfig* bg = aconfig_find(node, "background");
+        if (bg != NULL) {
+            t->width = aconfig_int(bg, "width", 0);
+            t->height = aconfig_int(bg, "height", 0);
+        }
+
+        if (prev == NULL) {
+            head = t;
+        } else {
+            prev->next = t;
+        }
+        prev = t;
+        node = node->next;
+    }
+
+    return head;
+}
+
+void
+free_all_part_properties(part_properties* head)
+{
+    part_properties* prev = head;
+    while (head) {
+        prev = head;
+        head = head->next;
+        free(prev);
+    }
+}
+
+part_properties*
+get_part_properties(part_properties* allparts, char *partname)
+{
+    part_properties* p;
+    for (p = allparts; p != NULL; p = p->next) {
+        if (!strcmp(partname, p->name))
+            return p;
+    }
+
+    return NULL;
+}
+
+void
+add_parts_to_layout(AConfig* layout,
+                    char* parts[],
+                    int n_parts,
+                    part_properties *props,
+                    int xoffset,
+                    int x_margin,
+                    int y_margin)
+{
+    int     i;
+    int     y = 10;
+    char    tmp[512];
+    for (i = 0; i < n_parts; i++) {
+        part_properties *p = get_part_properties(props, parts[i]);
+        snprintf(tmp, sizeof tmp,
+            "part%d {\n \
+                name %s\n \
+                x %d\n \
+                y %d\n \
+            }",
+            i + 2,  // layout already has the device part as part1, so start from part2
+            p->name,
+            xoffset + x_margin,
+            y
+            );
+        y += p->height + y_margin;
+        aconfig_load(layout, strdup(tmp));
+    }
+}
+
+int
+load_dynamic_skin(AndroidHwConfig* hwConfig,
+                  char**           skinDirPath,
+                  int              width,
+                  int              height,
+                  AConfig*         root)
+{
+    char      tmp[1024];
+    AConfig*  node;
+    int       i;
+    int       max_part_width;
+    char      fromEnv;
+    char*     sdkRoot = path_getSdkRoot(&fromEnv);
+
+    if (sdkRoot == NULL) {
+        dwarning("Unable to locate sdk root. Will not use dynamic skin.");
+        return 0;
+    }
+
+    snprintf(tmp, sizeof(tmp), "%s/tools/lib/emulator/skins/dynamic/", sdkRoot);
+    free(sdkRoot);
+
+    if (!path_exists(tmp))
+        return 0;
+
+    *skinDirPath = strdup(tmp);
+    snprintf(tmp, sizeof(tmp), "%s/layout", *skinDirPath);
+    D("trying to load skin file '%s'", tmp);
+
+    if(aconfig_load_file(root, tmp) < 0) {
+        dwarning("could not load skin file '%s', won't use a skin\n", tmp);
+        return 0;
+    }
+
+    /* Fix the width and height specified for the "device" part in the layout */
+    node = aconfig_find(root, "parts");
+    if (node != NULL) {
+        node = aconfig_find(node, "device");
+        if (node != NULL) {
+            node = aconfig_find(node, "display");
+            if (node != NULL) {
+                snprintf(tmp, sizeof tmp, "%d", width);
+                aconfig_set(node, "width", strdup(tmp));
+                snprintf(tmp, sizeof tmp, "%d", height);
+                aconfig_set(node, "height", strdup(tmp));
+            }
+        }
+    }
+
+    /* The dynamic layout declares all the parts that are available statically
+       in the layout file. Now we need to dynamically generate the
+       appropriate layout based on the hardware config */
+
+    part_properties* props = read_all_part_properties(aconfig_find(root, "parts"));
+
+    const int N_PARTS = 4;
+    char* parts[N_PARTS];
+    parts[0] = "basic_controls";
+    parts[1] = hwConfig->hw_mainKeys ? "hwkeys_on" : "hwkeys_off";
+    parts[2] = hwConfig->hw_dPad ? "dpad_on" : "dpad_off";
+    parts[3] = hwConfig->hw_keyboard ? "keyboard_on" : "keyboard_off";
+
+    for (i = 0, max_part_width = 0; i < N_PARTS; i++) {
+        part_properties *p = get_part_properties(props, parts[i]);
+        if (p != NULL && p->width > max_part_width)
+                max_part_width = p->width;
+    }
+
+    int x_margin = 10;
+    int y_margin = 10;
+    snprintf(tmp, sizeof tmp,
+            "layouts {\n \
+                portrait {\n \
+                    width %d\n \
+                    height %d\n \
+                    color 0x404040\n \
+                    event EV_SW:0:1\n \
+                    part1 {\n name device\n x 0\n y 0\n}\n \
+                }\n \
+                landscape {\n \
+                    width %d\n \
+                    height %d\n \
+                    color 0x404040\n \
+                    event EV_SW:0:0\n \
+                    dpad-rotation 3\n \
+                    part1 {\n name device\n x 0\n y %d\n rotation 3\n }\n \
+                    }\n \
+                }\n \
+             }\n",
+            width  + max_part_width + 2 * x_margin,
+            height,
+            height + max_part_width + 2 * x_margin,
+            width,
+            width);
+    aconfig_load(root, strdup(tmp));
+
+    /* Add parts to portrait orientation */
+    node = aconfig_find(root, "layouts");
+    if (node != NULL) {
+        node = aconfig_find(node, "portrait");
+        if (node != NULL) {
+            add_parts_to_layout(node, parts, N_PARTS, props, width, x_margin, y_margin);
+        }
+    }
+
+    /* Add parts to landscape orientation */
+    node = aconfig_find(root, "layouts");
+    if (node != NULL) {
+        node = aconfig_find(node, "landscape");
+        if (node != NULL) {
+            add_parts_to_layout(node, parts, N_PARTS, props, height, x_margin, y_margin);
+        }
+    }
+
+    free_all_part_properties(props);
+
+    return 1;
+}
+
 /* list of skin aliases */
 static const struct {
     const char*  name;
@@ -334,9 +544,6 @@ static const struct {
     { "HVGA", "320x480" },
     { NULL, NULL }
 };
-
-/* this is used by hw/events_device.c to send the charmap name to the system */
-const char*    android_skin_keycharmap = NULL;
 
 void
 parse_skin_files(const char*      skinDirPath,
@@ -399,9 +606,19 @@ parse_skin_files(const char*      skinDirPath,
             if (y && isdigit(y[1])) {
                 bpp = atoi(y+1);
             }
+
+            if (opts->dynamic_skin) {
+                char *dynamicSkinDirPath;
+                if (load_dynamic_skin(hwConfig, &dynamicSkinDirPath, width, height, root)) {
+                    path = dynamicSkinDirPath;
+                    D("loaded dynamic skin width=%d height=%d bpp=%d\n", width, height, bpp);
+                    goto FOUND_SKIN;
+                }
+            }
+
             snprintf(tmp, sizeof tmp,
-                        "display {\n  width %d\n  height %d\n bpp %d}\n",
-                        width, height,bpp);
+                    "display {\n  width %d\n  height %d\n bpp %d}\n",
+                    width, height,bpp);
             aconfig_load(root, strdup(tmp));
             path = ":";
             D("found magic skin width=%d height=%d bpp=%d\n", width, height, bpp);
@@ -524,7 +741,7 @@ init_sdl_ui(AConfig*         skinConfig,
 #endif
 
     /* we're not a game, so allow the screensaver to run */
-    putenv("SDL_VIDEO_ALLOW_SCREENSAVER=1");
+    setenv("SDL_VIDEO_ALLOW_SCREENSAVER","1",1);
 
     flags = SDL_INIT_NOPARACHUTE;
     if (!opts->no_window)
@@ -562,8 +779,6 @@ init_sdl_ui(AConfig*         skinConfig,
         fprintf(stderr, "### Error: could not load emulator skin from '%s'\n", skinPath);
         exit(1);
     }
-
-    android_skin_keycharmap = skin_keyboard_charmap_name(qemulator_get()->keyboard);
 
     /* add an onion overlay image if needed */
     if (opts->onion) {
@@ -811,12 +1026,15 @@ AvdInfo* createAVD(AndroidOptions* opts, int* inAndroidBuild)
                 exit(2);
             }
 
-            android_build_root = path_parent( out, 4 );
-            if (android_build_root == NULL || !path_exists(android_build_root)) {
-                derror("Can't find the Android build root from '%s'\n"
-                    "Please check the definition of the ANDROID_PRODUCT_OUT variable.\n"
-                    "It should point to your product-specific build output directory.\n",
-                    out );
+            android_build_root = getenv("ANDROID_BUILD_TOP");
+            if (android_build_root == NULL || android_build_root[0] == 0)
+                break;
+
+            if (!path_exists(android_build_root)) {
+                derror("Can't find the Android build root '%s'\n"
+                    "Please check the definition of the ANDROID_BUILD_TOP variable.\n"
+                    "It should point to the root of your source tree.\n",
+                    android_build_root );
                 exit(2);
             }
             android_build_out = out;
@@ -850,7 +1068,7 @@ AvdInfo* createAVD(AndroidOptions* opts, int* inAndroidBuild)
 
         if (!opts->system) {
             opts->system = _getSdkSystemImage(opts->sysdir, "-image", "system.img");
-            D("autoconfig: -image %s", opts->image);
+            D("autoconfig: -system %s", opts->system);
         }
 
         if (!opts->kernel) {

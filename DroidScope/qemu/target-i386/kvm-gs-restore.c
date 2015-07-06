@@ -32,61 +32,104 @@ static void check_and_restore_gs(void)
     restoregs(initial_gs);
 }
 
-static struct sigaction old_alarm_act, old_gio_act, old_pipe_act,old_usr1_act, old_chld_act;
-static void temp_sig_handler(int host_signum)
+struct sigact_status
+{
+    unsigned int sigaction:1;
+    __sighandler_t old_handler;
+    void (*old_sigaction) (int, siginfo_t *, void *);
+};
+static struct sigact_status o_sigact[SIGUNUSED];
+
+static void temp_sig_handler(int signum)
 {
     /* !!! must restore gs firstly */
     check_and_restore_gs();
-    switch (host_signum)
+
+    if (signum < SIGHUP || signum >= SIGUNUSED)
     {
-    case SIGALRM:
-        old_alarm_act.sa_handler(host_signum);
-        break;
+        fprintf(stderr, "Invalid signal %x in temp_sig_handler\n", signum);
+        abort();
+    }
 
-    case SIGIO:
-        old_gio_act.sa_handler(host_signum);
-        break;
+    if ( !o_sigact[signum].sigaction && o_sigact[signum].old_handler)
+        o_sigact[signum].old_handler(signum);
+    else
+    {
+        fprintf(stderr, "Invalid signal in temp_sig_handler: "
+             "signal %x sa_info %s!!\n",
+             signum, o_sigact[signum].sigaction ? "set":"not set" );
+         abort();
+    }
+}
 
-    case SIGUSR1:
-        old_usr1_act.sa_handler(host_signum);
-        break;
+static void temp_sig_sigaction(int signum, siginfo_t *info, void *ucontext)
+{
+    /* !!! must restore gs firstly */
+    check_and_restore_gs();
 
-    case SIGPIPE:
-        old_pipe_act.sa_handler(host_signum);
-        break;
+    if (signum < SIGHUP || signum >= SIGUNUSED)
+    {
+        fprintf(stderr, "Invalid signal %x in temp_sig_sigaction\n", signum);
+        abort();
+    }
 
-    case SIGCHLD:
-        old_chld_act.sa_handler(host_signum);
-        break;
-
-    default:
-        fprintf(stderr, "Not take signal %x!!\n", host_signum);
-        break;
+    if ( o_sigact[signum].sigaction && o_sigact[signum].old_sigaction )
+        o_sigact[signum].old_sigaction(signum, info, ucontext);
+    else
+    {
+        fprintf(stderr, "Invalid signal in temp_sig_sigaction: "
+             "signal %x sa_info %s!!\n",
+             signum, o_sigact[signum].sigaction ? "set":"not set" );
+         abort();
     }
 }
 
 static int sig_taken = 0;
+
 static int take_signal_handler(void)
 {
-    struct sigaction act;
-    int ret;
+    int i;
 
     if (gs_need_restore == KVM_GS_RESTORE_NO)
         return 0;
     if (sig_taken)
         return 0;
 
+    memset(o_sigact, 0, sizeof(o_sigact));
+
+    /* SIGHUP is 1 in POSIX */
+    for (i = SIGHUP; i < SIGUNUSED; i++)
+    {
+        int sigret;
+        struct sigaction act, old_act;
+
+        sigret = sigaction(i, NULL, &old_act);
+        if (sigret)
+            continue;
+        /* We don't need take the handler for default or ignore signals */
+        if ( !(old_act.sa_flags & SA_SIGINFO) &&
+               ((old_act.sa_handler == SIG_IGN ) ||
+                (old_act.sa_handler == SIG_DFL)))
+            continue;
+
+        memcpy(&act, &old_act, sizeof(struct sigaction));
+
+        if (old_act.sa_flags & SA_SIGINFO)
+        {
+            o_sigact[i].old_sigaction = old_act.sa_sigaction;
+            o_sigact[i].sigaction = 1;
+            act.sa_sigaction = temp_sig_sigaction;
+        }
+        else
+        {
+            o_sigact[i].old_handler = old_act.sa_handler;
+            act.sa_handler = temp_sig_handler;
+        }
+
+        sigaction(i, &act, NULL);
+        continue;
+    }
     sig_taken = 1;
-    sigfillset(&act.sa_mask);
-    act.sa_flags = 0;
-    act.sa_handler = temp_sig_handler;
-    /* Did we missed any other signal ? */
-    sigaction(SIGALRM, &act, &old_alarm_act);
-    sigaction(SIGIO, &act, &old_gio_act);
-    sigaction(SIGUSR1, &act, &old_usr1_act);
-    sigaction(SIGPIPE, &act, &old_pipe_act);
-    act.sa_flags = SA_NOCLDSTOP;
-    sigaction(SIGCHLD, &act, &old_chld_act);
     return 1;
 }
 

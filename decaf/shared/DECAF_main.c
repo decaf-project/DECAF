@@ -31,7 +31,13 @@
 #include "shared/DECAF_callback_to_QEMU.h"
 #include "shared/hookapi.h"
 #include "DECAF_target.h"
+
+// AVB, Add only when file analysis is needed
+#include "shared/DECAF_fileio.h"
+
+
 #include "procmod.h"
+#include "block_int.h"
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/taint_memory.h"
 #include "tainting/taintcheck_opt.h"
@@ -50,6 +56,13 @@ static FILE *decaflog = NULL;
 
 int should_monitor = 1;
 
+static int devices=0;
+
+struct __flush_list flush_list_internal;
+
+
+
+
 mon_cmd_t DECAF_mon_cmds[] = {
 #include "DECAF_mon_cmds.h"
 		{ NULL, NULL , }, };
@@ -60,6 +73,7 @@ mon_cmd_t DECAF_info_cmds[] = {
 
 
 int g_bNeedFlush = 0;
+disk_info_t disk_info_internal[5];
 
 static void convert_endian_4b(uint32_t *data);
 
@@ -272,6 +286,66 @@ void DECAF_flushTranslationPage_env(CPUState* env, /*uint32_t*/target_ulong addr
 				tb->page_addr[0] + TARGET_PAGE_SIZE, 0);
 	}
 }
+
+/* Method to insert into the flush linked list, 
+   It holds a list of all the flushes that need to be performed
+   Flushed can be BLOCK_LEVEL, PAGE_LEVEL or ALL_CACHE, which is a flush
+	of the complete cache */
+
+void flush_list_insert(flush_list *list, int type, unsigned int addr )  {
+		
+	++list->size;
+	flush_node *temp=list->head;
+	flush_node *to_insert=(flush_node *)malloc(sizeof(flush_node));
+	to_insert->type=type;
+	to_insert->next=NULL;
+	to_insert->addr=addr;
+	
+	if(temp==NULL) {
+		list->head=to_insert;
+		return;
+	}
+
+	while(temp->next !=NULL) {
+		temp=temp->next;
+	}
+
+	temp->next=to_insert;
+}
+
+/* Method to perform flush, this is performed right before TB_fast_lookup()
+	in the main loop of QEMU */
+
+void DECAF_perform_flush(CPUState* env)
+{
+	//TO DO, Empty this list as its traversed,
+	flush_node *prev,*temp=flush_list_internal.head;
+	while(temp!=NULL) {
+		switch (temp->type) {
+			case BLOCK_LEVEL: 
+				DECAF_flushTranslationBlock(temp->addr);
+				break;
+			case PAGE_LEVEL: 
+				DECAF_flushTranslationPage(temp->addr);
+				break;
+			case ALL_CACHE:
+				tb_flush(env);
+				break;
+		}
+		prev=temp;
+		temp=temp->next;
+		prev->next=NULL;
+		free(prev);
+	}
+	flush_list_internal.head=NULL;
+	flush_list_internal.size=0;
+}
+
+void DECAF_flushTranslationCache(int type,target_ulong addr)
+{
+	flush_list_insert(&flush_list_internal,type,addr);
+}
+
 
 int do_load_plugin(Monitor *mon, const QDict *qdict, QObject **ret_data) {
 	do_load_plugin_internal(mon, qdict_get_str(qdict, "filename"));
@@ -576,10 +650,7 @@ void DECAF_after_loadvm(const char *param) {
 		decaf_plugin->after_loadvm(param);
 }
 
-//TODO: to be removed -Heng
-int DECAF_bdrv_pread(void *bs, int64_t offset, void *buf, int count) {
-	return bdrv_pread((BlockDriverState *) bs, offset, buf, count);
-}
+
 
 /*
  * NIC related functions
@@ -648,3 +719,49 @@ static void convert_endian_4b(uint32_t *data)
          | ((*data & 0x0000ff00) <<  8)
          | ((*data & 0x000000ff) << 24);
 }
+
+// AVB, This function is used to read 'n' bytes off the disk images give by `opaque' 
+// at an offset
+int DECAF_bdrv_pread(void *opaque, int64_t offset, void *buf, int count) {
+
+	return bdrv_pread((BlockDriverState *)opaque, offset, buf, count);
+
+}
+
+// AVB, This function is used to open the disk on sleuthkit by calling `tsk_fs_open_img'.
+void DECAF_bdrv_open(int index, void *opaque) {
+
+  TSK_FS_INFO *fs=NULL;
+  TSK_OFF_T a_offset = 0;
+  unsigned long img_size = ((BlockDriverState *)opaque)->total_sectors * 512;
+
+  if(!qemu_pread)
+	  qemu_pread=(qemu_pread_t)DECAF_bdrv_pread;
+
+  monitor_printf(default_mon, "inside bdrv open, drv addr= 0x%0x, size= %lu\n", opaque, img_size);
+  
+  disk_info_internal[devices].bs = opaque;
+  disk_info_internal[devices].img = tsk_img_open(1, (const char **) &opaque, QEMU_IMG, 0);
+  disk_info_internal[devices].img->size = img_size;
+	
+
+  if (disk_info_internal[devices].img==NULL)
+  {
+    monitor_printf(default_mon, "img_open error! \n",opaque);
+  }
+
+  // TODO: AVB, also add an option of 56 as offset with sector size of 4k, Sector size is now assumed to be 512 by default
+  if(!(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 0 ,TSK_FS_TYPE_EXT_DETECT)) &&
+  	    !(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 63 * (disk_info_internal[devices].img)->sector_size, TSK_FS_TYPE_EXT_DETECT)) &&
+  	    	!(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 2048 * (disk_info_internal[devices].img)->sector_size , TSK_FS_TYPE_EXT_DETECT)) )
+  {
+	monitor_printf(default_mon, "fs_open error! \n",opaque);
+  }	
+  else
+  {
+  	monitor_printf(default_mon, "fs_open = %s \n",(disk_info_internal[devices].fs)->duname);
+  }
+
+  ++devices;
+}
+

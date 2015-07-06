@@ -23,18 +23,31 @@ http://code.google.com/p/decaf-platform/
  *  are in the target directory in DECAF_main_x86.h and .c for example
  */
 
-#ifndef DECAF_MAIN_H_
-#define DECAF_MAIN_H_
 
 #include "qemu-common.h"
 #include "monitor.h"
 #include "DECAF_types.h"
 #include "blockdev.h"
 
+#ifndef DECAF_MAIN_H_
+#define DECAF_MAIN_H_
+
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+
+
+
+
+#define PAGE_LEVEL 0
+#define BLOCK_LEVEL 1
+#define ALL_CACHE 2
+
+
+
 
 /*************************************************************************
  * The Plugin interface comes first
@@ -167,19 +180,20 @@ extern int g_bNeedFlush;
 //extern int do_enable_emulation(Monitor *mon, const QDict *qdict, QObject **ret_data);
 //extern int do_disable_emulation(Monitor *mon, const QDict *qdict, QObject **ret_data);
 
+// For sleuthkit to read
+int DECAF_bdrv_pread(void *opaque, int64_t offset, void *buf, int count);
 
-int DECAF_bdrv_pread(void *bs, int64_t offset, void *buf, int count); //for SleuthKit
 
 extern int DECAF_emulation_started; //will be removed
 
-//In DECAF - we do not use the same-per vcpu flushing behavior as in QEMU. For example
+// In DECAF - we do not use the same-per vcpu flushing behavior as in QEMU. For example
 // DECAF_flushTranslationCache is a wrapper for tb_flush that iterates through all of
 // the virtual CPUs and calls tb_flush on that particular environment. The main reasoning
 // behind this decision is that the user wants to know when an event occurs for any
 // vcpu and not only for specific ones. This idea can change in the future of course.
 // We have yet to decide how to handle multi-core analysis, at the program abstraction
 // level or at the thread execution level or at the virtual cpu core level?
-//No matter what the decision, flushing can occur using the CPUState as in QEMU
+// No matter what the decision, flushing can occur using the CPUState as in QEMU
 // or using DECAF's wrappers.
 
 /**
@@ -187,7 +201,9 @@ extern int DECAF_emulation_started; //will be removed
  * @param env The cpu context
  * @param addr The block's address
  */
-void DECAF_flushTranslationBlock_env(CPUState* env, gva_t addr);
+extern void DECAF_flushTranslationBlock_env(CPUState* env, gva_t addr);
+
+void DECAF_perform_flush(CPUState* env);
 
 /**
  * Flush - or invalidate - all translation blocks for the page in addr.
@@ -227,24 +243,18 @@ static inline void DECAF_flushTranslationPage(uint32_t addr)
 }
 
 //Iterates through all virtual cpus and flushes the pages
-static inline void DECAF_flushTranslationCache(void)
-{
-  CPUState* env;
-  // DECAF_stop_vm();
-  for(env = first_cpu; env != NULL; env = env->next_cpu)
-  {
-    g_bNeedFlush = 1;
-     // tb_flush(env);
-  }
-  // DECAF_start_vm();
-}
+void DECAF_flushTranslationCache(int type,target_ulong addr);
 
 /* Static in monitor.c for QEMU, but we use it for plugins: */
 ///send a keystroke into the guest system
 extern void do_send_key(const char *string);
+
+
+
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* DECAF_MAIN_H_ */
+

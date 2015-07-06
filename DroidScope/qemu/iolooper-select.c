@@ -175,6 +175,8 @@ iolooper_wait( IoLooper*  iol, int64_t  duration )
     if (count == 0)
         return 0;
 
+    CLAMP_MAC_TIMEOUT(duration);
+
     if (duration < 0)
         tm = NULL;
     else {

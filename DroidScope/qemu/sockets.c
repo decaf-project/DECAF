@@ -125,7 +125,7 @@ static const WinsockError  _winsock_errors[] = {
  * errno.
  */
 static int
-_fix_errno( void )
+fix_errno( void )
 {
     const WinsockError*  werr = _winsock_errors;
     int                  unix = EINVAL;  /* generic error code */
@@ -143,7 +143,7 @@ _fix_errno( void )
 }
 
 static int
-_set_errno( int  code )
+set_errno( int  code )
 {
     winsock_error = -1;
     errno         = code;
@@ -173,13 +173,13 @@ _errno_str(void)
 }
 #else
 static int
-_fix_errno( void )
+fix_errno( void )
 {
     return -1;
 }
 
 static int
-_set_errno( int  code )
+set_errno( int  code )
 {
     errno = code;
     return -1;
@@ -560,7 +560,7 @@ sock_address_to_bsd( const SockAddress*  a, sockaddr_storage*  paddress, socklen
 #endif /* HAVE_UNIX_SOCKETS */
 
     default:
-        return _set_errno(EINVAL);
+        return set_errno(EINVAL);
     }
 
     return 0;
@@ -575,7 +575,7 @@ sock_address_from_bsd( SockAddress*  a, const void*  from, size_t  fromlen )
            const struct sockaddr_in*  src = from;
 
             if (fromlen < sizeof(*src))
-                return _set_errno(EINVAL);
+                return set_errno(EINVAL);
 
             a->family         = SOCKET_INET;
             a->u.inet.port    = ntohs(src->sin_port);
@@ -589,7 +589,7 @@ sock_address_from_bsd( SockAddress*  a, const void*  from, size_t  fromlen )
             const struct sockaddr_in6*  src = from;
 
             if (fromlen < sizeof(*src))
-                return _set_errno(EINVAL);
+                return set_errno(EINVAL);
 
             a->family     = SOCKET_IN6;
             a->u.in6.port = ntohs(src->sin6_port);
@@ -605,12 +605,12 @@ sock_address_from_bsd( SockAddress*  a, const void*  from, size_t  fromlen )
             char*                end;
 
             if (fromlen < sizeof(*src))
-                return _set_errno(EINVAL);
+                return set_errno(EINVAL);
 
             /* check that the path is zero-terminated */
             end = memchr(src->sun_path, 0, UNIX_PATH_MAX);
             if (end == NULL)
-                return _set_errno(EINVAL);
+                return set_errno(EINVAL);
 
             a->family = SOCKET_UNIX;
             a->u._unix.owner = 1;
@@ -620,7 +620,7 @@ sock_address_from_bsd( SockAddress*  a, const void*  from, size_t  fromlen )
 #endif
 
     default:
-        return _set_errno(EINVAL);
+        return set_errno(EINVAL);
     }
     return 0;
 }
@@ -646,7 +646,8 @@ sock_address_init_resolve( SockAddress*  a, const char*  hostname, uint16_t  por
             err = EHOSTDOWN;
             break;
 
-#ifdef EAI_NODATA
+/* NOTE that in x86_64-w64-mingw32 both EAI_NODATA and EAI_NONAME are the same */
+#if defined(EAI_NODATA) && (EAI_NODATA != EAI_NONAME)
         case EAI_NODATA:
 #endif
         case EAI_NONAME:
@@ -660,7 +661,7 @@ sock_address_init_resolve( SockAddress*  a, const char*  hostname, uint16_t  por
         default:
             err = EINVAL;
         }
-        return _set_errno(err);
+        return set_errno(err);
     }
 
     /* Parse the returned list of addresses. */
@@ -699,7 +700,7 @@ sock_address_init_resolve( SockAddress*  a, const char*  hostname, uint16_t  por
         }
 
         if (r == NULL) {
-            ret = _set_errno(ENOENT);
+            ret = set_errno(ENOENT);
             goto Exit;
         }
 
@@ -765,13 +766,13 @@ sock_address_list_create( const char*  hostname,
         case EAI_ADDRFAMILY:
 #endif
         case EAI_NODATA:
-            _set_errno(ENOENT);
+            set_errno(ENOENT);
             break;
         case EAI_FAMILY:
-            _set_errno(EAFNOSUPPORT);
+            set_errno(EAFNOSUPPORT);
             break;
         case EAI_AGAIN:
-            _set_errno(EAGAIN);
+            set_errno(EAGAIN);
             break;
 #ifdef EAI_SYSTEM
         case EAI_SYSTEM:
@@ -780,7 +781,7 @@ sock_address_list_create( const char*  hostname,
             break;
 #endif
         default:
-            _set_errno(EINVAL);
+            set_errno(EINVAL);
         }
         return NULL;
     }
@@ -874,7 +875,7 @@ sock_address_get_numeric_info( SockAddress*  a,
         break;
 #endif
     default:
-        return _set_errno(EINVAL);
+        return set_errno(EINVAL);
     }
 
     ret = getnameinfo( saddr, slen, host, hostlen, serv, servlen,
@@ -900,12 +901,12 @@ socket_create( SocketFamily  family, SocketType  type )
     int   stype   = socket_type_to_bsd(type);
 
     if (sfamily < 0 || stype < 0) {
-        return _set_errno(EINVAL);
+        return set_errno(EINVAL);
     }
 
     QSOCKET_CALL(ret, socket(sfamily, stype, 0));
     if (ret < 0)
-        return _fix_errno();
+        return fix_errno();
 
     return ret;
 }
@@ -956,7 +957,7 @@ int  socket_can_read(int  fd)
     int  ret; \
     QSOCKET_CALL(ret, (cmd)); \
     if (ret < 0) \
-        return _fix_errno(); \
+        return fix_errno(); \
     return ret; \
 
 int
@@ -998,7 +999,7 @@ socket_recvfrom(int  fd, void*  buf, int  len, SockAddress*  from)
 
     QSOCKET_CALL(ret,recvfrom(fd,buf,len,0,sa.sa,&salen));
     if (ret < 0)
-        return _fix_errno();
+        return fix_errno();
 
     if (sock_address_from_bsd(from, &sa, salen) < 0)
         return -1;
@@ -1039,7 +1040,7 @@ socket_get_address( int  fd, SockAddress*  address )
 
     QSOCKET_CALL(ret, getsockname(fd, addr.sa, &addrlen));
     if (ret < 0)
-        return _fix_errno();
+        return fix_errno();
 
     return sock_address_from_bsd(address, &addr, addrlen);
 }
@@ -1053,7 +1054,7 @@ socket_get_peer_address( int  fd, SockAddress*  address )
 
     QSOCKET_CALL(ret, getpeername(fd, addr.sa, &addrlen));
     if (ret < 0)
-        return _fix_errno();
+        return fix_errno();
 
     return sock_address_from_bsd(address, &addr, addrlen);
 }
@@ -1073,7 +1074,7 @@ socket_accept( int  fd, SockAddress*  address )
 
     QSOCKET_CALL(ret, accept(fd, addr.sa, &addrlen));
     if (ret < 0)
-        return _fix_errno();
+        return fix_errno();
 
     if (address) {
         if (sock_address_from_bsd(address, &addr, addrlen) < 0) {
@@ -1517,7 +1518,7 @@ socket_mcast_inet_add_membership( int  s, uint32_t  ip )
                      (const char *)&imr,
                      sizeof(struct ip_mreq)) < 0 )
     {
-        return _fix_errno();
+        return fix_errno();
     }
     return 0;
 }
@@ -1534,7 +1535,7 @@ socket_mcast_inet_drop_membership( int  s, uint32_t  ip )
                      (const char *)&imr,
                      sizeof(struct ip_mreq)) < 0 )
     {
-        return _fix_errno();
+        return fix_errno();
     }
     return 0;
 }

@@ -33,20 +33,34 @@ typedef struct SkinKeyset  SkinKeyset;
     _SKIN_KEY_COMMAND(BUTTON_VOLUME_UP,"Volume up button")         \
     _SKIN_KEY_COMMAND(BUTTON_VOLUME_DOWN,"Volume down button")       \
     _SKIN_KEY_COMMAND(BUTTON_CAMERA,"Camera button")            \
-    _SKIN_KEY_COMMAND(CHANGE_LAYOUT_PREV,"switch to previous layout")       \
-    _SKIN_KEY_COMMAND(CHANGE_LAYOUT_NEXT,"switch to next layout")       \
-    _SKIN_KEY_COMMAND(TOGGLE_NETWORK,"toggle cell network on/off")           \
-    _SKIN_KEY_COMMAND(TOGGLE_TRACING,"toggle code profiling")           \
-    _SKIN_KEY_COMMAND(TOGGLE_FULLSCREEN,"toggle fullscreen mode")        \
-    _SKIN_KEY_COMMAND(TOGGLE_TRACKBALL,"toggle trackball mode")         \
-    _SKIN_KEY_COMMAND(SHOW_TRACKBALL,"show trackball") \
+    _SKIN_KEY_COMMAND(CHANGE_LAYOUT_PREV,"Switch to previous layout")       \
+    _SKIN_KEY_COMMAND(CHANGE_LAYOUT_NEXT,"Switch to next layout")       \
+    _SKIN_KEY_COMMAND(TOGGLE_NETWORK,"Toggle cell network on/off")           \
+    _SKIN_KEY_COMMAND(TOGGLE_TRACING,"Toggle code profiling")           \
+    _SKIN_KEY_COMMAND(TOGGLE_FULLSCREEN,"Toggle fullscreen mode")        \
+    _SKIN_KEY_COMMAND(TOGGLE_TRACKBALL,"Toggle trackball mode")         \
+    _SKIN_KEY_COMMAND(SHOW_TRACKBALL,"Show trackball") \
     _SKIN_KEY_COMMAND(BUTTON_DPAD_CENTER,"DPad center")       \
     _SKIN_KEY_COMMAND(BUTTON_DPAD_LEFT,"DPad left") \
     _SKIN_KEY_COMMAND(BUTTON_DPAD_RIGHT,"DPad right")        \
     _SKIN_KEY_COMMAND(BUTTON_DPAD_UP,"DPad up")           \
     _SKIN_KEY_COMMAND(BUTTON_DPAD_DOWN,"DPad down")         \
-    _SKIN_KEY_COMMAND(ONION_ALPHA_UP,"increase onion alpha")           \
-    _SKIN_KEY_COMMAND(ONION_ALPHA_DOWN,"decrease onion alpha")         \
+    _SKIN_KEY_COMMAND(ONION_ALPHA_UP,"Increase onion alpha")           \
+    _SKIN_KEY_COMMAND(ONION_ALPHA_DOWN,"Decrease onion alpha")         \
+    _SKIN_KEY_COMMAND(BUTTON_TV,"TV button")         \
+    _SKIN_KEY_COMMAND(BUTTON_EPG,"EPG button")         \
+    _SKIN_KEY_COMMAND(BUTTON_DVR,"DVR button")         \
+    _SKIN_KEY_COMMAND(BUTTON_PREV,"Previous button")         \
+    _SKIN_KEY_COMMAND(BUTTON_NEXT,"Next button")         \
+    _SKIN_KEY_COMMAND(BUTTON_PLAY,"Play button")         \
+    _SKIN_KEY_COMMAND(BUTTON_PAUSE,"Pause button")         \
+    _SKIN_KEY_COMMAND(BUTTON_STOP,"Stop button")         \
+    _SKIN_KEY_COMMAND(BUTTON_REWIND,"Rewind button")         \
+    _SKIN_KEY_COMMAND(BUTTON_FFWD,"Fast forward button")         \
+    _SKIN_KEY_COMMAND(BUTTON_BOOKMARKS,"Bookmarks button")         \
+    _SKIN_KEY_COMMAND(BUTTON_WINDOW,"Window button")         \
+    _SKIN_KEY_COMMAND(BUTTON_CHANNELUP,"Channel up button")         \
+    _SKIN_KEY_COMMAND(BUTTON_CHANNELDOWN,"Channel down button")         \
 
 
 /* the list of commands in the emulator */

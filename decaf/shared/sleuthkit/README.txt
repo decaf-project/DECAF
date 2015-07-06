@@ -1,10 +1,9 @@
                           The Sleuth Kit
+                            README File
 
                 http://www.sleuthkit.org/sleuthkit
-                 http://sleuthkit.sourceforge.net
 
-               Brian Carrier [carrier@sleuthkit.org]
-
+                     Last Modified: Sept 2008
 
 
 INTRODUCTION
@@ -57,24 +56,24 @@ Examples of data in this display include volume name, last mounting
 time, and the details about each "group" in UNIX file systems.
 
 
-Content Layer (data):
+Content Layer (block):
 The content layer of a file system contains the actual file content,
 or data.  Data is stored in large chunks, with names such as blocks,
-fragments, and clusters.  All tools in this layer begin with the letter
-'d'.  
+fragments, and clusters.  All tools in this layer begin with the letters
+'blk'.  
 
-The dcat tool can be used to display the contents of a specific unit of
+The blkcat tool can be used to display the contents of a specific unit of
 the file system (similar to what 'dd' can do with a few arguments).
-The unit size is file system dependent.  The 'dls' tool displays the
+The unit size is file system dependent.  The 'blkls' tool displays the
 contents of all unallocated units of a file system, resulting in a
 stream of bytes of deleted content.  The output can be searched for
-deleted file content.  The 'dcalc' program allows one to identify the
-unit location in the original image of a unit in the 'dls' generated
+deleted file content.  The 'blkcalc' program allows one to identify the
+unit location in the original image of a unit in the 'blkls' generated
 image.
 
 A new feature of The Sleuth Kit from TCT is the '-l' argument to
-'dls' (or 'unrm' in TCT).  This argument lists the details for data
-units, similar to the 'ils' command.  The 'dstat' tool displays
+'blkls' (or 'unrm' in TCT).  This argument lists the details for data
+units, similar to the 'ils' command.  The 'blkstat' tool displays
 the statistics of a specific data unit (including allocation status
 and group number).
 
@@ -186,13 +185,6 @@ new documentation and articles.
     www.sleuthkit.org/informer/
 
 
-KNOWN BUGS
-=============================================================================
-1/23/03: When running mactime with Perl 5.8, errors will be generated
-from the DateManip library.  These errors will not effect the output of
-mactime.  I am waiting for the bug to be fixed in the Perl library.
-
-
 MAILING LIST
 =============================================================================
 Mailing lists exist on SourceForge, for both users and a low-volume
@@ -200,13 +192,8 @@ announcements list.
 	
     http://sourceforge.net/mail/?group_id=55685
 
-There is also a TCT mailing list on porcupine.org. To subscribe, send mail
-to majordomo@porcupine.org with a message body of: subscribe tct-users
-
 
 -----------------------------------------------------------------------------
-March 2005
-carrier@sleuthkit.org
 Brian Carrier
-
-CVS Date: $Date: 2006-08-24 10:45:33 -0400 (Thu, 24 Aug 2006) $
+carrier <at> sleuthkit <dot> org
+ 

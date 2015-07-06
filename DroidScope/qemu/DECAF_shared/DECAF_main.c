@@ -183,39 +183,7 @@ int DECAF_read_mem_until(CPUState* env, gva_t vaddr, void* buf, size_t len)
   return (i);
 }
 
-static TranslationBlock *DECAF_tb_find_slow(CPUState *env, target_ulong pc) {
-	TranslationBlock *tb, **ptb1;
-	unsigned int h;
-	tb_page_addr_t phys_pc, phys_page1;
-	target_ulong virt_page2;
-
-	tb_invalidated_flag = 0;
-
-//DECAF_printf("DECAF_tb_find_slow: phys_pc=%08x\n", phys_pc);
-
-	for (h = 0; h < CODE_GEN_PHYS_HASH_SIZE; h++) {
-		ptb1 = &tb_phys_hash[h];
-		for (;;) {
-			tb = *ptb1;
-			if (!tb)
-				break;
-			if (tb->pc + tb->cs_base == pc) {
-				goto found;
-			}
-			ptb1 = &tb->phys_hash_next;
-		}
-	}
-
-	not_found:
-	//DECAF_printf("DECAF_tb_find_slow: not found!\n");
-	return NULL ;
-
-	found:
-	//DECAF_printf("DECAF_tb_find_slow: found! pc=%08x size=%08x\n",tb->pc, tb->size);
-	return tb;
-}
-
-#if 0
+//copied from cpu-exec.c
 static TranslationBlock *DECAF_tb_find_slow(CPUState *env,
                                       gva_t pc,
                                       gva_t cs_base,
@@ -297,8 +265,6 @@ static TranslationBlock *DECAF_tb_find_slow(CPUState *env,
     return tb;
 }
 
-#endif 
-
 // This is the same as tb_find_fast except we invalidate at the end
 void DECAF_flushTranslationBlock_env(CPUState *env, gva_t addr)
 {
@@ -319,13 +285,12 @@ void DECAF_flushTranslationBlock_env(CPUState *env, gva_t addr)
     /* we record a subset of the CPU state. It will
        always be the same before a given translated block
        is executed. */
-//    cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
-//    tb = env->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
-//    if (unlikely(!tb || tb->pc != pc || tb->cs_base != cs_base ||
-//                 tb->flags != flags)) {
-//        tb = DECAF_tb_find_slow(env, pc, cs_base, flags);
-//    }
-tb = DECAF_tb_find_slow(env, addr);
+    cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
+    tb = env->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
+    if (unlikely(!tb || tb->pc != pc || tb->cs_base != cs_base ||
+                 tb->flags != flags)) {
+        tb = DECAF_tb_find_slow(env, pc, cs_base, flags);
+    }
     if (tb == NULL)
     {
       return;
@@ -348,23 +313,12 @@ void DECAF_flushTranslationPage_env(CPUState* env, gva_t addr)
 #endif
   }
 
-#if 0 // From decaf main
   p_addr = cpu_get_phys_page_debug(env, addr);
   if (p_addr != -1)
   {
     p_addr &= TARGET_PAGE_MASK;
     tb_invalidate_phys_page_range(p_addr, p_addr + TARGET_PAGE_SIZE, 0); //not sure if this will work, but might as well try it
   }
-
-#else
-
-	TranslationBlock *tb = DECAF_tb_find_slow(env, addr);
-	if (tb) {
-		tb_invalidate_phys_page_range(tb->page_addr[0],
-				tb->page_addr[0] + TARGET_PAGE_SIZE, 0);
-	}
-
-#endif
 }
 
 int do_load_plugin(Monitor *mon, const QDict *qdict, QObject **ret_data)

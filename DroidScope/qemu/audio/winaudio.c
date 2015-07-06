@@ -381,7 +381,7 @@ winaudio_in_fini (HWVoiceIn *hw)
             s->wavein = 0;
     }
 
-    for ( i=0; i<NUM_OUT_BUFFERS; ++i ) {
+    for ( i=0; i<NUM_IN_BUFFERS; ++i ) {
         if ( s->buffers[i].dwUser != 0xFFFF ) {
             waveInUnprepareHeader(
                 s->wavein, &s->buffers[i], sizeof(s->buffers[i]) );
@@ -411,7 +411,7 @@ winaudio_in_init (HWVoiceIn *hw, struct audsettings *as)
 
     s->wavein = NULL;
     InitializeCriticalSection( &s->lock );
-    for (i = 0; i < NUM_OUT_BUFFERS; i++) {
+    for (i = 0; i < NUM_IN_BUFFERS; i++) {
             s->buffers[i].dwUser = 0xFFFF;
     }
     s->buffer_bytes = NULL;

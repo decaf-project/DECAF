@@ -49,6 +49,7 @@ extern "C" {
 #include "shared/utils/SimpleCallback.h"
 #include "shared/utils/Output.h"
 
+#include "linux_vmi_new.h"
 #include "vmi_c_wrapper.h"
 
 
@@ -243,11 +244,19 @@ int VMI_list_processes(Monitor *mon)
 int VMI_list_modules(Monitor *mon, uint32_t pid) {
 	unordered_map<uint32_t, process *>::iterator iter = process_pid_map.find(
 			pid);
-	if (iter == process_pid_map.end())	//pid not found
+	if (iter == process_pid_map.end())
+	{
+		monitor_printf(default_mon,"pid not found\n");
+		//pid not found
 		return -1;
+	}
 
 	unordered_map<uint32_t, module *>::iterator iter2;
 	process *proc = iter->second;
+
+	if(!proc->modules_extracted)
+		traverse_mmap(cpu_single_env, proc);
+
 	map<uint32_t, module *> modules;
 	map<uint32_t, module *>::iterator iter_m;
 

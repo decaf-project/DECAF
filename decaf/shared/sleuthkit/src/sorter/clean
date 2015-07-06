@@ -1,8 +1,0 @@
-rm -f "../../bin/sorter";
-
-cd sort
-for FILE in *.sort
-do    
-	rm -f "../../../share/sorter/$FILE";
-done  
-cd .. 

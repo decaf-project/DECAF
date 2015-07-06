@@ -39,6 +39,7 @@
 #include "hw/hw.h"
 #include "osdep.h"
 #include "kvm.h"
+#include "hax.h"
 #include "qemu-timer.h"
 #if defined(CONFIG_USER_ONLY)
 #include <qemu.h>
@@ -1526,7 +1527,7 @@ void cpu_set_log(int log_flags)
         logfile = fopen(logfilename, log_append ? "a" : "w");
         if (!logfile) {
             perror(logfilename);
-            _exit(1);
+            exit(1);
         }
 #if !defined(CONFIG_SOFTMMU)
         /* must avoid mmap() usage of glibc by setting a buffer "by hand" */
@@ -2379,6 +2380,10 @@ void cpu_register_physical_memory_log(target_phys_addr_t start_addr,
 
     if (kvm_enabled())
         kvm_set_phys_mem(start_addr, size, phys_offset);
+#ifdef CONFIG_HAX
+    if (hax_enabled())
+        hax_set_phys_mem(start_addr, size, phys_offset);
+#endif
 
     if (phys_offset == IO_MEM_UNASSIGNED) {
         region_offset = start_addr;
@@ -2561,6 +2566,27 @@ ram_addr_t qemu_ram_alloc_from_ptr(DeviceState *dev, const char *name,
                                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 #else
             new_block->host = qemu_vmalloc(size);
+
+#ifdef CONFIG_HAX
+        /*
+         * In HAX, qemu allocates the virtual address, and HAX kernel
+         * module populates the region with physical memory. Currently
+         * we don’t populate guest memory on demand, thus we should
+         * make sure that sufficient amount of memory is available in
+         * advance.
+         */
+        if (hax_enabled())
+        {
+            int ret;
+            ret = hax_populate_ram((uint64_t)new_block->host, size);
+            if (ret < 0)
+            {
+                fprintf(stderr, "Hax failed to populate ram\n");
+                exit(-1);
+            }
+        }
+#endif
+
 #endif
 #ifdef MADV_MERGEABLE
             madvise(new_block->host, size, MADV_MERGEABLE);

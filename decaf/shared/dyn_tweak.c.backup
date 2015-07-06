@@ -1,0 +1,358 @@
+/*
+ * dyntweak.c
+ *
+ *  Created on: May 16, 2015
+ *      Author: Abhishek Vasisht Bhaskar (abhaskar@syr.edu)
+ */
+
+#include "config.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+
+#include "vmi_callback.h"
+#include "vmi_c_wrapper.h"
+
+#include "DECAF_main.h"
+#include "DECAF_target.h"
+#include "DECAF_callback.h"
+#include "hookapi.h"
+#include "handlers.h"
+#include "function_map.h"
+#include <plugins/tracecap/disasm.h>
+
+
+ int dont_track=0;
+ int found=0;
+ int stored_val;
+ int stored=0;
+ int block_tracking=0;
+ int instruction_tracking=0;
+
+ typedef struct __tweak_node tweak_node;
+ typedef struct __tweak_entry tweak_entry;
+ typedef struct __tweak_list tweak_list;
+
+ struct __tweak_node {
+ 	char module_name[512];
+ 	tweak_entry *head_handle;
+ 	tweak_node *next;
+ };
+
+ struct __tweak_list {
+ 	tweak_node *head;
+ 	uint32_t size;
+ };
+
+ struct  __tweak_entry {
+ 	char* module_name;
+ 	uint32_t offset;
+ 	uint32_t src;
+ 	uint32_t val;
+ 	target_ulong module_base_address;
+ 	tweak_entry* next;
+ };
+
+ static tweak_entry *tweak_present(tweak_list *to_check,char *__mod_name)
+ {
+ 	if (to_check->size==0) return NULL;
+ 	tweak_node *temp=to_check->head;
+ 	while(temp!=NULL)
+ 	{
+ 		if(strcmp(__mod_name,temp->module_name))
+ 			return temp->head_handle;
+
+ 		temp=temp->next;
+ 	}
+
+ 	return NULL;
+ }
+
+ static void add_tweak(tweak_list *to_check,char *__mod_name,tweak_entry *to_add)
+ {
+ 	
+ }
+
+
+ static tmodinfo_t *module_info;
+
+
+ static GHashTable *loaded_module_map = NULL;
+ static GHashTable *tweak_map = NULL;
+
+
+ int monitoring = 1;
+
+
+ unsigned int total_tweaks = 0;
+ 
+ char current_module_name[512];
+ tweak_entry* current_tweak_entry;
+
+/* Plugin interface */
+ static plugin_interface_t dyntweak_interface;
+
+/* process specific information */
+ uint32_t mon_proc_pgd;
+ struct monitored_proc mon_proc;
+
+/* handles for module loaded and unloaded */
+ static DECAF_Handle modulebegin_handle = DECAF_NULL_HANDLE;
+ static DECAF_Handle moduleend_handle = DECAF_NULL_HANDLE;
+
+/* Instruction callback handles */
+ static DECAF_Handle insn_cb_handle = DECAF_NULL_HANDLE;
+ static DECAF_Handle blockbegin_handle = DECAF_NULL_HANDLE;
+ static DECAF_Handle blockend_handle = DECAF_NULL_HANDLE;
+ static DECAF_Handle handle_load_mainmodule = DECAF_NULL_HANDLE;
+ static DECAF_Handle handle_remov_process = DECAF_NULL_HANDLE;
+
+
+ void bb_start_callback_func(DECAF_Callback_Params*);
+ void bb_end_callback_func(DECAF_Callback_Params*);
+
+//when monitor all processes,use this path to create new tracefile for new created process.
+//char *tracefile_path_root[512]={'\0'};
+
+ void do_tracing_stop (Monitor *mon, const QDict *qdict)
+ {
+
+ 	if (mon_proc.pid == 0) {
+ 		monitor_printf(mon, "Not tracing.\n");
+ 		return;
+ 	}
+
+ 	if(mon_proc.tracefile) {
+ 		fclose(mon_proc.tracefile);
+ 		mon_proc.cr3 = mon_proc.pid = 0;
+ 		mon_proc.tracefile = NULL;
+ 		memset(mon_proc.name, 0, sizeof(mon_proc.name));
+ 	}
+ }
+
+ void do_add_tweak(Monitor *mon, const QDict *qdict)
+ {
+	//monitor_printf(default_mon,"\n Inside of do_add_tweak\n");
+ 	char* mod_name = qdict_get_str(qdict,"module_name");
+ 	uint32_t addr = qdict_get_int(qdict, "addr");
+ 	uint32_t src = qdict_get_int(qdict, "src");
+ 	uint32_t val = qdict_get_int(qdict, "val");
+ 	tweak_entry *prev;
+ 	tweak_entry *tweak = malloc (sizeof(tweak_entry));
+ 	memset(tweak, 0, sizeof(tweak_entry));
+
+ 	tweak->module_name=mod_name;
+ 	tweak->offset =  addr;
+ 	tweak->src = src;
+ 	tweak->val = val;
+ 	tweak->next = NULL;
+
+ 	if(!g_hash_table_contains(tweak_map,(mod_name)))
+ 	{
+		g_hash_table_insert(tweak_map, g_strdup(mod_name) , (gpointer) tweak);
+ 	}
+ 	else
+ 	{
+ 		prev=g_hash_table_lookup(tweak_map, (mod_name));
+ 		prev->next=tweak;
+ 	}
+ 	
+
+ 	if(g_hash_table_contains(loaded_module_map,(mod_name)))
+ 	{
+ 		if(blockbegin_handle==DECAF_NULL_HANDLE)
+ 		{
+ 			blockbegin_handle = DECAF_register_callback(DECAF_BLOCK_BEGIN_CB, bb_start_callback_func, NULL );
+ 			blockend_handle = DECAF_register_callback(DECAF_BLOCK_END_CB, bb_end_callback_func,  NULL );
+ 		}	
+ 	}
+ }
+
+
+ void insn_cb(DECAF_Callback_Params *params)
+ {
+ 	if (dont_track==1) return;
+ 	CPUState *env = params->ib.env;
+
+ 	if(DECAF_is_in_kernel(env)) return;
+ 	if(DECAF_getPGD(env) != mon_proc_pgd) return; 
+
+ 	//monitor_printf(default_mon,"\n Current EIP = %016llX \n",env->eip );
+ 	if(env->eip == current_tweak_entry->module_base_address+current_tweak_entry->offset)
+ 	{
+ 		{
+ 			//monitor_printf(default_mon,"\n Current EIP = %016llX, addr to match was %016llX \n",env->eip ,current_tweak_entry->module_base_address+current_tweak_entry->offset);
+ 			//monitor_printf(default_mon,"\n Register value before change = (0x%08x)\n",(uint32_t)env->regs[current_tweak_entry->src]);
+ 			env->regs[current_tweak_entry->src] = current_tweak_entry->val;
+ 			//monitor_printf(default_mon,"\n Register value after changed = (0x%08x)\n",(uint32_t)env->regs[current_tweak_entry->src]);
+ 		}
+ 	}
+
+ 	
+ }
+
+ void bb_start_callback_func(DECAF_Callback_Params *params)
+ {
+ 	int ret;
+ 	CPUState* env=params->bb.env;
+
+	//Is it inside the kernel? leave if so
+ 	if(DECAF_is_in_kernel(env)) return;
+	//Is this inside the process we are monitoring? leave if not
+ 	if(DECAF_getPGD(env) != mon_proc_pgd) return; 
+
+	//Which module is running in this current process
+	ret=VMI_locate_module_c( env->eip /* gva_t eip*/,env->cr[3] /* gva_t cr3 */, mon_proc.name  /* char proc[] */,module_info /* tmodinfo_t* */);
+
+ 	if(ret!=-1)
+ 	{
+
+ 		strcpy(current_module_name,module_info->name);
+ 		
+ 		if(module_info==NULL)
+ 			monitor_printf(default_mon,"hello");
+ 		
+ 		if(!g_hash_table_contains(tweak_map,(module_info->name)))
+ 			return;
+
+		//monitor_printf(default_mon,"module name=%s Curr eip %016llX , base is %016llX\n, size is  0x%08x  ",module_info->name,env->eip,module_info->base,module_info->size);
+
+ 		if(instruction_tracking==0)
+ 		{
+ 			//monitor_printf(default_mon,"Started insn_cb callback\n",env->eip );
+ 			current_tweak_entry=(tweak_entry *)g_hash_table_lookup(tweak_map, (module_info->name));
+ 			current_tweak_entry->module_base_address=module_info->base;
+ 			insn_cb_handle = DECAF_register_callback(DECAF_INSN_END_CB, insn_cb, &monitoring);		
+ 			instruction_tracking = 1;
+ 			dont_track = 0;
+ 		}
+ 		else
+ 		{	
+ 			dont_track=0;
+ 			current_tweak_entry=(tweak_entry *)g_hash_table_lookup(tweak_map, (module_info->name));
+ 			current_tweak_entry->module_base_address=module_info->base;
+ 		}
+ 	}
+
+ }
+
+
+ void bb_end_callback_func(DECAF_Callback_Params *params)
+ {
+ 	if(dont_track = 0)
+ 	{
+ 		dont_track = 1;
+ 	}
+ }
+
+
+ void handle_module_load(VMI_Callback_Params* params)
+ {
+ 	if(params->lm.cr3 != mon_proc_pgd) return; 
+ 	monitor_printf(default_mon,"module name=%s loaded, base address-%016llX, size is 0x%08x \n",params->lm.name,params->lm.base,params->lm.size);
+ 	g_hash_table_insert(loaded_module_map,g_strdup(params->lm.name),(gpointer)0);
+ 	if(g_hash_table_size(tweak_map)<0)
+ 		return;
+
+ 	if(g_hash_table_contains(tweak_map,params->lm.name))
+ 	{
+ 		if(blockbegin_handle==DECAF_NULL_HANDLE)
+ 		{
+ 			blockbegin_handle = DECAF_register_callback(DECAF_BLOCK_BEGIN_CB, bb_start_callback_func, NULL);
+ 			blockend_handle=DECAF_register_callback(DECAF_BLOCK_END_CB, bb_end_callback_func, NULL);
+ 		}	
+ 	}
+ }
+
+ void handle_module_unload(VMI_Callback_Params* params)
+ {
+ 	if(params->lm.cr3 != mon_proc_pgd) return; 
+ 	monitor_printf(default_mon,"module name=%s unloaded \n",params->lm.name);
+ }	
+
+ void handle_trace_by_name(const char *procname)
+ {
+ 	if(strcmp(mon_proc.name, procname) == 0) {
+ 		printf("Process %s already being traced.\n", procname);
+ 		return;
+ 	}
+
+ 	strncpy(mon_proc.name, procname, 512);
+ 	mon_proc.name[511] = '\0';
+
+ 	printf("Waiting for process: %s (case sensitive) to start.\n", mon_proc.name);
+
+ 	return;
+
+ }
+
+ void do_trace_by_name(Monitor *mon, const QDict *qdict)
+ {
+ 	const char *procname = qdict_get_str(qdict, "proc_name");
+ 	handle_trace_by_name(procname);
+ }
+
+ static mon_cmd_t dyntweak_term_cmds[] = {
+#include "plugin_cmds.h"
+ 	{NULL, NULL, },
+ };
+
+ void dyntweak_cleanup()
+ {
+ 	int i;
+
+ 	if(handle_load_mainmodule!=0)
+ 		VMI_unregister_callback(VMI_CREATEPROC_CB,handle_load_mainmodule);
+ 	if(handle_remov_process!=0)
+ 		VMI_unregister_callback(VMI_REMOVEPROC_CB,handle_remov_process);
+
+
+ 	if(mon_proc.tracefile){
+ 		fclose(mon_proc.tracefile);
+ 	}
+
+ 	memset(&mon_proc, 0, sizeof(mon_proc));
+ }
+
+/* Callback to notify when a program is loaded. */
+ static void dyntweak_loadmainmodule_notify(VMI_Callback_Params *pcp)
+ {
+
+
+	//uint32_t pid=pcp->cp.pid;
+ 	char *name=pcp->cp.name;
+
+ 	if(strlen(mon_proc.name) > 0) {
+ 		if(strcmp(mon_proc.name, name) == 0) {
+
+ 			monitor_printf(default_mon, "\nAddress range of process %s, %x to %x \n", name,(uint32_t)pcp->lm.base,((uint32_t)pcp->lm.base)+pcp->lm.size);
+ 			mon_proc_pgd = pcp->cp.cr3;
+ 			tweak_map = g_hash_table_new(g_str_hash,g_str_equal);
+ 			loaded_module_map =g_hash_table_new(g_str_hash,g_str_equal);
+ 			monitoring = 1;
+			//process_addr_base=(uint32_t)(pcp->lm.base);
+ 			module_info=malloc(sizeof(tmodinfo_t));
+ 			modulebegin_handle=VMI_register_callback(VMI_LOADMODULE_CB,handle_module_load,&monitoring);
+ 			moduleend_handle=VMI_register_callback(VMI_REMOVEMODULE_CB,handle_module_unload,&monitoring);
+ 		}
+ 	}
+ }
+
+ static void dyntweak_procexit(VMI_Callback_Params *pcp)
+ {
+ 	if(insn_cb_handle)
+ 		DECAF_unregister_callback(DECAF_INSN_BEGIN_CB, insn_cb_handle);
+ 	insn_cb_handle = DECAF_NULL_HANDLE;
+ }
+
+/* Register the plugin and the callbacks */
+ plugin_interface_t * init_plugin()
+ {
+ 	dyntweak_interface.mon_cmds = dyntweak_term_cmds;
+ 	dyntweak_interface.plugin_cleanup = dyntweak_cleanup;
+ 	handle_load_mainmodule=VMI_register_callback(VMI_CREATEPROC_CB,dyntweak_loadmainmodule_notify,&should_monitor);
+ 	handle_remov_process=VMI_register_callback(VMI_REMOVEPROC_CB,dyntweak_procexit,&should_monitor);
+ 	return &dyntweak_interface;
+ }
+

@@ -13,6 +13,7 @@ int init_module(void)
 	struct vm_area_struct vma; 
 	struct file filestruct; 
 	struct dentry dentrystr; 
+	struct inode indoestr;
     /* 
      * A non 0 return means init_module failed; module can't be loaded. 
      */

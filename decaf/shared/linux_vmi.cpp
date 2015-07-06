@@ -24,6 +24,7 @@
 #include <string>
 #include <list>
 #include <set>
+
 #include <algorithm>
 #include <assert.h>
 #include <errno.h>
@@ -112,31 +113,32 @@ static inline int unresolved_attempt(process *proc, uint32_t addr)
 }
 
 
-void extract_symbols_info(CPUState *env, uint32_t cr3, target_ulong start_addr, module * mod)
+void extract_symbols_info(CPUState *env, uint32_t cr3, target_ulong start_addr, module * mod,char* proc_name)
 {
-	if ( mod->symbols_extracted = read_elf_info(env, cr3, mod->name, start_addr, mod->size) ) {
-		monitor_printf(default_mon, "mod %s (start_addr = 0x%08x, end_addr = 0x%08x) is extracted \n", mod->name, start_addr, (start_addr + mod->size));
-	}
+	#if 0
+ 	mod->symbols_extracted = read_elf_info(env, cr3, mod->name, start_addr, mod->size, mod->inode_number);
+	#endif
 }
 
 // get new module, basically reading from mm_struct
 static void get_new_modules_x86(CPUState* env, process * proc)
-{
-	target_ulong ts_mm, mm_mmap, vma_file, vma_next, f_dentry;
+{	
+
+	set<target_ulong> module_bases;
+	
+
+	target_ulong ts_mm, mm_mmap, vma_curr, vma_file, f_dentry, f_inode, vma_next=NULL;
+	unsigned int inode_number;
 	const int MAX_LOOP_COUNT = 1024;	// prevent infinite loop
-	target_ulong vma_vm_start = 0, vma_vm_end = 0, vma_vm_flags, vma_vm_pgoff;
-	target_ulong last_vm_start = 0, last_vm_end = 0;
-	char name[32], key[128];	// module file path
+	target_ulong vma_vm_start = 0, vma_vm_end = 0;
+	target_ulong last_vm_start = 0, last_vm_end = 0, mod_vm_start = 0;
+	char name[32];	// module file path
+	char key[32+32];
 	string last_mod_name, mod_name;
-	target_ulong mod_vm_start, mod_vm_end;
-	module* mod = NULL;
-	string _name;
-	set<uint32_t> module_bases;
+	module *mod = NULL;
+	
 	bool finished_traversal = false;
-	int mod_stage = 0;
-	bool three_sections_found = false;
-	static int offset_populated = 0, dentry_offset_populated = 0;
-	const int VM_FLAGS_NONE = 0;
+	
 
 	// quit extracting modules when this proc doesn't have mm (kernel thread, etc.)
 	if ( !proc || -1UL == proc->cr3
@@ -149,235 +151,117 @@ static void get_new_modules_x86(CPUState* env, process * proc)
 		return;
 
 	// starting from the first vm_area, read vm_file. NOTICE vm_area_struct can be null
-	if ((vma_next = mm_mmap) == 0)
+	if (( vma_curr = mm_mmap) == 0)
 		return;
 
-	// // see if vm_area is populated already
-	// if (populate_vm_area_struct_offsets(env, vma_next, &OFFSET_PROFILE))
-	// 	return;
-
+// AVB, changed logic of module updation
 	for (size_t count = MAX_LOOP_COUNT; count--; ) {
 
-		// read current vma's size
-		if (DECAF_read_mem(env, vma_next + OFFSET_PROFILE.vma_vm_start, sizeof(target_ptr), &vma_vm_start) < 0)
+			
+		// read start of curr vma
+		if (DECAF_read_mem(env, vma_curr + OFFSET_PROFILE.vma_vm_start, sizeof(target_ptr), &vma_vm_start) < 0)
 			goto next;
 
-		if (DECAF_read_mem(env, vma_next + OFFSET_PROFILE.vma_vm_end, sizeof(target_ptr), &vma_vm_end) < 0)
+		// read end of curr vma
+		if (DECAF_read_mem(env, vma_curr + OFFSET_PROFILE.vma_vm_end, sizeof(target_ptr), &vma_vm_end) < 0)
 			goto next;
 
-		if (DECAF_read_mem(env, vma_next + OFFSET_PROFILE.vma_vm_file, sizeof(target_ptr), &vma_file) < 0 || !vma_file)
+		// read the struct* file entry of the curr vma, used to then extract the dentry of the this page
+		if (DECAF_read_mem(env, vma_curr + OFFSET_PROFILE.vma_vm_file, sizeof(target_ptr), &vma_file) < 0 || !vma_file)
 			goto next;
-
-		// if (!offset_populated && (offset_populated = !getDentryFromFile(env, vma_file, &OFFSET_PROFILE)))	// populate dentry offset
-		// 	goto next;
-
-
+		
+		// dentry extraction from the struct* file
 		if (DECAF_read_mem(env, vma_file + OFFSET_PROFILE.file_dentry, sizeof(target_ptr), &f_dentry) < 0 || !f_dentry)
 			goto next;
 
-		// if (!dentry_offset_populated && (dentry_offset_populated = !populate_dentry_struct_offsets(env, f_dentry, &OFFSET_PROFILE)))
-		// 	goto next;	// notice this time we are not going to reset mark-bit. all plugins are populated by far
-
-
-		if (DECAF_read_mem(env, vma_next + OFFSET_PROFILE.vma_vm_flags, sizeof(target_ulong), &vma_vm_flags) < 0)
-			goto next;
-
-		if (DECAF_read_mem(env, vma_next + OFFSET_PROFILE.vma_vm_pgoff, sizeof(target_ulong), &vma_vm_pgoff) < 0)
-			goto next;
-
-		// read small names
+	
+		// read small names form the dentry
 		if (DECAF_read_mem(env, f_dentry + OFFSET_PROFILE.dentry_d_iname, 32, name) < 0)
 			goto next;
-			
-		name[31] = '\0';	// truncate long string
 
-		switch(mod_stage) {
-		case 0:
-			//READ + EXECUTE
-			if ((vma_vm_flags & 0xf) == 5 && /*vma_vm_pgoff == 0 &&*/ strlen(name)) {
-				mod_stage = 1;
-				mod_name = name;
-				mod_vm_start = vma_vm_start;
-				mod_vm_end = vma_vm_end;
-			}
-			break;
-
-		case 1:
-			if ((vma_vm_flags & 0xf) == 5 && /*vma_vm_pgoff == 0 && */strlen(name)) {
-				mod_stage = 1;
-				mod_name = name;
-				mod_vm_start = vma_vm_start;
-				mod_vm_end = vma_vm_end;
-			} //READ ONLY
-			else if((vma_vm_flags & 0xf) == 1 && !mod_name.compare(name)
-					&& vma_vm_start == mod_vm_end
-					&& vma_vm_pgoff != 0) {
-				mod_stage = 2;
-				mod_vm_end = vma_vm_end;
-			}
-			else if(VM_FLAGS_NONE == (vma_vm_flags & 0xf) && !mod_name.compare(name)
-					&& vma_vm_start == mod_vm_end
-					&& vma_vm_pgoff != 0) {
-				mod_stage = 1;
-				mod_vm_end = vma_vm_end;
-			} 
-			 else {
-				mod_stage = 0;
-			}
-			break;
-
-		case 2:
-			if ((vma_vm_flags & 0xf) == 5 && /*vma_vm_pgoff == 0 &&*/ strlen(name)) {
-				mod_stage = 1;
-				mod_name = name;
-				mod_vm_start = vma_vm_start;
-				mod_vm_end = vma_vm_end;
-			} else if ((vma_vm_flags & 0xf) == 3 && !mod_name.compare(name)
-					&& vma_vm_start == mod_vm_end
-					&& vma_vm_pgoff != 0 ) {
-				//Now we have seen all three sections in order
-				//We can insert the module now.
-				mod_vm_end = vma_vm_end;
-				three_sections_found = true;
-				mod_stage = 0;
-			} else {
-				mod_stage = 0;
-			}
-			break;
-
-		default:
-			assert(0); break;
-		}
-
-		if (!three_sections_found)
+		
+		// inode struct extraction from the struct* file
+		if (DECAF_read_mem(env, f_dentry + OFFSET_PROFILE.file_inode, sizeof(target_ptr), &f_inode) < 0 || !f_inode)
 			goto next;
 
-		three_sections_found = false;
+		// inode_number extraction
+		if (DECAF_read_mem(env, f_inode + OFFSET_PROFILE.inode_ino , sizeof(unsigned int), &inode_number) < 0 || !inode_number)
+			goto next;
+				
+		name[31] = '\0';	// truncate long string
 
-		mod = VMI_find_module_by_key(mod_name.c_str());
-		if (!mod) {
-			mod = new module();
-			strncpy(mod->name, mod_name.c_str(), 31);
-			mod->name[31] = '\0';
-			mod->size = mod_vm_end - mod_vm_start;
-			VMI_add_module(mod, mod_name.c_str());
+		
+		// name is invalid, move on the data structure
+		if (strlen(name)==0)
+			goto next;
+
+
+		
+		if (last_vm_end == vma_vm_start && !strcmp(last_mod_name.c_str(), name)) { 
+			// extending the module
+			assert(mod);
+
+			target_ulong new_size = vma_vm_end - mod_vm_start;
+			if (mod->size < new_size)
+				mod->size = new_size;
+			goto next;
 		}
 
-		module_bases.insert(mod_vm_start);
-
-		if(VMI_find_module_by_base(proc->cr3, mod_vm_start) != mod) {
-			VMI_insert_module(proc->pid, mod_vm_start, mod);
-			//if (proc->pid == 1)
-			// monitor_printf(default_mon, "Module (%s, 0x%08x->0x%08x, size %u) is loaded to proc %s (pid = %d) \n",
-			//			mod_name.c_str(), mod_vm_start, mod_vm_end, mod->size / 1024, proc->name, proc->pid);
-		}
-
-
-#if 0
-		module_bases.insert(vma_vm_start);
-
-
-		char key[62];
-		sprintf(key, "%s_%08x", name, vma_vm_end - vma_vm_start);
+		//not extending, a different module
+		mod_vm_start = vma_vm_start;
+		sprintf(key, "%u_%s", inode_number, name);
 		mod = VMI_find_module_by_key(key);
 		if (!mod) {
 			mod = new module();
 			strncpy(mod->name, name, 31);
+			mod->name[31] = '\0';
 			mod->size = vma_vm_end - vma_vm_start;
+			mod->inode_number = inode_number;
+			mod->symbols_extracted = 0;
 			VMI_add_module(mod, key);
+			module_bases.insert(vma_vm_start);
 		}
-
-		if(VMI_find_module_by_base(proc->cr3, vma_vm_start) != mod) {
-			VMI_insert_module(proc->pid, vma_vm_start, mod);
-			if(proc->pid == 1)
-				monitor_printf(default_mon, "Insert Module %s, 0x%08x->0x%08x\n", mod->name, vma_vm_start, vma_vm_end);
+	
+		if(VMI_find_module_by_base(proc->cr3, mod_vm_start) != mod) {
+			VMI_insert_module(proc->pid, mod_vm_start , mod);
 		}
-		//mod->symbols_extracted = false;
-#endif
-#if 0
-		_name = name;
-		if(!_name.length())
-			goto next;
-		//if (!_name.length() || !(_name.find("lib")==0 && ( _name.find(".so.")!=std::string::npos || _name.find_last_of(".so")==_name.length()-3 )))
-		//	goto next;
+		
+		
 
-		// use module name for key
-		//monitor_printf(default_mon, "\nlast lib = %s, vm_start = 0x%08x, vm_end = 0x%08x \n", last_mod_name.c_str(), last_vm_start, last_vm_end);
-		//monitor_printf(default_mon, "new lib = %s, vm_start = 0x%08x, vm_end = 0x%08x \n", name, vma_vm_start, vma_vm_end);
-
-		if (last_mod_name.length() == 0) { 	// for the first detected module
-			last_vm_start = vma_vm_start;
-			last_vm_end = vma_vm_end;
-			last_mod_name = _name;
-		}
-		else if (last_mod_name.compare(_name) != 0 || vma_vm_start != last_vm_end) { // different modules, or when the module is loaded again
-			// NOTICE the vm_next is sorted by address, according to Linux source code comment,
-			// so the vma_vm_start should be equal to last_vm_end if they belong to the same module
-			strcpy(key, last_mod_name.c_str());
-
-			mod = VMI_find_module_by_key(key);
-			if (!mod) {
-				mod = new module();
-				strncpy(mod->name, last_mod_name.c_str(), 31);
-				mod->name[31] = '\0';
-				mod->size = 0; // we update mod size later
-				VMI_add_module(mod, key);
-			}
-
-			module_bases.insert(last_vm_start);
-
-			if ( mod->size < (last_vm_end - last_vm_start) ) { // the size may expand or shrink at a later time
-				mod->size = last_vm_end - last_vm_start;	// we only update the size when it expands
-				// we need to re-extract the symbols if the size is changed
-				mod->symbols_extracted = false;
-			}
-
-			if(VMI_find_module_by_base(proc->cr3, last_vm_start) != mod) {
-				VMI_insert_module(proc->pid, last_vm_start, mod);
-				if (proc->pid == 1)
-					monitor_printf(default_mon, "shared lib (%s, 0x%08x->0x%08x, size %u) is loaded to proc %s (pid = %d) \n",
-							last_mod_name.c_str(), last_vm_start, last_vm_end, mod->size / 1024, proc->name, proc->pid);
-			}
-
-			last_vm_start = vma_vm_start;
-			last_vm_end = vma_vm_end;
-			last_mod_name = _name;
-		}
-		else if (last_mod_name.compare(_name) == 0) {
-			if (last_vm_end == vma_vm_start)	// continuous sections
-				last_vm_end = vma_vm_end;	// extend vm area
-			else if (last_vm_start == vma_vm_end)
-				last_vm_start = vma_vm_start;
-		}
-
-#endif
-
-next:
-		if (DECAF_read_mem(env, vma_next + OFFSET_PROFILE.vma_vm_next, sizeof(target_ptr), &vma_next) < 0)
+next:	if (DECAF_read_mem(env, vma_curr + OFFSET_PROFILE.vma_vm_next, sizeof(target_ptr), &vma_next) < 0)
 			break;
-		if (!vma_next || vma_next == mm_mmap) {
+
+		if (vma_next==NULL ) {
 			finished_traversal = true;
 			break;
 		}
+
+		vma_curr=vma_next;
+		last_mod_name=name;
+		if (mod != NULL) {
+			last_vm_start = vma_vm_start;
+			last_vm_end = vma_vm_end;
+		}
 	}
+
+	
 
 	if (finished_traversal) {
 		unordered_map<uint32_t, module *>::iterator iter = proc->module_list.begin();
-		set<uint32_t> bases_to_remove;
+		set<target_ulong> bases_to_remove;
 		for(; iter!=proc->module_list.end(); iter++) {
 			if (module_bases.find(iter->first) == module_bases.end())
 				bases_to_remove.insert(iter->first);
 		}
 
-		set<uint32_t>::iterator iter2;
+		set<target_ulong>::iterator iter2;
 		for (iter2=bases_to_remove.begin(); iter2!=bases_to_remove.end(); iter2++) {
 			if (proc->pid == 1)
-				monitor_printf(default_mon, "removed module %08x\n", *iter2);
+				//monitor_printf(default_mon, "removed module %08x\n", *iter2);
 
 			VMI_remove_module(proc->pid, *iter2);
 
 		}
-
 	}
 }
 
@@ -524,6 +408,7 @@ next:
 			finished_traversal = true;
 			break;
 		}
+		
 	}
 
 	if (finished_traversal) {
@@ -844,13 +729,7 @@ process * find_new_process(CPUState *env, uint32_t cr3) {
 
 // retrive symbols from specific process
 static void retrive_symbols(CPUState *env, process * proc) {
-	if (!proc || proc->cr3 == -1UL) return;	// unnecessary check
-	for (unordered_map < uint32_t,module * >::iterator it = proc->module_list.begin();
-		it != proc->module_list.end(); it++) {
-		module *cur_mod = it->second;
-		if (!cur_mod->symbols_extracted)
-			extract_symbols_info(env, proc->cr3, it->first, cur_mod);
-	}
+
 }
 
 

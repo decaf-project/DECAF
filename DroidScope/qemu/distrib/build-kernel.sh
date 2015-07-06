@@ -6,7 +6,7 @@
 MACHINE=goldfish
 VARIANT=goldfish
 OUTPUT=/tmp/kernel-qemu
-CROSSPREFIX=arm-eabi-
+CROSSPREFIX=arm-linux-androideabi-
 CONFIG=goldfish
 
 # Determine the host architecture, and which default prebuilt tag we need.
@@ -42,6 +42,7 @@ OPTION_CROSS=
 OPTION_ARCH=
 OPTION_CONFIG=
 OPTION_JOBS=
+OPTION_VERBOSE=
 
 for opt do
     optarg=$(expr "x$opt" : 'x[^=]*=\(.*\)')
@@ -63,6 +64,9 @@ for opt do
     --config=*)
         OPTION_CONFIG=$optarg
         ;;
+    --verbose)
+        OPTION_VERBOSE=true
+        ;;
     -j*)
         OPTION_JOBS=$optarg
         ;;
@@ -83,6 +87,7 @@ if [ $OPTION_HELP = "yes" ] ; then
     echo "  --out=<directory>        output directory [$OUTPUT]"
     echo "  --cross=<prefix>         cross-toolchain prefix [$CROSSPREFIX]"
     echo "  --config=<name>          kernel config name [$CONFIG]"
+    echo "  --verbose                show build commands"
     echo "  -j<number>               launch <number> parallel build jobs [$JOBS]"
     echo ""
     echo "NOTE: --armv7 is equivalent to --config=goldfish_armv7. It is"
@@ -127,14 +132,16 @@ if [ -n "$OPTION_CROSS" ] ; then
 else
     case $ARCH in
         arm)
-            CROSSTOOLCHAIN=arm-eabi-4.4.3
-            CROSSPREFIX=arm-eabi-
-            ZIMAGE=zImage
+            CROSSTOOLCHAIN=arm-linux-androideabi-4.6
+            CROSSPREFIX=arm-linux-androideabi-
             ;;
         x86)
-            CROSSTOOLCHAIN=i686-android-linux-4.4.3
-            CROSSPREFIX=i686-android-linux-
-            ZIMAGE=bzImage
+            CROSSTOOLCHAIN=i686-linux-android-4.6
+            CROSSPREFIX=i686-linux-android-
+            ;;
+        mips)
+            CROSSTOOLCHAIN=mipsel-linux-android-4.6
+            CROSSPREFIX=mipsel-linux-android-
             ;;
         *)
             echo "ERROR: Unsupported architecture!"
@@ -143,6 +150,17 @@ else
     esac
     echo "Auto-config: --cross=$CROSSPREFIX"
 fi
+
+ZIMAGE=zImage
+
+case $ARCH in
+    x86)
+        ZIMAGE=bzImage
+        ;;
+    mips)
+        ZIMAGE=
+        ;;
+esac
 
 # If the cross-compiler is not in the path, try to find it automatically
 CROSS_COMPILER="${CROSSPREFIX}gcc"
@@ -153,13 +171,13 @@ if [ $? != 0 ] ; then
         # Assume this script is under external/qemu/distrib/ in the
         # Android source tree.
         BUILD_TOP=$(dirname $0)/../../..
-        if [ ! -d "$BUILD_TOP/prebuilt" ]; then
+        if [ ! -d "$BUILD_TOP/prebuilts" ]; then
             BUILD_TOP=
         else
             BUILD_TOP=$(cd $BUILD_TOP && pwd)
         fi
     fi
-    CROSSPREFIX=$BUILD_TOP/prebuilt/$HOST_TAG/toolchain/$CROSSTOOLCHAIN/bin/$CROSSPREFIX
+    CROSSPREFIX=$BUILD_TOP/prebuilts/gcc/$HOST_TAG/$ARCH/$CROSSTOOLCHAIN/bin/$CROSSPREFIX
     if [ "$BUILD_TOP" -a -f ${CROSSPREFIX}gcc ]; then
         echo "Auto-config: --cross=$CROSSPREFIX"
     else
@@ -176,11 +194,24 @@ else
     echo "Auto-config: -j$JOBS"
 fi
 
+
+# Special magic redirection with our magic toolbox script
+# This is needed to add extra compiler flags to compiler.
+# See kernel-toolchain/android-kernel-toolchain-* for details
+#
+export REAL_CROSS_COMPILE="$CROSS_COMPILE"
+CROSS_COMPILE=$(dirname "$0")/kernel-toolchain/android-kernel-toolchain-
+
+MAKE_FLAGS=
+if [ "$OPTION_VERBOSE" ]; then
+  MAKE_FLAGS="$MAKE_FLAGS V=1"
+fi
+
 # Do the build
 #
 rm -f include/asm &&
 make ${CONFIG}_defconfig &&    # configure the kernel
-make -j$JOBS                   # build it
+make -j$JOBS $MAKE_FLAGS       # build it
 
 if [ $? != 0 ] ; then
     echo "Could not build the kernel. Aborting !"
@@ -207,8 +238,12 @@ case $CONFIG in
         OUTPUT_VMLINUX=vmlinux-$CONFIG
 esac
 
-cp -f arch/$ARCH/boot/$ZIMAGE $OUTPUT/$OUTPUT_KERNEL
 cp -f vmlinux $OUTPUT/$OUTPUT_VMLINUX
-
+if [ ! -z $ZIMAGE ]; then
+    cp -f arch/$ARCH/boot/$ZIMAGE $OUTPUT/$OUTPUT_KERNEL
+else
+    cp -f vmlinux $OUTPUT/$OUTPUT_KERNEL
+fi
 echo "Kernel $CONFIG prebuilt images ($OUTPUT_KERNEL and $OUTPUT_VMLINUX) copied to $OUTPUT successfully !"
+
 exit 0

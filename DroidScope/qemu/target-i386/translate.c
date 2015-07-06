@@ -32,6 +32,7 @@
 #include "helper.h"
 #define GEN_HELPER 1
 #include "helper.h"
+#include "hax.h"
 
 #define PREFIX_REPZ   0x01
 #define PREFIX_REPNZ  0x02
@@ -7714,6 +7715,14 @@ static inline void gen_intermediate_code_internal(CPUState *env,
 
         pc_ptr = disas_insn(dc, pc_ptr);
         num_insns++;
+#ifdef CONFIG_HAX
+        if (hax_enabled() && hax_stop_translate(env))
+        {
+            gen_jmp_im(pc_ptr - dc->cs_base);
+            gen_eob(dc);
+            break;
+        }
+#endif
         /* stop translation if indicated */
         if (dc->is_jmp)
             break;

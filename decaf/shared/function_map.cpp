@@ -61,7 +61,21 @@ target_ulong funcmap_get_pc(const char *module_name, const char *function_name, 
 	if(!mod)
 		return 0;
 
-	map<string, map<string, uint32_t> >::iterator iter = map_function_offset.find(module_name);
+
+	/* AVB: For Linux, we do not extract exported symbols regularly when the modules are discovered
+	 * Instead we just extract the `inode number' belonging to the module and do the extraction
+	 * when there is a request for a mapping from pc-->function_name or function_name-->pc.
+	 * This function does symbol extraction of the module specified in `mod' if not already done
+	 * 
+	 * For Windows though, this function just returns.
+	 */
+	VMI_extract_symbols(mod,base);
+
+	char key[64];
+	sprintf(key, "%u_%s", mod->inode_number, mod->name);
+
+	
+	map<string, map<string, uint32_t> >::iterator iter = map_function_offset.find(key);
 	if(iter == map_function_offset.end())
 		return 0;
 
@@ -79,7 +93,19 @@ int funcmap_get_name(target_ulong pc, target_ulong cr3, string &mod_name, string
 	if(!mod)
 		return -1;
 
-	map<string, map<uint32_t, string> >::iterator iter = map_offset_function.find(mod->name);
+	/* AVB: For Linux, we do not extract exported symbols regularly when the modules are discovered
+	 * Instead we just extract the `inode number' belonging to the module and do the extraction
+	 * when there is a request for a mapping from pc-->function_name or function_name-->pc.
+	 * This function does symbol extraction of the module specified in `mod' if not already done
+	 * 
+	 * For Windows though, this function just returns.
+	 */
+	VMI_extract_symbols(mod,base);
+
+	char key[64];
+	sprintf(key, "%u_%s", mod->inode_number, mod->name);
+	
+	map<string, map<uint32_t, string> >::iterator iter = map_offset_function.find(key);
 	if (iter == map_offset_function.end())
 		return -1;
 
@@ -125,26 +151,30 @@ void parse_function(const char *message)
 	if (sscanf(message, " F " BSTR " " BSTR " %x ", module, fname, &offset) != 3)
 		return;
 
-	funcmap_insert_function(module, fname, offset);
+	funcmap_insert_function(module, fname, offset, 0);
 }
 // void funcmap_insert_function(const char *module, const char *fname, uint32_t offset) __attribute__((optimize("O0")));
-void funcmap_insert_function(const char *module, const char *fname, uint32_t offset)
+void funcmap_insert_function(const char *module, const char *fname, uint32_t offset, uint32_t inode_number)
 {
 	// cout << module << fname << offset << endl;
-	map<string, map<string, uint32_t> >::iterator iter = map_function_offset.find(module);
+	
+	char key[64];
+	sprintf(key, "%u_%s", inode_number, module);
+	
+	map<string, map<string, uint32_t> >::iterator iter = map_function_offset.find(key);
 	if (iter == map_function_offset.end()) {
 		map<string, uint32_t> func_offset;
 		func_offset[fname] = offset;
-		map_function_offset[module] = func_offset;
+		map_function_offset[key] = func_offset;
 	} else {
 		iter->second.insert(pair<string, uint32_t>(string(fname), offset));
 	}
 
-	map<string, map<uint32_t, string> >::iterator iter2 = map_offset_function.find(module);
+	map<string, map<uint32_t, string> >::iterator iter2 = map_offset_function.find(key);
 	if (iter2 == map_offset_function.end()) {
 		map<uint32_t, string> offset_func;
 		offset_func[offset] = fname;
-		map_offset_function[module] = offset_func;
+		map_offset_function[key] = offset_func;
 	} else
 		iter2->second.insert(pair<uint32_t, string>(offset, fname));
 

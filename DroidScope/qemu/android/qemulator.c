@@ -81,7 +81,8 @@ qemulator_setup( QEmulator*  emulator )
 
         qemulator_set_title(emulator);
 
-        skin_window_enable_touch ( emulator->window, android_hw->hw_touchScreen != 0 );
+        skin_window_enable_touch ( emulator->window,
+                                   !androidHwConfig_isScreenNoTouch(android_hw));
         skin_window_enable_dpad  ( emulator->window, android_hw->hw_dPad != 0 );
         skin_window_enable_qwerty( emulator->window, android_hw->hw_keyboard != 0 );
         skin_window_enable_trackball( emulator->window, android_hw->hw_trackBall != 0 );
@@ -137,17 +138,7 @@ qemulator_init( QEmulator*       emulator,
     emulator->aconfig     = aconfig;
     emulator->layout_file = skin_file_create_from_aconfig(aconfig, basepath);
     emulator->layout      = emulator->layout_file->layouts;
-    // If we have a custom charmap use it to initialize keyboard.
-    // Otherwise initialize keyboard from configuration settings.
-    // Another way to configure keyboard to use a custom charmap would
-    // be saving a custom charmap name into AConfig's keyboard->charmap
-    // property, and calling single skin_keyboard_create_from_aconfig
-    // routine to initialize keyboard.
-    if (NULL != opts->charmap) {
-        emulator->keyboard = skin_keyboard_create_from_kcm(opts->charmap, opts->raw_keys);
-    } else {
-        emulator->keyboard = skin_keyboard_create_from_aconfig(aconfig, opts->raw_keys);
-    }
+    emulator->keyboard    = skin_keyboard_create(opts->charmap, opts->raw_keys);
     emulator->window      = NULL;
     emulator->win_x       = x;
     emulator->win_y       = y;
@@ -330,9 +321,6 @@ get_default_scale( AndroidOptions*  opts )
     if (scale == 0.0 && dpi_monitor > 0)
         scale = dpi_monitor*1.0/dpi_device;
 
-    if (scale == 0.0)
-        scale = 1.0;
-
     return scale;
 }
 
@@ -343,11 +331,11 @@ handle_key_command( void*  opaque, SkinKeyCommand  command, int  down )
 {
     static const struct { SkinKeyCommand  cmd; AndroidKeyCode  kcode; }  keycodes[] =
     {
-        { SKIN_KEY_COMMAND_BUTTON_CALL,   kKeyCodeCall },
-        { SKIN_KEY_COMMAND_BUTTON_HOME,   kKeyCodeHome },
-        { SKIN_KEY_COMMAND_BUTTON_BACK,   kKeyCodeBack },
-        { SKIN_KEY_COMMAND_BUTTON_HANGUP, kKeyCodeEndCall },
-        { SKIN_KEY_COMMAND_BUTTON_POWER,  kKeyCodePower },
+        { SKIN_KEY_COMMAND_BUTTON_CALL,        kKeyCodeCall },
+        { SKIN_KEY_COMMAND_BUTTON_HOME,        kKeyCodeHome },
+        { SKIN_KEY_COMMAND_BUTTON_BACK,        kKeyCodeBack },
+        { SKIN_KEY_COMMAND_BUTTON_HANGUP,      kKeyCodeEndCall },
+        { SKIN_KEY_COMMAND_BUTTON_POWER,       kKeyCodePower },
         { SKIN_KEY_COMMAND_BUTTON_SEARCH,      kKeyCodeSearch },
         { SKIN_KEY_COMMAND_BUTTON_MENU,        kKeyCodeMenu },
         { SKIN_KEY_COMMAND_BUTTON_DPAD_UP,     kKeyCodeDpadUp },
@@ -358,6 +346,20 @@ handle_key_command( void*  opaque, SkinKeyCommand  command, int  down )
         { SKIN_KEY_COMMAND_BUTTON_VOLUME_UP,   kKeyCodeVolumeUp },
         { SKIN_KEY_COMMAND_BUTTON_VOLUME_DOWN, kKeyCodeVolumeDown },
         { SKIN_KEY_COMMAND_BUTTON_CAMERA,      kKeyCodeCamera },
+        { SKIN_KEY_COMMAND_BUTTON_TV,          kKeyCodeTV },
+        { SKIN_KEY_COMMAND_BUTTON_EPG,         kKeyCodeEPG },
+        { SKIN_KEY_COMMAND_BUTTON_DVR,         kKeyCodeDVR },
+        { SKIN_KEY_COMMAND_BUTTON_PREV,        kKeyCodePrevious },
+        { SKIN_KEY_COMMAND_BUTTON_NEXT,        kKeyCodeNext },
+        { SKIN_KEY_COMMAND_BUTTON_PLAY,        kKeyCodePlay },
+        { SKIN_KEY_COMMAND_BUTTON_PAUSE,       kKeyCodePause },
+        { SKIN_KEY_COMMAND_BUTTON_STOP,        kKeyCodeStop },
+        { SKIN_KEY_COMMAND_BUTTON_REWIND,      kKeyCodeRewind },
+        { SKIN_KEY_COMMAND_BUTTON_FFWD,        kKeyCodeFastForward },
+        { SKIN_KEY_COMMAND_BUTTON_BOOKMARKS,   kKeyCodeBookmarks },
+        { SKIN_KEY_COMMAND_BUTTON_WINDOW,      kKeyCodeCycleWindows },
+        { SKIN_KEY_COMMAND_BUTTON_CHANNELUP,   kKeyCodeChannelUp },
+        { SKIN_KEY_COMMAND_BUTTON_CHANNELDOWN, kKeyCodeChannelDown },
         { SKIN_KEY_COMMAND_NONE, 0 }
     };
     int          nn;

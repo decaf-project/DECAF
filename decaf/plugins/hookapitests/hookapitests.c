@@ -87,7 +87,7 @@ static void NtCreateFile_call(void *opaque)
 static void VirtualAlloc_ret(void *param)
 {
 	NtCreateFile_hook_context_t *ctx = (NtCreateFile_hook_context_t *)param;
-	DECAF_printf("NtCreateFile exit:");
+	DECAF_printf("VirtualAlloc exit:");
 
 	hookapi_remove_hook(ctx->hook_handle);
 	DECAF_printf("lpAddress=%08x, dwSize=%d, ret=%08x\n", ctx->call_stack[1], 

@@ -39,12 +39,6 @@ mmx_expand16( int  value )
     return _mm_packs_pi32( t1, t1 );
 }
 
-static inline int
-mmx_makescale( double  s )
-{
-    return (int)(s*(1 << 16));
-}
-
 static inline mmx_t
 mmx_mulshift( mmx_t   argb, int  multiplier, int  rshift, mmx_t  zero )
 {
@@ -124,6 +118,7 @@ mmx_interp255( mmx_t  m1, mmx_t  m2, mmx_t  zero, int  alpha )
 #define    ARGB_MULSHIFT(x1,x2,v,s)   \
     x1 = mmx_mulshift(x2, v, s, _zero)
 
+#define   ARGB_BEGIN _mm_empty()
 #define   ARGB_DONE  _mm_empty()
 
 #define   ARGB_RESCALE_SHIFT      10
@@ -206,6 +201,7 @@ typedef uint32_t    argb_t;
         x1##_rb = (x2##_rb >> _s) & 0xff00ff; \
     })
 
+#define   ARGB_BEGIN ((void)0)
 #define   ARGB_DONE  ((void)0)
 
 #define   ARGB_RESCALE_SHIFT      8
@@ -236,6 +232,8 @@ ARGB_SCALE_GENERIC( ScaleOp*   op )
     int        sy = op->sy;
     int        ix = op->ix;
     int        iy = op->iy;
+
+    ARGB_BEGIN;
 
     src_line += (sx >> 16)*4 + (sy >> 16)*src_pitch;
     sx       &= 0xffff;
@@ -330,6 +328,8 @@ scale_05_to_10( ScaleOp*   op )
     int        sy = op->sy;
     int        ix = op->ix;
     int        iy = op->iy;
+
+    ARGB_BEGIN;
 
     src_line += (sx >> 16)*4 + (sy >> 16)*src_pitch;
     sx       &= 0xffff;
@@ -468,6 +468,8 @@ scale_up_bilinear( ScaleOp*  op )
     int        xlimit, ylimit;
     int        h, sx0;
 
+    ARGB_BEGIN;
+
     /* the center pixel is at (sx+ix/2, sy+iy/2), we then want to get */
     /* the four nearest source pixels, which are at (0.5,0.5) offsets */
 
@@ -552,6 +554,8 @@ ARGB_SCALE_UP_QUICK_4x4( ScaleOp*  op )
     int        iy = op->iy;
     int        xlimit, ylimit;
     int        h, sx0;
+
+    ARGB_BEGIN;
 
     /* the center pixel is at (sx+ix/2, sy+iy/2), we then want to get */
     /* the four nearest source pixels, which are at (0.5,0.5) offsets */
@@ -804,6 +808,8 @@ ARGB_SCALE_NEAREST( ScaleOp*  op )
     int        iy = op->iy;
     int        xlimit, ylimit;
     int        h, sx0;
+
+    ARGB_BEGIN;
 
     /* the center pixel is at (sx+ix/2, sy+iy/2), we then want to get */
     /* the four nearest source pixels, which are at (0.5,0.5) offsets */

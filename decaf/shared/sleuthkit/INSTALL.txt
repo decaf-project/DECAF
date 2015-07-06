@@ -1,9 +1,9 @@
                         The Sleuth Kit
-
                 http://www.sleuthkit.org/sleuthkit
-                 http://sleuthkit.sourceforge.net
 
                     Installation Instructions
+
+                     Last Modified: Oct 2012
 
 
 REQUIREMENTS
@@ -14,85 +14,108 @@ Tested Platform:
 - OpenBSD 2-3.*
 - Mac OS X
 - SunOS 4-5.*
+- Windows
 
+Build System (to compile from a source distribution):
+- C/C++ compiler
+- GNU Make
+- Java compiler / JDK (if you want the java bindings)
 
-System:
-- C compiler
-- GNU make
-- OpenSSL Libraries (www.openssl.org)
-
+Development System (to extend TSK or compile from the repository):
+- GNU autoconf, automake, and libtool
+- Plus the build system requirements
 
 Optional Programs:
-- Autopsy 2.05: Provides a graphical HTML-based interface to The
+- Autopsy: Provides a graphical HTML-based interface to The
 Sleuth Kit (which makes it much easier to use).  Install this AFTER
 installing The Sleuth Kit.
-
     Available at: http://www.sleuthkit.org/autopsy
 
+Optional Libraries:
+There are optional features that TSK can use if you have installed
+them before you build and install TSK. 
 
-INSTALLATION NOTES
-=============================================================================
-- If you are planning on using the Autopsy Forensic Browser with
-The Sleuth Kit, then it is recommended that you make a symbolic
-link from the specific install directory (i.e. sleuthkit-1.00) to a
-generic directory (i.e. sleuthkit) and use that location for the Autopsy
-configuration file.  For example:
+- AFFLIB: Allows you to process disk images that are stored in the
+AFF format. Version 3.3.6 has been tested to compile and work with this
+release. 
+    Available at: http://www.afflib.org
 
-    $ ln -s /usr/local/sleuthkit-1.00 /usr/local/sleuthkit
+- LibEWF: Allows you to process disk images that are stored in the
+Expert Witness format (EnCase Format).  Version 20130128 has been
+tested to compile and work with this release. 
+    Available at: http://sourceforge.net/projects/libewf/
+
 
 
 INSTALLATION
 =============================================================================
 
-The Sleuth Kit  uses basically the same installation scripts that were
-written for TCT.  The process should happen automatically by typing:
+Refer to the README_win32.txt file for details on Windows.
+
+The Sleuth Kit uses the GNU autotools for building and installation.
+There are a few steps to this process.  First, run the 'configure'
+script in the root TSK directory.  See the CONFIGURE OPTIONS section
+for useful arguments that can be given to 'configure.
+
+    $ ./configure
+
+If there were no errors, then run 'make'.  If you do not have a
+'configure' script, then it is probably because you cloned the
+source code repository. If so, you will need to have automake,
+autoconf, and libtool installed and you can create the configure
+script using the 'bootstrap' script in the root directory. 
 
     $ make
 
-If an error occurs about not using GNU make, then either install GNU
-make or type in 'gmake' if you have both GNU and BSD make installed.
+The 'make' process will take a while and will build the TSK tools.
+When this process is complete, the libraries and executables will
+be located in the TSK sub-directories.  To install them, type
+'make install'.
 
-The script attempts to identify if certain items on the system.  If the
-script says that it can not find something, then it does not necessarily
-mean that it is an error.
+    $ make install
 
-If you get a 'gcc: not found' error, then the compiler can not be
-found (the GNU compiler is used by default).  If you only have 'cc'
-installed, use the following line:
-
-    $ make CC=cc
-
-Or if you have gcc installed, but not you your path, use something like:
-
-    $ make CC=/usr/local/bin/gcc
-
-If you do not have Perl, then you can use:
-
-    $ make no-perl
-
-If you only want the mactime tool (i.e. the file systems tools do not
-support your OS), then you can use:
-
-    $ make mactime
+By default, this will copy everything in to the /usr/local/ structure.
+So, the executables will be in '/usr/local/bin'.  This directory will
+need to be in your PATH if you want to run the TSK commands without 
+specifying '/usr/local/bin' everytime.
 
 
+If you get an error like:
 
-All tools will be compiled into the 'bin' directory.  All manual pages
-are located in the 'man' directory.  To always have access to the
-manual pages, add the directory to your MANPATH environment variable.
-If you would like the binaries to be placed in a common directory,
-such as /usr/local/bin, then it must be done manually.
+  libtool: Version mismatch error.  This is libtool 2.2.10, but the
+  libtool: definition of this LT_INIT comes from libtool 2.2.4.
+  libtool: You should recreate aclocal.m4 with macros from libtool 2.2.10
+  libtool: and run autoconf again.
+
+Run:
+    ./bootstrap 
+
+and then go back to running configure and make.  To run 'bootstrap',
+you'll need to have the autotools installed (see the list at the
+top of this page).
 
 
-REFERENCES
-=============================================================================
-As much of the installation process is from The Coroners Toolkit (TCT),
-much of this file is based on the original INSTALL file.
+CONFIGURE OPTIONS
+-----------------------------------------------------------------------------
+There are some arguments to 'configure' that you can supply to
+customize the setup. Currently, they focus on the optional disk
+image format libraries.
 
+--without-afflib: Supply this if you want TSK to ignore AFFLIB even
+if it is installed.
+
+--with-afflib=dir: Supply this if you want TSK to look in 'dir' for
+the AFFLIB installation (the directory should have 'lib' and 'include'
+directories in it).
+
+--without-ewf: Supply this if you want TSK to ignore libewf even
+if it is installed.
+
+--with-libewf=dir: Supply this if you want TSK to look in 'dir' for
+the libewf installation (the directory should have 'lib' and 'include'
+directories in it).
 
 -----------------------------------------------------------------------------
-Brian Carrier
-carrier@sleuthkit.org
-May 11, 2006
 
-CVS Date: $Date: 2006-08-24 10:45:33 -0400 (Thu, 24 Aug 2006) $
+Brian Carrier
+carrier <at> sleuthkit <dot> org

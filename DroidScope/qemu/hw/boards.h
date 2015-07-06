@@ -27,4 +27,7 @@ extern QEMUMachine *current_machine;
 /* android_arm.c */
 extern QEMUMachine android_arm_machine;
 
+/* android_mips.c */
+extern QEMUMachine android_mips_machine;
+
 #endif

@@ -219,6 +219,8 @@ QEMULIBS=libhw32 libhw64 libuser libdis libdis-user
 
 clean:
 # avoid old build problems by removing potentially incorrect old files
+	$(MAKE) -C ./shared/sleuthkit/ uninstall
+	$(MAKE) -C ./shared/sleuthkit/ distclean
 	rm -f config.mak op-i386.h opc-i386.h gen-op-i386.h op-arm.h opc-arm.h gen-op-arm.h
 	rm -f qemu-options.def
 	rm -f *.o *.d *.a *.lo $(TOOLS) $(CHECKS) qemu-ga TAGS cscope.* *.pod *~ */*~

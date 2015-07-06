@@ -137,6 +137,7 @@ typedef struct {
     size_t    buffsize;
     size_t    pos;
     LoopIo*   io;
+    char      eol;
 } AsyncLineReader;
 
 /* Setup an AsyncLineReader to read at most 'buffsize' characters (bytes)
@@ -154,6 +155,17 @@ void asyncLineReader_init(AsyncLineReader* alr,
                           void*            buffer,
                           size_t           buffsize,
                           LoopIo*          io);
+
+/* Sets line terminator character for the reader.
+ * By default, asyncLineReader_init will set EOL to be '\n'. Sometimes it's more
+ * convenient to have '\0' as line terminator, so "line" reader easily becomes
+ * a "string" reader.
+ */
+AINLINED void
+asyncLineReader_setEOL(AsyncLineReader* alr, char eol)
+{
+    alr->eol = eol;
+}
 
 /* Try to read line characters from 'io'.
  * Returns:
@@ -212,5 +224,13 @@ asyncConnector_init(AsyncConnector*    ac,
 
 AsyncStatus
 asyncConnector_run(AsyncConnector* ac);
+
+/* Stops connection in progress.
+ * Return:
+ *  0 if connection in progress has been stopped, or -1 if no connection has been
+ *  in progress.
+ */
+int
+asyncConnector_stop(AsyncConnector* ac);
 
 #endif /* ANDROID_ASYNC_UTILS_H */

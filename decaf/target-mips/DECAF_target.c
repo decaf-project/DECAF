@@ -24,7 +24,7 @@ http://code.google.com/p/decaf-platform/
 #include "shared/DECAF_callback.h"
 #include "shared/hookapi.h" // AWH
 #include "DECAF_target.h"
-#include "shared/linux_vmi.h"
+#include "shared/linux_vmi_new.h"
 
 gpa_t DECAF_get_phys_addr_with_pgd(CPUState* env, gpa_t pgd, gva_t addr)
 {

@@ -1,0 +1,82 @@
+HOW TO REBUILT THE ANDROID EMULATOR-SPECIFIC KERNEL:
+====================================================
+
+I. Helper script:
+-----------------
+
+We now provide a helper script to rebuild the kernel,
+it is under distrib/rebuild-kernel.sh.
+
+You need the sources in android.googlesource.com/kernel/goldfish.git,
+in branch origin/android-goldfish-2.6.29
+
+To rebuild the ARMv5TE kernel:
+
+  cd $KERNEL_SOURCES
+  /path/to/rebuild-kernel.sh --out=$ANDROID/prebuilt/android-arm/kernel
+
+To rebuild the ARMv7-A one:
+
+  cd $KERNEL_SOURCES
+  /path/to/rebuild-kernel.sh --armv7 --out=$ANDROID/prebuilt/android-arm/kernel
+
+To rebuild the x86 kernel:
+
+  cd $KERNEL_SOURCES
+  /path/to/rebuild-kernel.sh --arch=x86 --out=$ANDROID/prebuilt/android-x86/kernel
+
+To rebuild the MIPS kernel:
+
+  cd $KERNEL_SOURCES
+  /path/to/rebuild-kernel.sh --arch=mips --out=$ANDROID/prebuilts/qemu-kernel/mips
+
+Note that you will need to have your cross-toolchain in your path.
+If this is not the case, the script will complain and give you the
+expected name. Use --cross=<prefix> to specify a different toolchain.
+
+See rebuild-kernel.sh --help for more options and details.
+
+
+II. Rebuilding from scratch:
+----------------------------
+
+If you don't or can't use the script, here are manual instructions:
+
+You need to have the Android toolchain in your path
+(i.e. 'arm-eabi-gcc --version' must work)
+
+then:
+
+git clone https://android.googlesource.com/kernel/goldfish.git kernel-goldfish
+cd kernel-goldfish
+git checkout origin/android-gldfish-2.6.29
+
+export CROSS_COMPILE=arm-eabi-
+export ARCH=arm
+export SUBARCH=arm
+make goldfish_defconfig    # configure the kernel
+make -j2                   # build it
+
+=> this generates a file named arch/arm/boot/zImage
+
+NOTE: Branch android-goldfish-2.6.27 is obsolete now. Do not use it.
+
+Now, you can use it with:
+
+  emulator -kernel path/to/your/new/zImage <other-options>
+
+
+You can build an ARMv7-compatible kernel image by using goldfish_armv7_defconfg
+in the above instructions (instead of goldfish_defconfig). Note that you will
+need to enable ARMv7 emulation by using the -cpu cortex-a8 option, as in:
+
+  emulator -kernel path/to/your/new/zImage <other-options> -qemu -cpu cortex-a8
+
+As a special convenience, if the name of your kernel image ends in -armv7, then
+the emulator binary will automatically enable ARMv7 emulation for you, so doing
+the following should be equivalent
+
+  emulator -kernel path/to/your/kernel-armv7 <other-options>
+
+
+Voila !

@@ -62,11 +62,14 @@ _hw_control_qemud_client_recv( void*         opaque,
 
 /* called when a qemud client connects to the service */
 static QemudClient*
-_hw_control_qemud_connect( void*  opaque, QemudService*  service, int  channel )
+_hw_control_qemud_connect( void*  opaque,
+                           QemudService*  service,
+                           int  channel,
+                           const char* client_param )
 {
     QemudClient*  client;
 
-    client = qemud_client_new( service, channel,
+    client = qemud_client_new( service, channel, client_param,
                                opaque,
                                _hw_control_qemud_client_recv,
                                NULL, NULL, NULL );

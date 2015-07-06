@@ -145,7 +145,7 @@ _adjustPartitionSize( const char*  description,
     if (imageMB > defaultMB) {
         snprintf(temp, sizeof temp, "(%d MB > %d MB)", imageMB, defaultMB);
     } else {
-        snprintf(temp, sizeof temp, "(%lld bytes > %lld bytes)", imageBytes, defaultBytes);
+        snprintf(temp, sizeof temp, "(%" PRIu64 "  bytes > %" PRIu64 " bytes)", imageBytes, defaultBytes);
     }
 
     if (inAndroidBuild) {
@@ -169,12 +169,14 @@ int main(int argc, char **argv)
     int    serial = 2;
     int    shell_serial = 0;
 
+    int    forceArmv7 = 0;
+
     AndroidHwConfig*  hw;
     AvdInfo*          avd;
     AConfig*          skinConfig;
     char*             skinPath;
     int               inAndroidBuild;
-    uint64_t          defaultPartitionSize = convertMBToBytes(66);
+    uint64_t          defaultPartitionSize = convertMBToBytes(200);
 
     AndroidOptions  opts[1];
     /* net.shared_net_ip boot property value. */
@@ -317,6 +319,13 @@ int main(int argc, char **argv)
 
         opts->skindir = skinDir;
         D("autoconfig: -skindir %s", opts->skindir);
+
+        /* update the avd hw config from this new skin */
+        avdInfo_getSkinHardwareIni(avd, opts->skin, opts->skindir);
+    }
+
+    if (opts->dynamic_skin == 0) {
+        opts->dynamic_skin = avdInfo_shouldUseDynamicSkin(avd);
     }
 
     /* Read hardware configuration */
@@ -394,6 +403,20 @@ int main(int argc, char **argv)
         opts->trace = tracePath;
     }
 
+    /* Update CPU architecture for HW configs created from build dir. */
+    if (inAndroidBuild) {
+#if defined(TARGET_ARM)
+        free(android_hw->hw_cpu_arch);
+        android_hw->hw_cpu_arch = ASTRDUP("arm");
+#elif defined(TARGET_I386)
+        free(android_hw->hw_cpu_arch);
+        android_hw->hw_cpu_arch = ASTRDUP("x86");
+#elif defined(TARGET_MIPS)
+        free(android_hw->hw_cpu_arch);
+        android_hw->hw_cpu_arch = ASTRDUP("mips");
+#endif
+    }
+
     n = 1;
     /* generate arguments for the underlying qemu main() */
     {
@@ -430,8 +453,7 @@ int main(int argc, char **argv)
          */
          kernelFileLen = strlen(kernelFile);
          if (kernelFileLen > 6 && !memcmp(kernelFile + kernelFileLen - 6, "-armv7", 6)) {
-            args[n++] = "-cpu";
-            args[n++] = "cortex-a8";
+             forceArmv7 = 1;
          }
     }
 
@@ -484,8 +506,15 @@ int main(int argc, char **argv)
         args[n++] = opts->dns_server;
     }
 
-    hw->disk_ramdisk_path = avdInfo_getRamdiskPath(avd);
-    D("autoconfig: -ramdisk %s", hw->disk_ramdisk_path);
+    /* opts->ramdisk is never NULL (see createAVD) here */
+    if (opts->ramdisk) {
+        AFREE(hw->disk_ramdisk_path);
+        hw->disk_ramdisk_path = ASTRDUP(opts->ramdisk);
+    }
+    else if (!hw->disk_ramdisk_path[0]) {
+        hw->disk_ramdisk_path = avdInfo_getRamdiskPath(avd);
+        D("autoconfig: -ramdisk %s", hw->disk_ramdisk_path);
+    }
 
     /* -partition-size is used to specify the max size of both the system
      * and data partition sizes.
@@ -548,7 +577,7 @@ int main(int argc, char **argv)
             }
 
             /* If -system <name> is used, use it to find the initial image */
-            if (opts->sysdir != NULL) {
+            if (opts->sysdir != NULL && !path_exists(opts->system)) {
                 initImage = _getFullFilePath(opts->sysdir, opts->system);
             } else {
                 initImage = ASTRDUP(opts->system);
@@ -648,7 +677,10 @@ int main(int argc, char **argv)
             hw->disk_dataPartition_initPath = NULL;
         }
 
-        uint64_t     defaultBytes = defaultPartitionSize;
+        uint64_t     defaultBytes =
+                hw->disk_dataPartition_size == 0 ?
+                defaultPartitionSize :
+                hw->disk_dataPartition_size;
         uint64_t     dataBytes;
         const char*  dataPath = hw->disk_dataPartition_initPath;
 
@@ -696,6 +728,18 @@ int main(int argc, char **argv)
         if (opts->cache) {
             hw->disk_cachePartition_path = ASTRDUP(opts->cache);
         }
+    }
+
+    if (hw->disk_cachePartition_path && opts->cache_size) {
+        /* Set cache partition size per user options. */
+        char*  end;
+        long   sizeMB = strtol(opts->cache_size, &end, 0);
+
+        if (sizeMB < 0 || *end != 0) {
+            derror( "-cache-size must be followed by a positive integer" );
+            exit(1);
+        }
+        hw->disk_cachePartition_size = (uint64_t) sizeMB * ONE_MB;
     }
 
     /** SD CARD PARTITION */
@@ -772,7 +816,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        if (!opts->snapstorage) {
+        if (!opts->snapstorage && avdInfo_getSnapshotPresent(avd)) {
             opts->snapstorage = avdInfo_getSnapStoragePath(avd);
             if (opts->snapstorage != NULL) {
                 D("autoconfig: -snapstorage %s", opts->snapstorage);
@@ -1028,14 +1072,91 @@ int main(int argc, char **argv)
         args[n++] = opts->http_proxy;
     }
 
+    if (!opts->charmap) {
+        /* Try to find a valid charmap name */
+        char* charmap = avdInfo_getCharmapFile(avd, hw->hw_keyboard_charmap);
+        if (charmap != NULL) {
+            D("autoconfig: -charmap %s", charmap);
+            opts->charmap = charmap;
+        }
+    }
+
     if (opts->charmap) {
-        args[n++] = "-charmap";
-        args[n++] = opts->charmap;
+        char charmap_name[AKEYCHARMAP_NAME_SIZE];
+
+        if (!path_exists(opts->charmap)) {
+            derror("Charmap file does not exist: %s", opts->charmap);
+            exit(1);
+        }
+        /* We need to store the charmap name in the hardware configuration.
+         * However, the charmap file itself is only used by the UI component
+         * and doesn't need to be set to the emulation engine.
+         */
+        kcm_extract_charmap_name(opts->charmap, charmap_name,
+                                 sizeof(charmap_name));
+        AFREE(hw->hw_keyboard_charmap);
+        hw->hw_keyboard_charmap = ASTRDUP(charmap_name);
     }
 
     if (opts->memcheck) {
         args[n++] = "-android-memcheck";
         args[n++] = opts->memcheck;
+    }
+
+    if (opts->gpu) {
+        const char* gpu = opts->gpu;
+        if (!strcmp(gpu,"on") || !strcmp(gpu,"enable")) {
+            hw->hw_gpu_enabled = 1;
+        } else if (!strcmp(gpu,"off") || !strcmp(gpu,"disable")) {
+            hw->hw_gpu_enabled = 0;
+        } else if (!strcmp(gpu,"auto")) {
+            /* Nothing to do */
+        } else {
+            derror("Invalid value for -gpu <mode> parameter: %s\n", gpu);
+            derror("Valid values are: on, off or auto\n");
+            exit(1);
+        }
+    }
+
+    /* Quit emulator on condition that both, gpu and snapstorage are on. This is
+     * a temporary solution preventing the emulator from crashing until GPU state
+     * can be properly saved / resored in snapshot file. */
+    if (hw->hw_gpu_enabled && opts->snapstorage && (!opts->no_snapshot_load ||
+                                                    !opts->no_snapshot_save)) {
+        derror("Snapshots and gpu are mutually exclusive at this point. Please turn one of them off, and restart the emulator.");
+        exit(1);
+    }
+
+    /* Deal with camera emulation */
+    if (opts->webcam_list) {
+        /* List connected webcameras */
+        args[n++] = "-list-webcam";
+    }
+
+    if (opts->camera_back) {
+        /* Validate parameter. */
+        if (memcmp(opts->camera_back, "webcam", 6) &&
+            strcmp(opts->camera_back, "emulated") &&
+            strcmp(opts->camera_back, "none")) {
+            derror("Invalid value for -camera-back <mode> parameter: %s\n"
+                   "Valid values are: 'emulated', 'webcam<N>', or 'none'\n",
+                   opts->camera_back);
+            exit(1);
+        }
+        hw->hw_camera_back = ASTRDUP(opts->camera_back);
+    }
+
+    if (opts->camera_front) {
+        /* Validate parameter. */
+        if (memcmp(opts->camera_front, "webcam", 6) &&
+            strcmp(opts->camera_front, "emulated") &&
+            strcmp(opts->camera_front, "none")) {
+            derror("Invalid value for -camera-front <mode> parameter: %s\n"
+                   "Valid values are: 'emulated', 'webcam<N>', or 'none'\n",
+                   opts->camera_front);
+            exit(1);
+        }
+        hw->hw_camera_front = ASTRDUP(opts->camera_front);
     }
 
     /* physical memory is now in hw->hw_ramSize */
@@ -1059,10 +1180,45 @@ int main(int argc, char **argv)
         args[n++] = "socket,vlan=1,mcast=230.0.0.10:1234";
     }
 
+    /* Setup screen emulation */
+    if (opts->screen) {
+        if (strcmp(opts->screen, "touch") &&
+            strcmp(opts->screen, "multi-touch") &&
+            strcmp(opts->screen, "no-touch")) {
+
+            derror("Invalid value for -screen <mode> parameter: %s\n"
+                   "Valid values are: touch, multi-touch, or no-touch\n",
+                   opts->screen);
+            exit(1);
+        }
+        hw->hw_screen = ASTRDUP(opts->screen);
+    }
+
     while(argc-- > 0) {
         args[n++] = *argv++;
     }
     args[n] = 0;
+
+    /* If the target ABI is armeabi-v7a, we can auto-detect the cpu model
+     * as a cortex-a8, instead of the default (arm926) which only emulates
+     * an ARMv5TE CPU.
+     */
+    if (!forceArmv7 && hw->hw_cpu_model[0] == '\0')
+    {
+        char* abi = avdInfo_getTargetAbi(avd);
+        if (abi != NULL) {
+            if (!strcmp(abi, "armeabi-v7a")) {
+                forceArmv7 = 1;
+            }
+            AFREE(abi);
+        }
+    }
+
+    if (forceArmv7 != 0) {
+        AFREE(hw->hw_cpu_model);
+        hw->hw_cpu_model = ASTRDUP("cortex-a8");
+        D("Auto-config: -qemu -cpu %s", hw->hw_cpu_model);
+    }
 
     /* Generate a hardware-qemu.ini for this AVD. The real hardware
      * configuration is ususally stored in several files, e.g. the AVD's
@@ -1084,7 +1240,11 @@ int main(int argc, char **argv)
              coreHwIniPath = tempfile_path(tempIni);
         }
 
-        if (iniFile_saveToFile(hwIni, coreHwIniPath) < 0) {
+        /* While saving HW config, ignore valueless entries. This will not break
+         * anything, but will significantly simplify comparing the current HW
+         * config with the one that has been associated with a snapshot (in case
+         * VM starts from a snapshot for this instance of emulator). */
+        if (iniFile_saveToFileClean(hwIni, coreHwIniPath) < 0) {
             derror("Could not write hardware.ini to %s: %s", coreHwIniPath, strerror(errno));
             exit(2);
         }

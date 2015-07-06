@@ -23,13 +23,14 @@
 #include "android/utils/panic.h"
 #include "android/utils/system.h"
 #include "android/async-utils.h"
+#include "android/opengles.h"
 #include "android/looper.h"
 #include "hw/goldfish_pipe.h"
 
 /* Implement the OpenGL fast-pipe */
 
 /* Set to 1 or 2 for debug traces */
-#define  DEBUG  1
+// #define  DEBUG  1
 
 #if DEBUG >= 1
 #  define D(...)   printf(__VA_ARGS__), printf("\n")
@@ -68,7 +69,6 @@ typedef struct {
     int             wakeWanted;
     LoopIo          io[1];
     AsyncConnector  connector[1];
-
 } NetPipe;
 
 static void
@@ -204,10 +204,9 @@ netPipe_initFromAddress( void* hwpipe, const SockAddress*  address, Looper* loop
         }
 
         loopIo_init(pipe->io, looper, fd, netPipe_io_func, pipe);
-        asyncConnector_init(pipe->connector, address, pipe->io);
+        status = asyncConnector_init(pipe->connector, address, pipe->io);
         pipe->state = STATE_CONNECTING;
 
-        status = asyncConnector_run(pipe->connector);
         if (status == ASYNC_ERROR) {
             D("%s: Could not connect to socket: %s",
               __FUNCTION__, errno_str);
@@ -234,6 +233,17 @@ netPipe_closeFromGuest( void* opaque )
     netPipe_free(pipe);
 }
 
+static int netPipeReadySend(NetPipe *pipe)
+{
+    if (pipe->state == STATE_CONNECTED)
+        return 0;
+    else if (pipe->state == STATE_CONNECTING)
+        return PIPE_ERROR_AGAIN;
+    else if (pipe->hwpipe == NULL)
+        return PIPE_ERROR_INVAL;
+    else
+        return PIPE_ERROR_IO;
+}
 
 static int
 netPipe_sendBuffers( void* opaque, const GoldfishPipeBuffer* buffers, int numBuffers )
@@ -245,13 +255,17 @@ netPipe_sendBuffers( void* opaque, const GoldfishPipeBuffer* buffers, int numBuf
     const GoldfishPipeBuffer* buff = buffers;
     const GoldfishPipeBuffer* buffEnd = buff + numBuffers;
 
+    ret = netPipeReadySend(pipe);
+    if (ret != 0)
+        return ret;
+
     for (; buff < buffEnd; buff++)
         count += buff->size;
 
     buff = buffers;
     while (count > 0) {
         int  avail = buff->size - buffStart;
-        int  len = write(pipe->io->fd, buff->data + buffStart, avail);
+        int  len = socket_send(pipe->io->fd, buff->data + buffStart, avail);
 
         /* the write succeeded */
         if (len > 0) {
@@ -271,10 +285,6 @@ netPipe_sendBuffers( void* opaque, const GoldfishPipeBuffer* buffers, int numBuf
                 ret = PIPE_ERROR_IO;
             break;
         }
-
-        /* loop on EINTR */
-        if (errno == EINTR)
-            continue;
 
         /* if we already wrote some stuff, simply return */
         if (ret > 0) {
@@ -309,7 +319,7 @@ netPipe_recvBuffers( void* opaque, GoldfishPipeBuffer*  buffers, int  numBuffers
     buff = buffers;
     while (count > 0) {
         int  avail = buff->size - buffStart;
-        int  len = read(pipe->io->fd, buff->data + buffStart, avail);
+        int  len = socket_recv(pipe->io->fd, buff->data + buffStart, avail);
 
         /* the read succeeded */
         if (len > 0) {
@@ -329,10 +339,6 @@ netPipe_recvBuffers( void* opaque, GoldfishPipeBuffer*  buffers, int  numBuffers
                 ret = PIPE_ERROR_IO;
             break;
         }
-
-        /* loop on EINTR */
-        if (errno == EINTR)
-            continue;
 
         /* if we already read some stuff, simply return */
         if (ret > 0) {
@@ -358,9 +364,9 @@ netPipe_poll( void* opaque )
     unsigned  ret  = 0;
 
     if (mask & LOOP_IO_READ)
-        ret |= PIPE_WAKE_READ;
+        ret |= PIPE_POLL_IN;
     if (mask & LOOP_IO_WRITE)
-        ret |= PIPE_WAKE_WRITE;
+        ret |= PIPE_POLL_OUT;
 
     return ret;
 }
@@ -381,40 +387,17 @@ void*
 netPipe_initTcp( void* hwpipe, void* _looper, const char* args )
 {
     /* Build SockAddress from arguments. Acceptable formats are:
-     *
      *   <port>
-     *   <host>:<port>
      */
     SockAddress  address;
+    uint16_t     port;
     void*        ret;
 
     if (args == NULL) {
         D("%s: Missing address!", __FUNCTION__);
         return NULL;
     }
-    D("%s: Address is '%s'", __FUNCTION__, args);
-
-    char        host[256];  /* max size of regular FDQN+1 */
-    int         hostlen = 0;
-    int         port;
-    const char* p;
-
-    /* Assume that anything after the last ':' is a port number
-        * And that what is before it is a port number. Should handle IPv6
-        * notation. */
-    p = strrchr(args, ':');
-    if (p != NULL) {
-        hostlen = p - args;
-        if (hostlen >= sizeof(host)) {
-            D("%s: Address too long!", __FUNCTION__);
-            return NULL;
-        }
-        memcpy(host, args, hostlen);
-        host[hostlen] = '\0';
-        args = p + 1;
-    } else {
-        snprintf(host, sizeof host, "127.0.0.1");
-    }
+    D("%s: Port is '%s'", __FUNCTION__, args);
 
     /* Now, look at the port number */
     {
@@ -423,12 +406,9 @@ netPipe_initTcp( void* hwpipe, void* _looper, const char* args )
         if (end == NULL || *end != '\0' || val <= 0 || val > 65535) {
             D("%s: Invalid port number: '%s'", __FUNCTION__, args);
         }
-        port = (int)val;
+        port = (uint16_t)val;
     }
-    if (sock_address_init_resolve(&address, host, port, 0) < 0) {
-        D("%s: Could not resolve address", __FUNCTION__);
-        return NULL;
-    }
+    sock_address_init_inet(&address, SOCK_ADDRESS_INET_LOOPBACK, port);
 
     ret = netPipe_initFromAddress(hwpipe, &address, _looper);
 
@@ -436,6 +416,7 @@ netPipe_initTcp( void* hwpipe, void* _looper, const char* args )
     return ret;
 }
 
+#ifndef _WIN32
 void*
 netPipe_initUnix( void* hwpipe, void* _looper, const char* args )
 {
@@ -459,7 +440,7 @@ netPipe_initUnix( void* hwpipe, void* _looper, const char* args )
     sock_address_done(&address);
     return ret;
 }
-
+#endif
 
 /**********************************************************************
  **********************************************************************
@@ -475,8 +456,11 @@ static const GoldfishPipeFuncs  netPipeTcp_funcs = {
     netPipe_recvBuffers,
     netPipe_poll,
     netPipe_wakeOn,
+    NULL,  /* we can't save these */
+    NULL,  /* we can't load these */
 };
 
+#ifndef _WIN32
 static const GoldfishPipeFuncs  netPipeUnix_funcs = {
     netPipe_initUnix,
     netPipe_closeFromGuest,
@@ -484,19 +468,63 @@ static const GoldfishPipeFuncs  netPipeUnix_funcs = {
     netPipe_recvBuffers,
     netPipe_poll,
     netPipe_wakeOn,
+    NULL,  /* we can't save these */
+    NULL,  /* we can't load these */
 };
+#endif
 
-
-#define DEFAULT_OPENGLES_PORT  22468
+/* This is set to 1 in android_init_opengles() below, and tested
+ * by openglesPipe_init() to refuse a pipe connection if the function
+ * was never called.
+ */
+static int  _opengles_init;
 
 static void*
 openglesPipe_init( void* hwpipe, void* _looper, const char* args )
 {
     char temp[32];
+    NetPipe *pipe;
 
-    /* For now, simply connect through tcp */
-    snprintf(temp, sizeof temp, "%d", DEFAULT_OPENGLES_PORT);
-    return netPipe_initTcp(hwpipe, _looper, temp);
+    if (!_opengles_init) {
+        /* This should never happen, unless there is a bug in the
+         * emulator's initialization, or the system image. */
+        D("Trying to open the OpenGLES pipe without GPU emulation!");
+        return NULL;
+    }
+
+    char server_addr[PATH_MAX];
+    android_gles_server_path(server_addr, sizeof(server_addr));
+#ifndef _WIN32
+    if (android_gles_fast_pipes) {
+        pipe = (NetPipe *)netPipe_initUnix(hwpipe, _looper, server_addr);
+        D("Creating Unix OpenGLES pipe for GPU emulation: %s", server_addr);
+    } else {
+#else /* _WIN32 */
+    {
+#endif
+        /* Connect through TCP as a fallback */
+        pipe = (NetPipe *)netPipe_initTcp(hwpipe, _looper, server_addr);
+        D("Creating TCP OpenGLES pipe for GPU emulation!");
+    }
+    if (pipe != NULL) {
+        // Disable TCP nagle algorithm to improve throughput of small packets
+        socket_set_nodelay(pipe->io->fd);
+
+    // On Win32, adjust buffer sizes
+#ifdef _WIN32
+        {
+            int sndbuf = 128 * 1024;
+            int len = sizeof(sndbuf);
+            if (setsockopt(pipe->io->fd, SOL_SOCKET, SO_SNDBUF,
+                        (char*)&sndbuf, len) == SOCKET_ERROR) {
+                D("Failed to set SO_SNDBUF to %d error=0x%x\n",
+                sndbuf, WSAGetLastError());
+            }
+        }
+#endif /* _WIN32 */
+    }
+
+    return pipe;
 }
 
 static const GoldfishPipeFuncs  openglesPipe_funcs = {
@@ -506,8 +534,9 @@ static const GoldfishPipeFuncs  openglesPipe_funcs = {
     netPipe_recvBuffers,
     netPipe_poll,
     netPipe_wakeOn,
+    NULL,  /* we can't save these */
+    NULL,  /* we can't load these */
 };
-
 
 void
 android_net_pipes_init(void)
@@ -515,6 +544,18 @@ android_net_pipes_init(void)
     Looper*  looper = looper_newCore();
 
     goldfish_pipe_add_type( "tcp", looper, &netPipeTcp_funcs );
+#ifndef _WIN32
     goldfish_pipe_add_type( "unix", looper, &netPipeUnix_funcs );
+#endif
     goldfish_pipe_add_type( "opengles", looper, &openglesPipe_funcs );
+}
+
+int
+android_init_opengles_pipes(void)
+{
+    /* TODO: Check that we can load and initialize the host emulation
+     *        libraries, and return -1 in case of error.
+     */
+    _opengles_init = 1;
+    return 0;
 }

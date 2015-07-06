@@ -24,9 +24,8 @@ typedef void (*SkinKeyCommandFunc)( void*  opaque, SkinKeyCommand  command, int 
 
 typedef void (*SkinKeyEventFunc)( void*  opaque, AndroidKeyCode  code, int  down );
 
-extern SkinKeyboard*  skin_keyboard_create_from_aconfig( AConfig*  aconfig, int  use_raw_keys );
-
-extern SkinKeyboard*  skin_keyboard_create_from_kcm( const char*  kcm_file_path, int  use_raw_keys );
+/* If kcm_file_path is NULL, create a keyboard using the default built-in qwerty2 charmap */
+extern SkinKeyboard*  skin_keyboard_create( const char*  kcm_file_path, int  use_raw_keys );
 
 extern void           skin_keyboard_set_keyset( SkinKeyboard*  keyboard, SkinKeyset*  kset );
 

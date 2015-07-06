@@ -1,11 +1,17 @@
-ifneq (,$(filter $(TARGET_ARCH),arm x86))
+ifneq ($(filter true% %true,$(BUILD_EMULATOR)$(BUILD_STANDALONE_EMULATOR)),)
+
+ifneq (,$(filter $(TARGET_ARCH),arm x86 mips))
 LOCAL_PATH:= $(call my-dir)
 
 # determine the target cpu
 ifeq ($(TARGET_ARCH),arm)
 EMULATOR_TARGET_CPU := target-arm
-else
+endif
+ifeq ($(TARGET_ARCH),x86)
 EMULATOR_TARGET_CPU := target-i386
+endif
+ifeq ($(TARGET_ARCH),mips)
+EMULATOR_TARGET_CPU := target-mips
 endif
 
 # determine the host tag to use
@@ -29,18 +35,14 @@ MY_CC  := $(HOST_CC)
 MY_CXX := $(HOST_CXX)
 MY_AR  := $(HOST_AR)
 
-MY_OPTIM := -O2 -g -fno-PIC -falign-functions=0 -fomit-frame-pointer
-ifeq ($(BUILD_DEBUG_EMULATOR),true)
-    MY_OPTIM := -O0 -g
-endif
-
-MY_CFLAGS := $(CONFIG_INCLUDES) $(MY_OPTIM)
+MY_CFLAGS := $(CONFIG_INCLUDES) -O2 -g -fno-PIC -falign-functions=0 -fomit-frame-pointer
 
 # Overwrite configuration for debug builds.
 #
 ifeq ($(BUILD_DEBUG_EMULATOR),true)
-    MY_CFLAGS := $(CONFIG_INCLUDES) -O0 -g \
-                 -fno-PIC -falign-functions=0
+    MY_CFLAGS := $(CONFIG_INCLUDES)
+    MY_CFLAGS += -O0 -g
+    MY_CFLAGS += -fno-PIC -falign-functions=0
 endif
 
 MY_LDLIBS :=
@@ -50,24 +52,28 @@ MY_LDLIBS :=
 # For some reason - the CFLAGS and LDFLAGS
 # in config.make are not used - so forcing their 
 # use here - hope I don't break anything
-MY_CFLAGS := $(MY_CFLAGS) $(CFLAGS)
-MY_LDLIBS := $(MY_LDLIBS) $(LDFLAGS)
+MY_CFLAGS += $(MY_CFLAGS) $(CFLAGS)
+MY_LDLIBS += $(MY_LDLIBS) $(LDFLAGS)
 # END DECAF ADDITIONS
 #################################################
 
-# this is needed to build the emulator on 64-bit Linux systems
-ifeq ($(HOST_OS)-$(HOST_ARCH),linux-x86)
-  MY_CFLAGS += -Wa,--32
-endif
-
 ifeq ($(HOST_OS),freebsd)
-  MY_CFLAGS += -Wa,--32 -I /usr/local/include
+  MY_CFLAGS += -I /usr/local/include
 endif
 
 ifeq ($(HOST_OS),windows)
-  MY_CFLAGS += -D_WIN32 -mno-cygwin
-  # we need Win32 features  that are available since Windows 2000 Professional/Server (NT 5.0)
+  # we need Win32 features that are available since Windows 2000 Professional/Server (NT 5.0)
   MY_CFLAGS += -DWINVER=0x501
+  MY_CFLAGS += -D_WIN32
+  ifneq ($(BUILD_HOST_64bit),)
+    # Microsoft 64-bit compiler define both _WIN32 and _WIN64
+    MY_CFLAGS += -D_WIN64
+    # amd64-mingw32msvc- toolchain still name it vfw32.  May change it once amd64-mingw32msvc-
+    # is stabilized
+    MY_LDLIBS += -lvfw32
+  else
+    MY_LDLIBS += -lvfw32
+  endif
 endif
 
 ifeq ($(HOST_ARCH),ppc)
@@ -76,22 +82,23 @@ endif
 
 ifeq ($(HOST_OS),darwin)
     MY_CFLAGS += -mdynamic-no-pic -D_DARWIN_C_SOURCE=1
-
-    # When building on Leopard or above, we need to use the 10.4 SDK
-    # or the generated binary will not run on Tiger.
-    DARWIN_VERSION := $(strip $(shell sw_vers -productVersion))
-    ifneq ($(filter 10.1 10.2 10.3 10.1.% 10.2.% 10.3.% 10.4 10.4.%,$(DARWIN_VERSION)),)
-        $(error Building the Android emulator requires OS X 10.5 or above)
+    ifneq ($(host_toolchain_header),)
+        MY_CFLAGS += -isystem $(host_toolchain_header)
     endif
-    ifeq ($(filter 10.5 10.5.%,$(DARWIN_VERSION)),)
-        # We are on Snow Leopard or above
-        LEOPARD_SDK := /Developer/SDKs/MacOSX10.5.sdk
-        ifeq ($(strip $(wildcard $(LEOPARD_SDK))),)
-            $(info  Please install the 10.5 SDK on this machine at $(LEOPARD_SDK))
-            $(error Aborting the build.)
-        endif
-        MY_CFLAGS += -isysroot $(LEOPARD_SDK) -mmacosx-version-min=10.5 -DMACOSX_DEPLOYMENT_TARGET=10.5
-        MY_LDLIBS += -isysroot $(LEOPARD_SDK) -Wl,-syslibroot,$(LEOPARD_SDK) -mmacosx-version-min=10.5
+    MY_CFLAGS += -isysroot $(mac_sdk_root) -mmacosx-version-min=$(mac_sdk_version) -DMACOSX_DEPLOYMENT_TARGET=$(mac_sdk_version)
+    MY_LDLIBS += -isysroot $(mac_sdk_root) -Wl,-syslibroot,$(mac_sdk_root) -mmacosx-version-min=$(mac_sdk_version)
+
+endif
+
+# Some CFLAGS below use -Wno-missing-field-initializers but this is not
+# supported on GCC 3.x which is still present under Cygwin.
+# Find out by probing GCC for support of this flag. Note that the test
+# itself only works on GCC 4.x anyway.
+GCC_W_NO_MISSING_FIELD_INITIALIZERS := -Wno-missing-field-initializers
+ifeq ($(HOST_OS),windows)
+    ifeq (,$(shell gcc -Q --help=warnings 2>/dev/null | grep missing-field-initializers))
+        $(info emulator: Ignoring unsupported GCC flag $(GCC_W_NO_MISSING_FIELD_INITIALIZERS))
+        GCC_W_NO_MISSING_FIELD_INITIALIZERS :=
     endif
 endif
 
@@ -100,41 +107,54 @@ endif
 # adequate values for HOST_CC
 #
 ifneq ($(BUILD_STANDALONE_EMULATOR),true)
-  # On Linux, use our custom 32-bit host toolchain, which contains the
-  # relevant headers and 32-bit libraries for audio (The host 64-bit Lucid
-  # doesn't provide these anymore, only their 64-bit versions).
+  # On Linux, use our custom 32-bit host toolchain (unless BUILD_HOST_64bit=1)
+  # which contains the relevant headers and 32-bit libraries for audio (The host 64-bit
+  # Lucid doesn't provide these anymore, only their 64-bit versions).
   ifeq ($(HOST_OS),linux)
-    HOST_SDK_TOOLCHAIN_PREFIX := prebuilt/linux-x86/toolchain/i686-linux-glibc2.7-4.4.3/bin/i686-linux
+    HOST_SDK_TOOLCHAIN_PREFIX := prebuilts/tools/gcc-sdk
     # Don't do anything if the toolchain is not there
-    ifneq (,$(strip $(wildcard $(HOST_SDK_TOOLCHAIN_PREFIX)-gcc)))
-      MY_CC  := $(HOST_SDK_TOOLCHAIN_PREFIX)-gcc
-      MY_CXX := $(HOST_SDK_TOOLCHAIN_PREFIX)-g++
-      MY_AR  := $(HOST_SDK_TOOLCHAIN_PREFIX)-ar
-    endif # $(HOST_SDK_TOOLCHAIN_PREFIX)-gcc exists
+    ifneq (,$(strip $(wildcard $(HOST_SDK_TOOLCHAIN_PREFIX)/gcc)))
+      MY_CC  := $(HOST_SDK_TOOLCHAIN_PREFIX)/gcc
+      MY_CXX := $(HOST_SDK_TOOLCHAIN_PREFIX)/g++
+      MY_AR  := $(HOST_SDK_TOOLCHAIN_PREFIX)/ar
+    endif # $(HOST_SDK_TOOLCHAIN_PREFIX)/gcc exists
   endif # HOST_OS == linux
 
   ifneq ($(USE_CCACHE),)
-    ccache := prebuilt/$(HOST_PREBUILT_TAG)/ccache/ccache
+    ccache := prebuilts/misc/$(HOST_PREBUILT_TAG)/ccache/ccache
     ccache := $(strip $(wildcard $(ccache)))
     ifneq ($(ccache),$(firstword $(MY_CC)))
       MY_CC := $(ccache) $(MY_CC)
+      MY_CXX := $(ccache) $(MY_CXX)
     endif
     ccache :=
   endif
+
+  QEMU_OPENGLES_INCLUDE := sdk/emulator/opengl/host/include
+  QEMU_OPENGLES_LIBS := $(HOST_OUT)
 endif
 
 
 ifneq ($(combo_target)$(TARGET_SIMULATOR),HOST_true)
-  ifneq ($(HOST_ARCH),x86_64)
-    MY_CFLAGS += -m32
-    MY_LDLIBS += -m32
+  ifneq ($(BUILD_HOST_64bit),)
+    MY_CFLAGS += -m64
+    MY_LDLIBS += -m64
+  else
+    ifneq ($(HOST_ARCH),x86_64)
+      MY_CFLAGS += -m32
+      MY_LDLIBS += -m32
+    endif
+  endif
+
+  ifneq ($(BUILD_HOST_static),)
+    MY_LDLIBS += -static
   endif
 endif
 
 # Enable warning, except those related to missing field initializers
 # (the QEMU coding style loves using these).
 #
-MY_CFLAGS += -Wall -Wno-missing-field-initializers
+MY_CFLAGS += -Wall $(GCC_W_NO_MISSING_FIELD_INITIALIZERS)
 
 # Needed to build fpu/softfloat-native.h properly
 MY_CFLAGS += -D_GNU_SOURCE=1
@@ -157,19 +177,18 @@ start-emulator-library = \
     $(eval LOCAL_CFLAGS := $(MY_CFLAGS)) \
     $(eval LOCAL_AR := $(MY_AR)) \
     $(eval LOCAL_LDLIBS := $(MY_LDLIBS)) \
-    $(eval LOCAL_MODULE_TAGS := debug) \
     $(eval LOCAL_MODULE := $1) \
+    $(eval LOCAL_MODULE_CLASS := STATIC_LIBRARIES)
 
 # Used with start-emulator-library
 end-emulator-library = \
-    $(eval include $(BUILD_HOST_STATIC_LIBRARY)) \
-    $(eval EMULATOR_MODULE_TYPE := STATIC_LIBRARY)
+    $(eval include $(BUILD_HOST_STATIC_LIBRARY))
 
 # A variant of start-emulator-library to start the definition of a host
 # program instead. Use with end-emulator-program
 start-emulator-program = \
     $(call start-emulator-library,$1) \
-    $(eval EMULATOR_MODULE_TYPE := EXECUTABLES)
+    $(eval LOCAL_MODULE_CLASS := EXECUTABLES)
 
 # A varient of end-emulator-library for host programs instead
 end-emulator-program = \
@@ -193,16 +212,51 @@ ifeq ($(HOST_OS),linux)
 endif
 
 ifeq ($(HOST_OS),windows)
+  # amd64-mingw32msvc- toolchain still name it ws2_32.  May change it once amd64-mingw32msvc-
+  # is stabilized
   QEMU_SYSTEM_LDLIBS += -lwinmm -lws2_32 -liphlpapi
 else
   QEMU_SYSTEM_LDLIBS += -lpthread
 endif
 
 ifeq ($(HOST_OS),darwin)
-  QEMU_SYSTEM_LDLIBS += -Wl,-framework,Cocoa
+  QEMU_SYSTEM_LDLIBS += -Wl,-framework,Cocoa,-framework,QTKit,-framework,CoreVideo
+
+  # SDK 10.6+ doesn't have __dyld_func_lookup anymore. Dynamic library lookup symbols
+  # are instead resolved at runtime
+  OSX_VERSION_MAJOR := $(shell echo $(mac_sdk_version) | cut -d . -f 2)
+  OSX_VERSION_MAJOR_GREATER_THAN_OR_EQUAL_TO_6 := $(shell [ $(OSX_VERSION_MAJOR) -ge 6 ] && echo true)
+  ifeq ($(OSX_VERSION_MAJOR_GREATER_THAN_OR_EQUAL_TO_6),true)
+    QEMU_SYSTEM_LDLIBS += -undefined dynamic_lookup
+  endif
 endif
 
 include $(LOCAL_PATH)/Makefile.common
+
+ifeq ($(HOST_OS),windows)
+  # on Windows, link the icon file as well into the executable
+  # unfortunately, our build system doesn't help us much, so we need
+  # to use some weird pathnames to make this work...
+
+  # Locate windres executable
+  WINDRES := windres
+  ifneq ($(USE_MINGW),)
+    # When building the Windows emulator under Linux, use the MinGW one
+    WINDRES := i586-mingw32msvc-windres
+  endif
+
+  # Usage: $(eval $(call insert-windows-icon))
+  define insert-windows-icon
+    LOCAL_PREBUILT_OBJ_FILES += images/emulator_icon.o
+  endef
+
+# This seems to be the only way to add an object file that was not generated from
+# a C/C++/Java source file to our build system. and very unfortunately,
+# $(TOPDIR)/$(LOCALPATH) will always be prepended to this value, which forces
+# us to put the object file in the source directory.
+$(LOCAL_PATH)/images/emulator_icon.o: $(LOCAL_PATH)/images/android_icon.rc
+	$(WINDRES) $< -I $(LOCAL_PATH)/images -o $@
+endif
 
 # We want to build all variants of the emulator binaries. This makes
 # it easier to catch target-specific regressions during emulator development.
@@ -211,6 +265,9 @@ include $(LOCAL_PATH)/Makefile.target
 
 EMULATOR_TARGET_ARCH := x86
 include $(LOCAL_PATH)/Makefile.target
+
+#EMULATOR_TARGET_ARCH := mips
+#include $(LOCAL_PATH)/Makefile.target
 
 ##############################################################################
 ##############################################################################
@@ -222,6 +279,10 @@ $(call start-emulator-program, emulator)
 
 LOCAL_SRC_FILES := android/main-emulator.c
 LOCAL_STATIC_LIBRARIES := emulator-common
+
+ifeq ($(HOST_OS),windows)
+$(eval $(call insert-windows-icon))
+endif
 
 $(call end-emulator-program)
 
@@ -238,7 +299,6 @@ LOCAL_STATIC_LIBRARIES := \
     emulator-libui \
     emulator-common \
 
-
 LOCAL_CFLAGS += -DCONFIG_STANDALONE_UI=1
 
 LOCAL_CFLAGS += $(EMULATOR_COMMON_CFLAGS) $(EMULATOR_LIBUI_CFLAGS)
@@ -252,6 +312,8 @@ LOCAL_SRC_FILES := \
     android/snapshot.c \
     android/main-common.c \
     android/main.c \
+    android/opengles.c \
+    android/utils/setenv.c \
     vl-android-ui.c \
     android/protocol/core-connection.c \
     android/protocol/attach-ui-impl.c \
@@ -259,6 +321,8 @@ LOCAL_SRC_FILES := \
     android/protocol/ui-commands-impl.c \
     android/protocol/core-commands-proxy.c \
     android/protocol/user-events-proxy.c \
+
+$(call gen-hw-config-defs,android/main-common.c)
 
 LOCAL_SRC_FILES += $(SDLMAIN_SOURCES)
 
@@ -268,4 +332,5 @@ $(call end-emulator-program)
 
 ## VOILA!!
 
-endif  # TARGET_ARCH == arm || TARGET_ARCH == x86
+endif  # TARGET_ARCH == arm || TARGET_ARCH == x86 || TARGET_ARCH == mips
+endif  # BUILD_EMULATOR == true || BUILD_STANDALONE_EMULATOR == true

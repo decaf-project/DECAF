@@ -72,6 +72,7 @@ CFG_PARAM( initdata, "<file>", "same as '-init-data <file>'" )
 CFG_PARAM( data,     "<file>", "data image (default <datadir>/userdata-qemu.img" )
 CFG_PARAM( partition_size, "<size>", "system/data partition size in MBs" )
 CFG_PARAM( cache,    "<file>", "cache partition image (default is temporary file)" )
+OPT_PARAM( cache_size, "<size>", "cache partition size in MBs" )
 CFG_FLAG ( no_cache, "disable the cache partition" )
 CFG_FLAG ( nocache,  "same as -no-cache" )
 OPT_PARAM( sdcard, "<file>", "SD card image (default <system>/sdcard.img")
@@ -89,6 +90,7 @@ CFG_PARAM( skindir, "<dir>", "search skins in <dir> (default <system>/skins)" )
 CFG_PARAM( skin, "<name>", "select a given skin" )
 CFG_FLAG ( no_skin, "don't use any emulator skin" )
 CFG_FLAG ( noskin, "same as -no-skin" )
+CFG_FLAG ( dynamic_skin, "dynamically construct a skin of given size, requires -skin WxH option" )
 CFG_PARAM( memory, "<size>", "physical RAM size in MBs" )
 
 OPT_PARAM( netspeed, "<speed>", "maximum network download/upload speeds" )
@@ -153,6 +155,16 @@ OPT_PARAM( memcheck, "<flags>", "enable memory access checking" )
 OPT_PARAM( list_cores, "<host>", "list running core process" )
 OPT_PARAM( attach_core, "<console socket>", "attach to a running core process" )
 #endif  // CONFIG_STANDALONE_UI
+
+OPT_PARAM( gpu, "<mode>", "set hardware OpenGLES emulation mode" )
+
+OPT_PARAM( camera_back, "<mode>", "set emulation mode for a camera facing back" )
+OPT_PARAM( camera_front, "<mode>", "set emulation mode for a camera facing front" )
+OPT_FLAG( webcam_list, "lists web cameras available for emulation" )
+
+OPT_PARAM( screen, "<mode>", "set emulated screen mode" )
+
+OPT_FLAG( force_32bit, "always use 32-bit emulator" )
 
 #undef CFG_FLAG
 #undef CFG_PARAM

@@ -49,7 +49,11 @@ void REGPARM __stq_outside_jit(target_ulong addr, uint64_t val, int mmu_idx);
 // =============================================================================
 // Generate ld/stx_user
 // =============================================================================
+#if defined(TARGET_MIPS)
+#define MEMSUFFIX MMU_MODE2_SUFFIX
+#else
 #define MEMSUFFIX MMU_MODE1_SUFFIX
+#endif
 #define ACCESS_TYPE 1
 
 #define DATA_SIZE 1

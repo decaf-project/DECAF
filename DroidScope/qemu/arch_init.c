@@ -382,7 +382,7 @@ int ram_load(QEMUFile *f, void *opaque, int version_id)
         addr &= TARGET_PAGE_MASK;
 
         if (flags & RAM_SAVE_FLAG_MEM_SIZE) {
-            if (version_id == 3) {
+            if (version_id != 3) {
                 if (addr != ram_bytes_total()) {
                     return -EINVAL;
                 }
@@ -418,13 +418,11 @@ int ram_load(QEMUFile *f, void *opaque, int version_id)
                     total_ram_bytes -= length;
                 }
             }
-        }
-
-        if (flags & RAM_SAVE_FLAG_COMPRESS) {
+        } else if (flags & RAM_SAVE_FLAG_COMPRESS) {
             void *host;
             uint8_t ch;
 
-            if (version_id == 3)
+            if (version_id != 3)
                 host = qemu_get_ram_ptr(addr);
             else
                 host = host_from_stream_offset(f, addr, flags);
@@ -443,7 +441,7 @@ int ram_load(QEMUFile *f, void *opaque, int version_id)
         } else if (flags & RAM_SAVE_FLAG_PAGE) {
             void *host;
 
-            if (version_id == 3)
+            if (version_id != 3)
                 host = qemu_get_ram_ptr(addr);
             else
                 host = host_from_stream_offset(f, addr, flags);

@@ -21,6 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #ifndef BLOCK_INT_H
 #define BLOCK_INT_H
 
@@ -249,3 +255,8 @@ int is_windows_drive(const char *filename);
 #endif
 
 #endif /* BLOCK_INT_H */
+
+
+#ifdef __cplusplus
+};
+#endif /* __cplusplus */
