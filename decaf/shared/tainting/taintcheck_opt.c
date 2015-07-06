@@ -257,11 +257,9 @@ int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 	CPUState *env;
 	env = cpu_single_env ? cpu_single_env : first_cpu;
 
-  // initialize taint buf
-  bzero(taint, size);
-
 	// AWH - If tainting is disabled, return no taint
 	if (!taint_tracking_enabled) {
+		bzero(taint, size);
 		return 0;
 	}
 
