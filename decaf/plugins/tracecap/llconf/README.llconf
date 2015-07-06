@@ -1,0 +1,64 @@
+This is a short list of commands for llconf, which belongs to a man page.
+
+USAGE
+
+llconf takes the module name as the first argument. The second
+argument ist a command, after this follow arfuments specific to the
+command.
+
+Modules
+-------
+as of writing, llconf supports these modules:
+
+ifupdown - parses /etc/network/interfaces
+
+pair - parses files with simple key/value pairs
+
+table - parses fikes with tables, ie. lines with a fixed number of
+coloums. This needs an option to name the coloums (-o titles).
+Examples: /etc/fstab, /etc/hosts, ...
+
+shell - parses shell scripts with assignments
+Examples: /etc/reslv.conf, /etc/ppp/options (but this should probably handled differently)
+
+Commands
+--------
+list <path> lists all nodes in path and the children.
+
+get <path> gets the value of at that path. If there is more than one match, lists all.
+
+set <path> <value> sets an entry. If there is more than one match at
+path, sets all (FIXME: this should be changed).
+
+add <path> <entry> adds a node named entry add path.
+
+rem <path> removes node at path.
+
+del <path> same as rem, but recursively removes parents if they are
+empty after the child is removed.
+
+dump dumps the whole tree to stdout.
+
+exists <path> returns with exit code 0 if path exists, 1 if not.
+
+Most commands return an exit code, depending on success. You can use
+this eg. for the get command: if the variable at path does not exist,
+llconf returns with exit code 1.
+
+See src/wizard for examples.
+
+TODO
+----
+
+- add subscripts to path elements, like iface[2]/eth0/up[3]
+- it should be possible to add a new branch at a specific location (and not only at the end)
+- a few tests, like isempty, numchildren etc...
+- command to comment entries, and to recover commented entries
+- aliases, ie. implement pseudo modules that use real modules with
+options (eg. hosts = table -o ":fqdn:alias")
+- allow 'mounting' of one module to another. See eg. 'pty "/usr/sbin/pppoe -I eth0 -T 80"' in /etc/ppp/peers/dsl-provider
+- more modules:
+  * cmd line (again, see above for pppoe)
+  * xfree86 (maybe the X-strike force wll use it?)
+  * ... lots of others ...
+- possibility to read with one module, but write with another
