@@ -135,6 +135,7 @@ static void traverse_task_struct_add(CPUState *env)
             BREAK_IF(DECAF_read_mem(env, next_task + OFFSET_PROFILE.ts_comm,
                                     SIZEOF_COMM, pe->name) < 0);
             VMI_create_process(pe);
+			pe->modules_extracted = false;
         }
     }
 }
@@ -187,7 +188,7 @@ static process *traverse_task_struct_remove(CPUState *env)
         }
     }
 
-    //DEBUG-onlu
+    //DEBUG-only
     //if(right_proc != NULL)
         //monitor_printf(default_mon,"process with pid [%08x] %s ended\n",right_pid,right_proc->name);
 

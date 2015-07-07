@@ -62,10 +62,6 @@ public:
     //a set of virtual pages that have been resolved with module information
     unordered_set< uint32_t > resolved_pages;
     unordered_map< uint32_t, int > unresolved_pages;
-
-    process() {
-	modules_extracted = false;
-    }
 };
 
 
