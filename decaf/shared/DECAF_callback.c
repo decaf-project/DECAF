@@ -702,10 +702,6 @@ int DECAF_unregister_callback(DECAF_callback_type_t cb_type, DECAF_Handle handle
 
 #ifdef CONFIG_VMI_ENABLE
     if(cb_type == DECAF_TLB_EXEC_CB) {
-		if(LIST_EMPTY(&callback_list_heads[cb_type]))
-		{
-		   DECAF_flushTranslationCache(ALL_CACHE,0);
-		}
 		goto done;
     }
 #endif

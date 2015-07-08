@@ -310,13 +310,13 @@ next:
         if (DECAF_read_mem(env, vma_curr + OFFSET_PROFILE.vma_vm_next, sizeof(target_ptr), &vma_next) < 0)
             break;
 
-        if (vma_next==NULL )
+        if (vma_next == NULL)
         {
             break;
         }
 
-        vma_curr=vma_next;
-        last_mod_name=name;
+        vma_curr = vma_next;
+        last_mod_name = name;
         if (mod != NULL)
         {
             last_vm_start = vma_vm_start;
