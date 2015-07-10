@@ -36,14 +36,16 @@ uint32_t block_count = 0; // AWH - Debugging
 
 // Typedef the CPU state struct to make tempidx ld/st cleaner
 #if defined(TARGET_I386)
-#define HELPER_SECTION_ONE
-#include "helper_i386_check.h"
 typedef CPUX86State OurCPUState;
 #elif defined(TARGET_ARM)
 typedef CPUARMState OurCPUState;
 #elif defined(TARGET_MIPS)
 typedef CPUMIPSState OurCPUState;
 #endif /* TARGET_I386/ARM */
+
+// AWH - Declare variables specific to this arch's helper funcs
+#define HELPER_SECTION_ONE
+#include "helper_arch_check.h"
 
 // AWH - In development
 //#define USE_TCG_OPTIMIZATIONS 1
@@ -295,56 +297,8 @@ static inline int gen_taintcheck_insn(int search_pc)
         // variable number of arguments
         // [OP][# of args breakdown(const)][arg0(I/O][arg1(I/O)]...
         //    [argN(I)][# of args (const)]
-#if defined(TARGET_I386)
 #define HELPER_SECTION_THREE
-#include "helper_i386_check.h"
-#if 0 // AWH
-        // Check if this is a call to an OUT helper function.
-        // If so, we need to add in a ST IR to store the proper 
-        // taint value in tempidx prior to the call.
-        // These calls always have five parameters.
-        if (out_helper_func) {
-          // Back up call arguments
-          arg5 = gen_opparam_ptr[-6]; // Const/in/out encoding
-          arg4 = gen_opparam_ptr[-5]; // (I) Port
-          arg3 = gen_opparam_ptr[-4]; // (I) Data
-          arg2 = gen_opparam_ptr[-3]; // (I) Register with function address
-          arg1 = gen_opparam_ptr[-2]; // (C) Flags
-          arg0 = gen_opparam_ptr[-1]; // (C) ?
-
-          // Find the shadow for the data input
-          arg6 = find_shadow_arg(gen_opparam_ptr[-4]);
-          // Back up the instruction/arg stream so that we can patch
-          gen_opparam_ptr -= 6;
-          gen_opc_ptr--;
-          // Insert the ST opcode
-          if (arg6) {
-            tcg_gen_st_tl(arg6, cpu_env, offsetof(OurCPUState,tempidx));
-          } else {
-#if TCG_TARGET_REG_BITS == 32
-            t0 = tcg_temp_new_i32();
-            tcg_gen_movi_i32(t0, 0);
-            tcg_gen_st_tl(t0, cpu_env, offsetof(OurCPUState,tempidx));
-#else
-            t0 = tcg_temp_new_i64();
-            tcg_gen_movi_i64(t0, 0);
-            tcg_gen_st_tl(t0, cpu_env, offsetof(OurCPUState,tempidx));
-#endif /* TARGET_REG_BITS == 32 */
-          }
-          // Manually insert the CALL opcode
-          *(gen_opc_ptr++) = INDEX_op_call;
-          gen_opparam_ptr += 6;
-          gen_opparam_ptr[-6] = arg5;
-          gen_opparam_ptr[-5] = arg4;
-          gen_opparam_ptr[-4] = arg3;
-          gen_opparam_ptr[-3] = arg2;
-          gen_opparam_ptr[-2] = arg1;
-          gen_opparam_ptr[-1] = arg0;
-          // Clear the helper flag
-          out_helper_func = 0;
-        }
-#endif // AWH
-#endif /* TARGET_I386 */
+#include "helper_arch_check.h"
         for (i=0; i < nb_oargs; i++) {
           arg0 = find_shadow_arg(gen_opparam_ptr[
             (-1 * nb_args) /* Position of first argument in opcode stream */
@@ -353,39 +307,16 @@ static inline int gen_taintcheck_insn(int search_pc)
           ]);
           if (arg0) {
             orig0 = gen_opparam_ptr[(-1 * nb_args) + 1 + i];
-            // Check if this is a call to an IN helper function.
-            // If so, we grab the tempidx after the function call.
-#ifdef TARGET_I386
+            // Check if this is a call to a helper function.
+            // Section 4: Handle tempidx
 #define HELPER_SECTION_FOUR
-#include "helper_i386_check.h"
-#if 0 // AWH
-            if (in_helper_func) {
-              tcg_gen_ld32u_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
-              in_helper_func = 0;
-            } else
-#endif // AWH
-#endif /* TARGET_I386 */
+#include "helper_arch_check.h"
               tcg_gen_movi_i32(arg0, 0);
           }
-#ifdef TARGET_I386
-#define HELPER_SECTION_FIVE
-#include "helper_i386_check.h"
-#if 0 // AWH
-          if (cmpxchg_helper_func) 
-          {
-#if TCG_TARGET_REG_BITS == 32
-            t1 = tcg_temp_new_i32();
-            tcg_gen_movi_i32(t1, 0);
-#else
-            t1 = tcg_temp_new_i64();
-            tcg_gen_movi_i64(t1, 0);
-#endif /* TCG_TARGET_REG_BITS == 32 */
-            tcg_gen_st_tl(t1, cpu_env, offsetof(OurCPUState,taint_regs[R_EAX]));
-            cmpxchg_helper_func = 0;
-          }
-#endif // AWH
-#endif /* TARGET_I386 */
         }
+        // Section 5: Handle any CPU reg cleaning and helper-specific logic
+#define HELPER_SECTION_FIVE
+#include "helper_arch_check.h"
         break;
 
       case INDEX_op_deposit_i32: // Always bitwise taint
