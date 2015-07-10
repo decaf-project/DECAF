@@ -90,21 +90,18 @@
     (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivb_AL) )
   {
     divb_helper_func = 1;
-    //fprintf(stderr, "helper_*divb() found\n");
   }
   /* Check if the constant is a helper function for IDIVW/DIVW */
   else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divw_AX) ||
     (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivw_AX) )
   {
     divw_helper_func = 1;
-    //fprintf(stderr, "helper_*divw() found\n");
   }
   /* Check if the constant is a helper function for IDIVL/DIVL */
   else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divl_EAX) ||
     (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_idivl_EAX) )
   {
     divl_helper_func = 1;
-    //fprintf(stderr, "helper_*divl() found\n");
   } 
 #elif defined(HELPER_SECTION_THREE)
 #undef HELPER_SECTION_THREE
@@ -131,28 +128,8 @@
       gen_opparam_ptr -= nb_args;
       gen_opc_ptr--;
     
-#if 0 // AWH  
-      /* Check if this is a call to an OUT helper function. If so, we need 
-        to add in a ST IR to store the proper taint value in tempidx prior 
-        to the call. These calls always have five parameters. */
-      if (out_helper_func) {
-
-        // Back up call arguments
-        arg5 = gen_opparam_ptr[-6]; // Const/in/out encoding
-        arg4 = gen_opparam_ptr[-5]; // (I) Port
-        arg3 = gen_opparam_ptr[-4]; // (I) Data
-        arg2 = gen_opparam_ptr[-3]; // (I) Register with function address
-        arg1 = gen_opparam_ptr[-2]; // (C) Flags
-        arg0 = gen_opparam_ptr[-1]; // (C) ?
-
-        // Find the shadow for the data input
-        arg6 = find_shadow_arg(gen_opparam_ptr[-4]);
-        // Back up the instruction/arg stream so that we can patch
-        gen_opparam_ptr -= 6;
-        gen_opc_ptr--;
-#endif
-        /* Insert whatever needs to go before the op_call in the 
-          opcode stream */
+      /* Insert whatever needs to go before the op_call in the 
+         opcode stream */
       if (out_helper_func && arg6) 
       {
         tcg_gen_st_tl(arg6, cpu_env, offsetof(OurCPUState,tempidx));
@@ -180,15 +157,6 @@
       {
         gen_opparam_ptr[-(i+1)] = backup_orig[i];
       }
-#if 0 // AWH
-      gen_opparam_ptr += 6;
-      gen_opparam_ptr[-6] = arg5;
-      gen_opparam_ptr[-5] = arg4;
-      gen_opparam_ptr[-4] = arg3;
-      gen_opparam_ptr[-3] = arg2;
-      gen_opparam_ptr[-2] = arg1;
-      gen_opparam_ptr[-1] = arg0;
-#endif // AWH
     }
 
 #elif defined(HELPER_SECTION_FOUR)
@@ -262,11 +230,10 @@
       t6 = tcg_temp_new_i32(); /* New EDX taint */
       t_zero = tcg_temp_new_i64(); /* Zero constant */
 #endif /* TARGET_REG_BITS == 32 */
-
-      /* Load EAX into t0 */
-      tcg_gen_ld_tl(t0, cpu_env, offsetof(OurCPUState,taint_regs[R_EAX]));
       /* Load denominator arg into t3 */
       t3 = find_shadow_arg(gen_opparam_ptr[-4]);
+      /* Load EAX into t0 */
+      tcg_gen_ld_tl(t0, cpu_env, offsetof(OurCPUState,taint_regs[R_EAX]));
       if (!divb_helper_func)
       {
         /* Load EDX into t1 */
@@ -296,15 +263,17 @@
           tcg_gen_and_i32(t3, t3, t2); 
         }
       } 
-      /* AND together the various taint sources */
+      /* OR together the various taint sources */
       if (!divb_helper_func)
-        tcg_gen_and_i32(t3, t1, t1);
-      tcg_gen_and_i32(t3, t0, t0);
+        tcg_gen_or_i32(t3, t3, t1); // AWH - Rearranged
+      tcg_gen_or_i32(t3, t3, t0); // AWH - Rearranged
 
-      /* Set taint in all bits if there is any taint */
+      /* Set taint in all bits if there is any taint in t3 */
       tcg_gen_movi_i32(t_zero, 0);
       tcg_gen_setcond_i32(TCG_COND_NE, t4, t3, t_zero);
       tcg_gen_neg_i32(t0, t4);
+      if (!divb_helper_func)
+        tcg_gen_mov_i32(t1, t0); // AWH - Added
 
       /* Apply a mask to the taint for DIVB and DIVW */
       if (divb_helper_func || divw_helper_func)
@@ -333,7 +302,6 @@
           tcg_gen_or_i32(t1, t1, t6); 
         }
       }
-
       /* Finally, store the taint back into the registers */
       tcg_gen_st_tl(t0, cpu_env, offsetof(OurCPUState,taint_regs[R_EAX]));
       if (!divb_helper_func)
