@@ -42,8 +42,12 @@ else
 DOCS=
 endif
 
-sleuthkit: $(SRC_PATH)/shared/sleuthkit/lib/libtsk.a
-	echo "Building Sleuthkit if needed, please wait..."
+SLEUTHKIT_LIB=$(SRC_PATH)/shared/sleuthkit/lib/libtsk.a
+SLEUTHKIT_SHARED_LIB=$(SRC_PATH)/shared/sleuthkit/lib/libtsk.so
+sleuthkit: $(SLEUTHKIT_SHARED_LIB)
+
+$(SLEUTHKIT_SHARED_LIB): 
+	@echo "Building Sleuthkit, please wait..."
 	$(call quiet-command,$(MAKE) -j32 -C ./shared/sleuthkit > /dev/null 2>&1,"  GEN   Sleuthkit")
 	$(call quiet-command,$(MAKE) -C ./shared/sleuthkit install > /dev/null 2>&1,"  PREP  Sleuthkit headers/libs")
 
@@ -256,8 +260,9 @@ distclean: clean
 	for d in $(TARGET_DIRS) $(QEMULIBS); do \
 	rm -rf $$d || exit 1 ; \
         done
-	$(MAKE) -C ./shared/sleuthkit/ uninstall
-	$(MAKE) -C ./shared/sleuthkit/ distclean
+	rm -rf $(SLEUTHKIT_LIB)
+	$(call quiet-command,$(MAKE) -C ./shared/sleuthkit uninstall > /dev/null 2>&1,"  UNINSTALL   Sleuthkit")
+	$(call quiet-command,$(MAKE) -C ./shared/sleuthkit distclean > /dev/null 2>&1,"  DISTCLEAN   Sleuthkit")
 
 KEYMAPS=da     en-gb  et  fr     fr-ch  is  lt  modifiers  no  pt-br  sv \
 ar      de     en-us  fi  fr-be  hr     it  lv  nl         pl  ru     th \
