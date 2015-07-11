@@ -3949,14 +3949,8 @@ if test "$docs" = "yes" ; then
   mkdir -p QMP
 fi
 
-echo "Configuring and building Sleuthkit now! Please wait"
-
+echo "Configuring Sleuthkit now! Please wait"
 cd ./shared/sleuthkit
-
-./configure --enable-silent-rules --prefix=$PWD > /dev/null 2>&1
-
-make -j32 > /dev/null 2>&1
-
-make install > /dev/null 2>&1
-
-cd ../../
+./configure --disable-java --enable-silent-rules --prefix=$PWD > /dev/null 2>&1
+cd ../..
+echo "DECAF configuration complete! Type 'make' to begin building."
