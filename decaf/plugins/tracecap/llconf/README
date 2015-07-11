@@ -1,0 +1,108 @@
+
+Overview
+--------
+
+The problem: every program for Unix and Linux has it own configuration
+file syntax. This makes it difficult to write configuration editor
+frontends. Also, if a program is being updated, it may bring new
+option with it, which are difficult to get into alrready existing,
+customized configuration files.
+
+llconf (loss less configuration) is meant as a middle ware to unify
+control over configuration files. I tries to parse different
+configuration files using different modules, and rewrite them after
+applying changes, without destroying user changes and comments, so
+that it is still possible to edit the files with a common text editor
+like vi or emacs.
+
+llconf is _not_ meant as a meta configuration or registry, although
+the access may look similar as access to a registry, and you can use
+it to do such a thing. All information is still stored in the original
+config files.
+
+The idea behind it the realization that every config file can be
+represented in a tree, with the values as its leaves.
+
+An example is /etc/network/interfaces:
+
+---***---
+# /etc/network/interfaces -- configuration file for ifup(8), ifdown(8)
+ 
+auto lo
+ 
+iface lo inet loopback
+ 
+auto eth0
+ 
+# stupid comment: my ethernet device
+iface eth0 inet dhcp
+        address 192.168.1.2
+        netmask 255.255.255.0
+        gateway 192.168.1.254
+---***---
+
+And the tree represantation:
+
+        auto
+                lo
+        iface
+                lo
+                        family = 'inet'
+                        method = 'loopback'
+        auto
+                eth0
+        iface
+                eth0
+                        family = 'inet'
+                        method = 'dhcp'
+                        address = '192.168.1.2'
+                        netmask = '255.255.255.0'
+                        gateway = '192.168.1.254'
+
+So you can access the ip address of eth0 in a filesystem like syntax:
+iface/eth0/address
+
+llconf parses, using the correct module, the file and represents it
+internally as a tree. An entry can be changed, and then parsed back
+into the original syntax. And it does more: by putting the comments
+into the tree, we can preserve them as well.
+
+The drawback of this approach is that lots of parsers will be needed,
+one for each syntax. Fortunately, the situation is not that bad (I
+hope..). Lots of config files use simple syntaxes like
+
+key value
+
+or
+
+key=value
+
+Others consist just of coloumns, separated by a character,
+eg. /etc/passwd. A little bit more complex examples are
+/etc/network/interfaces or /etc/X11/XF86Config. But there are common
+among most of them, and a parser for one syntax can be reused for
+another, using some options.
+
+Also, in representing a config file as a tree, and we use the variable
+names for names of the branches, names are not uniq any more. For
+/e/n/i, we have the stanzas, eg. 'iface', several times. So we need
+subscipts to unambiguously identify an entry.
+
+The unification now is done this way: once the parser is ready, all
+variables in the config file can be accessed in a similar way. To get
+the ip address of eth0, just write:
+
+# llconf ifupdown get iface/eth0/address
+
+To set it, write:
+
+# llconf ifupdown set iface/eth0/address 192.168.1.1
+
+Similar for XF86Config, eg. to get the device file for the mouse:
+
+# llconf cf86config get InputDevice/Device
+
+
+Once this works, it is possible to write configuration editors,
+package update scripts and web interfaces, without worrying about the
+syntax any more.

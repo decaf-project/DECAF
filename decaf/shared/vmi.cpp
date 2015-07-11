@@ -127,9 +127,6 @@ process* VMI_find_process_by_name(const char *name)
 
 process * VMI_find_process_by_pgd(uint32_t pgd)
 {
-    if(-1UL == pgd)
-        return NULL;
-
     unordered_map < uint32_t, process * >::iterator iter =
 	process_map.find(pgd);
 
@@ -287,6 +284,9 @@ int VMI_create_process(process *proc)
 {
 
 	VMI_Callback_Params params;
+
+	proc->modules_extracted = true;
+	
 	params.cp.cr3 = proc->cr3;
 	params.cp.pid = proc->pid;
 	params.cp.name = proc->name;
@@ -369,9 +369,6 @@ int VMI_insert_module(uint32_t pid, target_ulong base, module *mod)
 
 	proc = iter->second;
     params.lm.cr3 = proc->cr3;
-
-	//even if one module is loaded we just mark the the process's modules to be read.
-	proc->modules_extracted = true;
 
 	//Now the pages within the module's memory region are all resolved
 	//We also need to removed the previous modules if they happen to sit on the same region

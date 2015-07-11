@@ -30,7 +30,7 @@ Makefile: ;
 configure: ;
 
 .PHONY: all clean cscope distclean dvi html info install install-doc \
-	pdf recurse-all speed tar tarbin test build-all
+	pdf recurse-all speed tar tarbin test build-all sleuthkit
 
 $(call set-vpath, $(SRC_PATH):$(SRC_PATH)/hw)
 
@@ -41,6 +41,15 @@ DOCS=qemu-doc.html qemu-tech.html qemu.1 qemu-img.1 qemu-nbd.8 QMP/qmp-commands.
 else
 DOCS=
 endif
+
+SLEUTHKIT_LIB=$(SRC_PATH)/shared/sleuthkit/lib/libtsk.a
+SLEUTHKIT_SHARED_LIB=$(SRC_PATH)/shared/sleuthkit/lib/libtsk.so
+sleuthkit: $(SLEUTHKIT_SHARED_LIB)
+
+$(SLEUTHKIT_SHARED_LIB): 
+	@echo "Building Sleuthkit, please wait..."
+	$(call quiet-command,$(MAKE) -j32 -C ./shared/sleuthkit > /dev/null 2>&1,"  GEN   Sleuthkit")
+	$(call quiet-command,$(MAKE) -C ./shared/sleuthkit install > /dev/null 2>&1,"  PREP  Sleuthkit headers/libs")
 
 SUBDIR_MAKEFLAGS=$(if $(V),,--no-print-directory) BUILD_DIR=$(BUILD_DIR)
 SUBDIR_DEVICES_MAK=$(patsubst %, %/config-devices.mak, $(TARGET_DIRS))
@@ -76,7 +85,7 @@ defconfig:
 
 -include config-all-devices.mak
 
-build-all: $(DOCS) $(TOOLS) $(CHECKS) recurse-all
+build-all: sleuthkit $(DOCS) $(TOOLS) $(CHECKS) recurse-all
 
 config-host.h: config-host.h-timestamp
 config-host.h-timestamp: config-host.mak
@@ -219,8 +228,6 @@ QEMULIBS=libhw32 libhw64 libuser libdis libdis-user
 
 clean:
 # avoid old build problems by removing potentially incorrect old files
-	$(MAKE) -C ./shared/sleuthkit/ uninstall
-	$(MAKE) -C ./shared/sleuthkit/ distclean
 	rm -f config.mak op-i386.h opc-i386.h gen-op-i386.h op-arm.h opc-arm.h gen-op-arm.h
 	rm -f qemu-options.def
 	rm -f *.o *.d *.a *.lo $(TOOLS) $(CHECKS) qemu-ga TAGS cscope.* *.pod *~ */*~
@@ -253,6 +260,9 @@ distclean: clean
 	for d in $(TARGET_DIRS) $(QEMULIBS); do \
 	rm -rf $$d || exit 1 ; \
         done
+	rm -rf $(SLEUTHKIT_LIB)
+	$(call quiet-command,$(MAKE) -C ./shared/sleuthkit uninstall > /dev/null 2>&1,"  UNINSTALL   Sleuthkit")
+	$(call quiet-command,$(MAKE) -C ./shared/sleuthkit distclean > /dev/null 2>&1,"  DISTCLEAN   Sleuthkit")
 
 KEYMAPS=da     en-gb  et  fr     fr-ch  is  lt  modifiers  no  pt-br  sv \
 ar      de     en-us  fi  fr-be  hr     it  lv  nl         pl  ru     th \

@@ -87,6 +87,8 @@ static inline int taint_mem(uint32_t addr,int size,uint8_t *taint)
 static inline void taint_mem_check(uint32_t addr, uint32_t size, uint8_t * taint)
 {
 	tbitpage_leaf_t *leaf_node = NULL;
+  // Initialize taint buf
+  memset(taint, 0, size);
 //	if(!taint_memory_page_table||!taint_tracking_enabled) return 0;
 	leaf_node = read_leaf_node_i32(addr);
 	if(leaf_node){
