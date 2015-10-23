@@ -29,6 +29,8 @@ endif
 Makefile: ;
 configure: ;
 
+.NOTPARALLEL: sleuthkit
+
 .PHONY: all clean cscope distclean dvi html info install install-doc \
 	pdf recurse-all speed tar tarbin test build-all sleuthkit
 
@@ -46,7 +48,7 @@ SLEUTHKIT_LIB=$(SRC_PATH)/shared/sleuthkit/lib/libtsk.a
 SLEUTHKIT_SHARED_LIB=$(SRC_PATH)/shared/sleuthkit/lib/libtsk.so
 sleuthkit: $(SLEUTHKIT_SHARED_LIB)
 
-$(SLEUTHKIT_SHARED_LIB): 
+$(SLEUTHKIT_SHARED_LIB):
 	@echo "Building Sleuthkit, please wait..."
 	$(call quiet-command,$(MAKE) -j32 -C ./shared/sleuthkit > /dev/null 2>&1,"  GEN   Sleuthkit")
 	$(call quiet-command,$(MAKE) -C ./shared/sleuthkit install > /dev/null 2>&1,"  PREP  Sleuthkit headers/libs")

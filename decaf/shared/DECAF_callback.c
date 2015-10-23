@@ -705,7 +705,10 @@ int DECAF_unregister_callback(DECAF_callback_type_t cb_type, DECAF_Handle handle
 		goto done;
     }
 #endif
-
+    
+   if(LIST_EMPTY(&callback_list_heads[cb_type]))    {
+      DECAF_flushTranslationCache(ALL_CACHE,0);
+   }
 
 #ifdef CONFIG_VMI_ENABLE
 done:
@@ -715,6 +718,7 @@ done:
 
   return -1;
 }
+
 
 void DECAF_invoke_tlb_exec_callback(CPUState *env, gva_t vaddr)
 {
