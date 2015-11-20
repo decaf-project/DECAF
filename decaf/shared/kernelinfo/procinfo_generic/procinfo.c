@@ -15,7 +15,7 @@
 #include <generated/utsrelease.h>
 
 #define OFFSET_OF(type, field) (  (unsigned long)&( ((struct type *)0)->field ) )
-#define JPROBE_TOTAL 7
+#define JPROBE_TOTAL 8
 
 /* variables for hookpoints */
 static struct jprobe jprobes[JPROBE_TOTAL];
