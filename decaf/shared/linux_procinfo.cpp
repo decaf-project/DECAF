@@ -1658,6 +1658,12 @@ void _load_one_section(const boost::property_tree::ptree &pt, int iSectionNum, P
     FILL_TARGET_ULONG_FIELD(ts_real_cred    );
     FILL_TARGET_ULONG_FIELD(ts_cred         );
     FILL_TARGET_ULONG_FIELD(ts_comm         );
+
+	FILL_TARGET_ULONG_FIELD(modules         );
+	FILL_TARGET_ULONG_FIELD(module_name     );
+	FILL_TARGET_ULONG_FIELD(module_size     );
+	FILL_TARGET_ULONG_FIELD(module_list     );
+			    
     FILL_TARGET_ULONG_FIELD(cred_uid        );
     FILL_TARGET_ULONG_FIELD(cred_gid        );
     FILL_TARGET_ULONG_FIELD(cred_euid       );
@@ -1688,7 +1694,8 @@ void _load_one_section(const boost::property_tree::ptree &pt, int iSectionNum, P
 	FILL_TARGET_ULONG_FIELD(vma_link);
 	FILL_TARGET_ULONG_FIELD(remove_vma);
 	FILL_TARGET_ULONG_FIELD(vma_adjust);
-	
+
+	FILL_TARGET_ULONG_FIELD(trim_init_extable);
 #ifdef TARGET_MIPS
     FILL_TARGET_ULONG_FIELD(mips_pgd_current);
 #endif

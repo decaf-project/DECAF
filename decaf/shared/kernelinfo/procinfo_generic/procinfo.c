@@ -15,7 +15,7 @@
 #include <generated/utsrelease.h>
 
 #define OFFSET_OF(type, field) (  (unsigned long)&( ((struct type *)0)->field ) )
-#define JPROBE_TOTAL 6
+#define JPROBE_TOTAL 7
 
 /* variables for hookpoints */
 static struct jprobe jprobes[JPROBE_TOTAL];
@@ -60,7 +60,7 @@ static void linuxdrv_remove_vma(struct vm_area_struct *vma)
 static int linuxdrv_init(void)
 {
     int i;
-    
+
     jprobes[0].kp.symbol_name = "proc_fork_connector";
     jprobes[0].entry = (void*)linuxdrv_finish_fork;
     jprobes[1].kp.symbol_name = "proc_exit_connector";
@@ -73,9 +73,13 @@ static int linuxdrv_init(void)
     jprobes[4].entry = (void*)linuxdrv_adjust_vma;
     jprobes[5].kp.symbol_name = "remove_vma";
     jprobes[5].entry = (void*)linuxdrv_remove_vma;
-    
+    jprobes[6].kp.symbol_name = "modules";
+    jprobes[6].entry = (void*)linuxdrv_remove_vma;
+    jprobes[7].kp.symbol_name = "trim_init_extable";
+    jprobes[7].entry = (void*)linuxdrv_remove_vma;
 
-    printk(KERN_INFO 
+
+    printk(KERN_INFO
         "strName = %s\n" /* entry name */
         "init_task_addr  = %lu\n" /* address of init_task */
         "init_task_size  = %lu\n" /* size of task_struct */
@@ -88,16 +92,25 @@ static int linuxdrv_init(void)
         "ts_mm           = %lu\n" /* offset of mm */
         "ts_stack        = %lu\n", /* offset of stack */
         UTS_RELEASE,
-        (unsigned long)&init_task, 
+        (unsigned long)&init_task,
         (unsigned long)sizeof(init_task),
         OFFSET_OF(task_struct, tasks),
-        OFFSET_OF(task_struct, pid), 
+        OFFSET_OF(task_struct, pid),
         OFFSET_OF(task_struct, tgid),
         OFFSET_OF(task_struct, group_leader),
         OFFSET_OF(task_struct, thread_group),
         OFFSET_OF(task_struct, real_parent),
         OFFSET_OF(task_struct, mm),
         OFFSET_OF(task_struct, stack)  // TODO: not sure which field of the union should be filled
+    );
+
+    printk(KERN_INFO
+        "module_name   = %lu\n"
+        "module_size   = %lu\n"
+        "module_list   = %lu\n",
+        OFFSET_OF(module, name),
+        OFFSET_OF(module, core_size),
+        OFFSET_OF(module, list)
     );
 
     // cred, real_cred and related fields may not exist in Linux kernel 2.6
@@ -118,7 +131,7 @@ static int linuxdrv_init(void)
         OFFSET_OF(cred, egid)
         );
 
-    printk(KERN_INFO 
+    printk(KERN_INFO
         "mm_mmap         = %lu\n" /* offset of mmap in mm_struct */
         "mm_pgd          = %lu\n" /* offset of pgd in mm_struct */
         "mm_arg_start    = %lu\n" /* offset of arg_start in mm_struct */
@@ -152,7 +165,7 @@ static int linuxdrv_init(void)
         "file_dentry     = %lu\n" /* offset of f_dentry in file */
         "file_inode      = %lu\n" /* inode of file struct */
         "dentry_d_name   = %lu\n" /* offset of d_name in dentry */
-        "dentry_d_iname  = %lu\n" /* offset of d_iname in dentry */ 
+        "dentry_d_iname  = %lu\n" /* offset of d_iname in dentry */
         "dentry_d_parent = %lu\n" /* offset of d_parent in dentry */
         "ti_task         = %lu\n" /* offset of task in thread_info */
         "inode_ino   = %lu\n", /* offset of inode index in inode struct */
@@ -169,7 +182,7 @@ static int linuxdrv_init(void)
     for(i = 0; i < JPROBE_TOTAL; i++) {
         register_jprobe(&jprobes[i]);
     }
-    
+
     for(i = 0; i < JPROBE_TOTAL; i++)  {
         if(jprobes[i].kp.addr != NULL)  {
             printk(KERN_INFO
@@ -181,7 +194,7 @@ static int linuxdrv_init(void)
 
     for(i = 0; i < JPROBE_TOTAL; i++) {
         unregister_jprobe(&jprobes[i]);
-    } 
+    }
     return -1;
 }
 

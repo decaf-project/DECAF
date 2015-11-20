@@ -22,6 +22,13 @@ void do_guest_ps(Monitor *mon)
  VMI_list_processes(mon);
 }
 
+void do_print_modules(Monitor *mon)
+{
+	print_loaded_modules(cpu_single_env);
+}
+
+
+
 void do_guest_modules(Monitor *mon, const QDict *qdict)
 {
   int pid = -1;

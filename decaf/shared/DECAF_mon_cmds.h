@@ -40,6 +40,14 @@ http://code.google.com/p/decaf-platform/
 	.help		= "list the processes on guest system"
 },
 {
+	.name		= "lsmod",
+	.args_type	= "",
+	.mhandler.info	= do_print_modules,
+	.params 	= "", 
+	.help		= "list the loaded kernel modules"
+},
+
+{
 	.name		= "guest_modules", 
 	.args_type	= "pid:i", 
 	.mhandler.cmd	= do_guest_modules,

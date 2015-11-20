@@ -53,6 +53,9 @@ unordered_map < uint32_t, process * >process_pid_map;
 // module list
 unordered_map < string, module * >module_name;
 
+// kernel module list
+unordered_map < string, kernel_module * > kernel_modules;
+
 uint32_t GuestOS_index_c=11;
 uintptr_t insn_handle_c = 0;
 
@@ -112,6 +115,32 @@ _skip_probe:
 	}
 }
 
+/* Kmod related - Start */
+
+kernel_module * VMI_find_kmod_by_name(const char *name)
+{
+	unordered_map < string, kernel_module * >::iterator iter;
+
+	iter = kernel_modules.find(name);
+
+	if (iter != kernel_modules.end())
+		return iter->second;
+
+	return NULL;		
+}
+
+int VMI_create_kmod(const char *name, target_ulong size)
+{
+	string to_insert(name);
+
+	kernel_module *new_module = new kernel_module();
+	new_module->name = to_insert;
+	new_module->size = size;
+
+	kernel_modules[new_module->name] = new_module;
+}
+
+/* end */
 
 process* VMI_find_process_by_name(const char *name)
 {
