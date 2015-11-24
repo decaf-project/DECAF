@@ -64,12 +64,6 @@ public:
     unordered_map< uint32_t, int > unresolved_pages;
 };
 
-class kernel_module {
-public:
-	uint32_t size;
-	string name;
-};
-
 
 typedef enum {
 	WINXP_SP2_C = 0, WINXP_SP3_C, WIN7_SP0_C, WIN7_SP1_C, LINUX_GENERIC_C,
@@ -87,13 +81,11 @@ extern target_ulong VMI_guest_kernel_base;
 extern unordered_map < uint32_t, process * >process_map;
 extern unordered_map < uint32_t, process * >process_pid_map;
 extern unordered_map < string, module * >module_name;
-extern unordered_map < string, kernel_module * > kernel_modules;
 
 /* Kernel module VMI information related functions */
 
-kernel_module * VMI_find_kmod_by_name(const char *name);
+module * VMI_find_kmod_by_name(const char *name);
 
-int VMI_create_kmod(const char *name, target_ulong size);
 
 /* End */
 

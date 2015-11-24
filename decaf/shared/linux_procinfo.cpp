@@ -1661,6 +1661,7 @@ void _load_one_section(const boost::property_tree::ptree &pt, int iSectionNum, P
 
 	FILL_TARGET_ULONG_FIELD(modules         );
 	FILL_TARGET_ULONG_FIELD(module_name     );
+	FILL_TARGET_ULONG_FIELD(module_init     );
 	FILL_TARGET_ULONG_FIELD(module_size     );
 	FILL_TARGET_ULONG_FIELD(module_list     );
 			    

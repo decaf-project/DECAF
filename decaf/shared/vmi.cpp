@@ -53,9 +53,6 @@ unordered_map < uint32_t, process * >process_pid_map;
 // module list
 unordered_map < string, module * >module_name;
 
-// kernel module list
-unordered_map < string, kernel_module * > kernel_modules;
-
 uint32_t GuestOS_index_c=11;
 uintptr_t insn_handle_c = 0;
 
@@ -117,18 +114,12 @@ _skip_probe:
 
 /* Kmod related - Start */
 
-kernel_module * VMI_find_kmod_by_name(const char *name)
+module * VMI_find_kmod_by_name(const char *name)
 {
-	unordered_map < string, kernel_module * >::iterator iter;
-
-	iter = kernel_modules.find(name);
-
-	if (iter != kernel_modules.end())
-		return iter->second;
-
-	return NULL;		
+	return VMI_find_module_by_key(name);	
 }
 
+#if 0
 int VMI_create_kmod(const char *name, target_ulong size)
 {
 	string to_insert(name);
@@ -139,6 +130,7 @@ int VMI_create_kmod(const char *name, target_ulong size)
 
 	kernel_modules[new_module->name] = new_module;
 }
+#endif
 
 /* end */
 
@@ -311,7 +303,7 @@ int VMI_is_MoudleExtract_Required()
 
 int VMI_create_process(process *proc)
 {
-
+	
 	VMI_Callback_Params params;
 
 	proc->modules_extracted = true;
@@ -325,6 +317,7 @@ int VMI_create_process(process *proc)
     	// Found an existing process with the same pid
     	// We force to remove that one.
     //	monitor_printf(default_mon, "remove process pid %d", proc->pid);
+
     	VMI_remove_process(proc->pid);
     }
 
@@ -335,10 +328,12 @@ int VMI_create_process(process *proc)
     	// We force to remove that process
     //	monitor_printf(default_mon, "removing due to cr3 0x%08x\n", proc->cr3);
     		VMI_remove_process(iter2->second->pid);
+
     }
 
    	process_pid_map[proc->pid] = proc;
    	process_map[proc->cr3] = proc;
+
 
 	SimpleCallback_dispatch(&VMI_callbacks[VMI_CREATEPROC_CB], &params);
 
@@ -356,6 +351,7 @@ int VMI_create_process(process *proc)
 
 int VMI_remove_process(uint32_t pid)
 {
+	
 	VMI_Callback_Params params;
 	process *proc;
     unordered_map < uint32_t, process * >::iterator iter =

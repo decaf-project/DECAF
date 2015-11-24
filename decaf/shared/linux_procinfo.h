@@ -33,6 +33,7 @@ typedef struct _ProcInfo
 
 	target_ulong module_name;
 	target_ulong module_size;
+	target_ulong module_init;
 	target_ulong module_list;
 	target_ulong modules;
 	target_ulong cred_uid;

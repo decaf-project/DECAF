@@ -24,7 +24,10 @@ void do_guest_ps(Monitor *mon)
 
 void do_print_modules(Monitor *mon)
 {
-	print_loaded_modules(cpu_single_env);
+	monitor_printf(mon, "%20s\t%10s\t%10s\n", "Name", "Base",
+			"Size");
+	VMI_list_modules(mon, 0x00);
+	//print_loaded_modules(cpu_single_env);
 }
 
 

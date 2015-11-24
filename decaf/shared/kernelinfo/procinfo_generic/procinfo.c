@@ -107,9 +107,11 @@ static int linuxdrv_init(void)
     printk(KERN_INFO
         "module_name   = %lu\n"
         "module_size   = %lu\n"
+        "module_init   = %lu\n"
         "module_list   = %lu\n",
         OFFSET_OF(module, name),
         OFFSET_OF(module, core_size),
+        OFFSET_OF(module, module_core),
         OFFSET_OF(module, list)
     );
 
