@@ -22,6 +22,16 @@ void do_guest_ps(Monitor *mon)
  VMI_list_processes(mon);
 }
 
+void do_print_modules(Monitor *mon)
+{
+	monitor_printf(mon, "%20s\t%10s\t%10s\n", "Name", "Base",
+			"Size");
+	VMI_list_modules(mon, 0x00);
+	//print_loaded_modules(cpu_single_env);
+}
+
+
+
 void do_guest_modules(Monitor *mon, const QDict *qdict)
 {
   int pid = -1;

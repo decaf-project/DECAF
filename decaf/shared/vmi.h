@@ -65,7 +65,6 @@ public:
 };
 
 
-
 typedef enum {
 	WINXP_SP2_C = 0, WINXP_SP3_C, WIN7_SP0_C, WIN7_SP1_C, LINUX_GENERIC_C,
 } GUEST_OS_C;
@@ -82,6 +81,13 @@ extern target_ulong VMI_guest_kernel_base;
 extern unordered_map < uint32_t, process * >process_map;
 extern unordered_map < uint32_t, process * >process_pid_map;
 extern unordered_map < string, module * >module_name;
+
+/* Kernel module VMI information related functions */
+
+module * VMI_find_kmod_by_name(const char *name);
+
+
+/* End */
 
 module * VMI_find_module_by_pc(target_ulong pc, target_ulong pgd, target_ulong *base);
 

@@ -50,6 +50,7 @@ extern "C" {
 };
 #endif /* __cplusplus */
 
+#include "DECAF_cmds.h"
 #include "DECAF_main.h"
 #include "DECAF_target.h"
 #include "vmi.h"
@@ -65,6 +66,7 @@ using namespace std;
 using namespace std::tr1;
 
 #define BREAK_IF(x) if(x) break
+#define MAX_PARAM_PREFIX_LEN (64 - sizeof(target_ptr))
 
 //Global variable used to read values from the stack
 uint32_t call_stack[12];
@@ -73,6 +75,138 @@ static int first = 1;
 
 // current linux profile
 static ProcInfo OFFSET_PROFILE = {"VMI"};
+
+
+void print_loaded_modules(CPUState *env)
+{
+
+    target_ulong  modules_list, module_size, first_module;
+
+    target_ulong next_module = OFFSET_PROFILE.modules;
+	next_module -= OFFSET_PROFILE.module_list;
+
+	first_module = next_module;
+
+	DECAF_read_ptr(env, next_module + OFFSET_PROFILE.module_list ,
+                              &next_module);
+
+  	next_module -= OFFSET_PROFILE.module_list;
+	
+	char module_name[MAX_PARAM_PREFIX_LEN];
+
+    monitor_printf(default_mon, "%20s     %10s \n", "Module", "Size");
+
+
+    while(true)
+    {
+        DECAF_read_mem(env, next_module + OFFSET_PROFILE.module_name,
+						 MAX_PARAM_PREFIX_LEN, module_name);
+
+        module_name[MAX_PARAM_PREFIX_LEN - 1] = '\0';
+
+					
+        DECAF_read_ptr(env, next_module + OFFSET_PROFILE.module_size,
+                                &module_size);
+
+        monitor_printf(default_mon, "%20s  |  %10lu\n", module_name, module_size);
+
+		DECAF_read_ptr(env, next_module + OFFSET_PROFILE.module_list ,
+                              &next_module);
+			  
+        next_module -= OFFSET_PROFILE.module_list;
+
+        if(first_module == next_module)
+        {
+			monitor_printf(default_mon, "done\n");
+            break;
+        }
+
+    }
+
+}
+
+void print_loaded_modules_old(CPUState *env)
+{
+	
+
+}
+
+
+static void traverse_kmod_list(CPUState *env)
+{
+	target_ulong  modules_list, module_size, first_module, module_base;
+
+    target_ulong next_module = OFFSET_PROFILE.modules;
+	next_module -= OFFSET_PROFILE.module_list;
+
+	first_module = next_module;
+
+	DECAF_read_ptr(env, next_module + OFFSET_PROFILE.module_list ,
+                              &next_module);
+
+  	next_module -= OFFSET_PROFILE.module_list;
+	
+	char module_name[MAX_PARAM_PREFIX_LEN];
+
+    while(true)
+    {
+        DECAF_read_mem(env, next_module + OFFSET_PROFILE.module_name,
+						 MAX_PARAM_PREFIX_LEN, module_name);
+
+        //module_name[MAX_PARAM_PREFIX_LEN - 1] = '\0';
+		module_name[31] = '\0';
+			
+
+		if(!VMI_find_kmod_by_name(module_name))
+		{
+								
+	        DECAF_read_ptr(env, next_module + OFFSET_PROFILE.module_size,
+	                                &module_size);
+
+	        DECAF_read_ptr(env, next_module + OFFSET_PROFILE.module_init,
+	                                &module_base);
+
+			module *mod = new module();
+            strncpy(mod->name, module_name, 31);
+            mod->name[31] = '\0';
+            mod->size = module_size;
+            mod->inode_number = 0;
+            mod->symbols_extracted = 1;
+
+			//monitor_printf(default_mon, "kernel module %s base %x\n", module_name, module_base);
+            VMI_add_module(mod, module_name);
+
+	        VMI_insert_module(0, module_base , mod);
+		}
+
+		DECAF_read_ptr(env, next_module + OFFSET_PROFILE.module_list ,
+                              &next_module);
+			  
+        next_module -= OFFSET_PROFILE.module_list;
+
+        if(first_module == next_module)
+        {
+            break;
+        }
+
+    }
+}
+
+
+
+//  Wait for kernel's `init_module` to call `trim_init_extable' where we grab module data
+static void new_kmod_callback(DECAF_Callback_Params* params)
+{
+	CPUState *env = params->bb.env;
+
+	target_ulong pc = DECAF_getPC(env);
+
+    if(OFFSET_PROFILE.trim_init_extable != pc)
+        return;
+
+	traverse_kmod_list(env);
+}
+
 
 //  Traverse the task_struct linked list and add all un-added processes
 //  This function is called
@@ -180,7 +314,7 @@ static process *traverse_task_struct_remove(CPUState *env)
     // Compare the collected list with the internal list. We track the Process which is removed and call `VMI_process_remove`
     for(unordered_map < uint32_t, process * >::iterator iter = process_pid_map.begin(); iter != process_pid_map.end(); ++iter)
     {
-        if(!pids.count(iter->first))
+        if(iter->first != 0 && !pids.count(iter->first))
         {
             right_pid = iter->first;
             right_proc = iter->second;
@@ -188,9 +322,10 @@ static process *traverse_task_struct_remove(CPUState *env)
         }
     }
 
-    //DEBUG-only
-    //if(right_proc != NULL)
-        //monitor_printf(default_mon,"process with pid [%08x] %s ended\n",right_pid,right_proc->name);
+    if(right_pid == 0)
+		return NULL;
+	
+	//monitor_printf(default_mon,"process with pid [%08x]  ended\n",right_pid);
 
     VMI_remove_process(right_pid);
     return right_proc;
@@ -461,8 +596,15 @@ int find_linux(CPUState *env, uintptr_t insn_handle)
 void linux_vmi_init()
 {
     DECAF_registerOptimizedBlockBeginCallback(&new_proc_callback, NULL, OFFSET_PROFILE.proc_exec_connector, OCB_CONST);
-    DECAF_registerOptimizedBlockBeginCallback(&proc_end_callback, NULL, OFFSET_PROFILE.proc_exit_connector, OCB_CONST);
+	DECAF_registerOptimizedBlockBeginCallback(&new_kmod_callback, NULL, OFFSET_PROFILE.trim_init_extable, OCB_CONST);
+	DECAF_registerOptimizedBlockBeginCallback(&proc_end_callback, NULL, OFFSET_PROFILE.proc_exit_connector, OCB_CONST);
     DECAF_register_callback(DECAF_TLB_EXEC_CB, Linux_tlb_call_back, NULL);
+
+	process *kernel_proc = new process();
+	kernel_proc->cr3 = 0;
+	strcpy(kernel_proc->name, "<kernel>");
+	kernel_proc->pid = 0;
+	VMI_create_process(kernel_proc);
 }
 
 
