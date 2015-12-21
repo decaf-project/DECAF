@@ -18,7 +18,7 @@ DECAF(short for Dynamic Executable Code Analysis Framework) is a binary analysis
 DECAF(Dynamic Executable Code Analysis Framework) is the successor to the binary analysis techniques developed for TEMU ( dynamic analysis component of BitBlaze ) as part of Heng Yin's work on BitBlaze project headed up by Dawn Song. DECAF builds upon TEMU. We appreciate all that worked with us on that project.
 
 
-![alt tag](http://sycurelab.ecs.syr.edu/image/overall_decaf.jpg)
+![alt tag](http://sycurelab.ecs.syr.edu/image/overall_of_decaf.jpg)
 
 Fig 1 the overall architecture of DECAF
 
