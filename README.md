@@ -42,10 +42,10 @@ DECAF provides an event-driven programming interface. It means that the paradigm
 
 **Dynamic instrumentation management**
 
-To reduce runtime overhead, the instrumentation code is inserted into the translated code only when necessary. For example, when a plugin registers a function hook at a function’s entry point, the instrumentation code for this hook is only placed at the function entry point. When the plugin unregisters this function hook, the instrumentation code will also be removed from the translated code accordingly. To ease the development of plugins, the management of dynamic code instrumentation is completely taken care of in the framework, and thus invisible to the plugins.
+To reduce runtime overhead, the instrumentation code is inserted into the translated code only when necessary. For example, when a plugin registers a function hook at a function’s entry point, the instrumentation code for this hook is only placed at the function entry point. When the plugin unregisters this function hook, the instrumentation code will also be removed from the translated code accordingly. To ease the development of plugins, the management of dynamic code instrumentation is completely taken care of in  the framework, and thus invisible to the plugins.
 
 2. Help Documents
 ========
 
-Please refer to https://code.google.com/p/decaf-platform/wiki/DECAF for help documents.
+Please referto https://code.google.com/p/decaf-platform/wiki/DECAF for help documents.
 
