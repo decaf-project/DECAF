@@ -24,7 +24,7 @@ Fig 1 the overall architecture of DECAF
 
 Fig 1 illustrates the overall architecture of DECAF. DECAF is a platform-agnostic whole-system dynamic binary analysis framework. It provides the following key features.
 
-**Right-on-Time Virtual Machine Introspection**
+**Just-in-Time Virtual Machine Introspection**
 
 Different with TEMU, DECAF doesn’t use guest driver to retrieve os-level semantics. The VMI component of DECAF is able to reconstruct a fresh OS-level view of the virtual machine, including processes, threads, code modules, and symbols to support binary analysis. Further, in order to support multiple architectures and operating systems, it follows as a platform-agnostic design. The workflow for extracting OS-level semantic information is common across multiple architectures and operating systems. The only platform- specific handling lies in what kernel data structures and what fields to extract information from.
 
