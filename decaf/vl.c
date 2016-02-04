@@ -1955,7 +1955,7 @@ static int virtcon_parse(const char *devname)
 }
 
 static int debugcon_parse(const char *devname)
-{   
+{
     QemuOpts *opts;
 
     if (!qemu_chr_new("debugcon", devname, NULL)) {
@@ -2180,6 +2180,7 @@ int main(int argc, char **argv, char **envp)
     const char *loadvm = NULL;
     const char *after_loadvm = NULL; // AWH
     const char *load_plugin = NULL; // AWH
+    QDict* plugin_path = qdict_new();
 #ifdef CONFIG_VMI_ENABLE
     FILE *vmi_profile_fp = NULL;
 #endif
@@ -2965,8 +2966,8 @@ int main(int argc, char **argv, char **envp)
 			}
 			p += 8;
 			os_set_proc_name(p);
-		     }	
-		 }	
+		     }
+		 }
                 break;
             case QEMU_OPTION_prom_env:
                 if (nb_prom_envs >= MAX_PROM_ENVS) {
@@ -3506,14 +3507,16 @@ int main(int argc, char **argv, char **envp)
     qemu_system_reset(VMRESET_SILENT);
 
 #if 1 // AWH - Port of TEMU functionality
-	
+
 	// AVB, This opens the device for sleuthkit to read
 	DECAF_blocks_init();
     DECAF_init();                // some initializations have to be done
-    // before loadvm 
-    // AWH - FIXME: Change to new do_load_plugin() interface
-    if (loadvm == NULL && load_plugin)
-        do_load_plugin_internal(cur_mon, load_plugin);
+    // before loadvm
+    if (loadvm == NULL && load_plugin){
+        QObject *data = NULL;
+        qdict_put(plugin_path, "filename", qstring_from_str(load_plugin));
+        do_load_plugin(cur_mon, plugin_path, &data);
+    }
 #endif // AWH
 
     if (loadvm) {
@@ -3544,6 +3547,6 @@ int main(int argc, char **argv, char **envp)
     pause_all_vcpus();
     net_cleanup();
     res_free();
-
+    QDECREF(plugin_path);
     return 0;
 }
