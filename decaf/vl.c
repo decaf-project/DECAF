@@ -2857,6 +2857,7 @@ int main(int argc, char **argv, char **envp)
                 olist = qemu_find_opts("machine");
                 qemu_opts_reset(olist);
                 qemu_opts_parse(olist, "accel=kvm", 0);
+                DECAF_kvm_enabled = 1;
                 break;
             case QEMU_OPTION_machine:
                 olist = qemu_find_opts("machine");
