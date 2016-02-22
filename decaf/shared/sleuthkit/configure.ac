@@ -242,6 +242,32 @@ dnl status message and set X_JNI for use in Makefile
 AS_IF([test "x$JNI_CPPFLAGS" != x && test "x$ANT_FOUND" != x && test "x$JAVA" != x], [ax_java_support=yes], [ax_java_support=no])
 AM_CONDITIONAL([X_JNI],[test "x$ax_java_support" == "xyes"])
 
+# Check if we should link libqcow.
+AC_ARG_WITH([libqcow],
+    [AS_HELP_STRING([--without-libqcow],[Do not use libqcow even if it is installed])]
+    [AS_HELP_STRING([--with-libqcow=dir],[Specify that libqcow is installed in directory 'dir'])],
+    # If --with-libqcow or --without-libqcow is given
+    [],
+    # if nothing was specified, default to a test
+    [with_libqcow=yes])
+
+# check for the lib if they did not specify no
+AS_IF([test "x$with_libqcow" != "xno"],
+    # Test the dir if they specified something beyond yes/no
+    [AS_IF([test "x$with_libqcow" != "xyes"],
+        [AS_IF([test -d ${with_libqcow}/include],
+            [CFLAGS="$CFLAGS -I${with_libqcow}/include"
+                LDFLAGS="$LDFLAGS -L${with_libqcow}/lib"],
+            # Dir given was not correct
+            [AC_MSG_FAILURE([libqcow directory not found at ${with_libqcow}])])
+        ]
+    )]
+    # Check for the header file first to make sure they have the dev install
+    [AC_CHECK_HEADERS([libqcow.h], 
+      [AC_CHECK_LIB([qcow], [libqcow_file_open])]
+    )]
+)
+
 AC_CONFIG_COMMANDS([tsk/tsk_incs.h],
     [echo "#ifndef _TSK_INCS_H" > tsk/tsk_incs.h
     echo "#define _TSK_INCS_H" >> tsk/tsk_incs.h

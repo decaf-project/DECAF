@@ -194,6 +194,7 @@ opengl=""
 zlib="yes"
 guest_agent="yes"
 libiscsi=""
+libqcow="no"
 
 # parse CC options first
 for opt do
@@ -536,6 +537,9 @@ for opt do
   --interp-prefix=*) interp_prefix="$optarg"
   ;;
   --source-path=*)
+  ;;
+  # Add qcow support --Ren
+  --libqcow-path=*) libqcow="$optarg"
   ;;
   --cross-prefix=*)
   ;;
@@ -1131,6 +1135,8 @@ echo "  --enable-tcg-llvm        enable TCG-to-LLVM translation"
 # AWH - VMI enable
 echo "  --disable-vmi            disable VMI support"
 echo "  --enable-vmi             enable VMI support (default)"
+# Add qcow support --Ren
+echo "  --libqcow-path           path to QCOW library"
 echo ""
 echo "NOTE: The object files are built at the place where configure is launched"
 exit 1
@@ -3951,6 +3957,7 @@ fi
 
 echo "Configuring Sleuthkit now! Please wait"
 cd ./shared/sleuthkit
-./configure --disable-java --enable-silent-rules --prefix=$PWD > /dev/null 2>&1
+./bootstrap > /dev/null 2>&1
+./configure --disable-java --enable-silent-rules --prefix=$PWD --with-libqcow=$libqcow > /dev/null 2>&1
 cd ../..
 echo "DECAF configuration complete! Type 'make' to begin building."
