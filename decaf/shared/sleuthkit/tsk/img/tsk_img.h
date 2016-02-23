@@ -65,10 +65,10 @@ extern "C" {
         TSK_IMG_TYPE_AFF_ANY = 0x0020,  ///< Any format supported by AFFLIB (including beta ones)
 
         TSK_IMG_TYPE_EWF_EWF = 0x0040,  ///< EWF version
-	TSK_IMG_TYPE_QCOW_QCOW = 0x0050,  ///< QCOW version
+	      TSK_IMG_TYPE_QCOW_QCOW = 0x0050,  ///< QCOW version
         TSK_IMG_TYPE_EXTERNAL = 0x1000,  ///< external defined format which at least implements TSK_IMG_INFO, used by pytsk
-        
-        QEMU_IMG             = 0x0050,   // QEMU image format support 
+
+        QEMU_IMG             = 0x0060,   // QEMU image format support
 
         TSK_IMG_TYPE_UNSUPP = 0xffff,   ///< Unsupported disk image type
     } TSK_IMG_TYPE_ENUM;
@@ -91,10 +91,10 @@ extern "C" {
         unsigned int spare_size;        ///< spare or OOB size of NAND in bytes (defaults to 64)
 
         tsk_lock_t cache_lock;  ///< Lock for cache and associated values
-        char cache[TSK_IMG_INFO_CACHE_NUM][TSK_IMG_INFO_CACHE_LEN];     ///< read cache (r/w shared - lock) 
-        TSK_OFF_T cache_off[TSK_IMG_INFO_CACHE_NUM];    ///< starting byte offset of corresponding cache entry (r/w shared - lock) 
-        int cache_age[TSK_IMG_INFO_CACHE_NUM];  ///< "Age" of corresponding cache entry, higher means more recently used (r/w shared - lock) 
-        size_t cache_len[TSK_IMG_INFO_CACHE_NUM];       ///< Length of cache entry used (0 if never used) (r/w shared - lock) 
+        char cache[TSK_IMG_INFO_CACHE_NUM][TSK_IMG_INFO_CACHE_LEN];     ///< read cache (r/w shared - lock)
+        TSK_OFF_T cache_off[TSK_IMG_INFO_CACHE_NUM];    ///< starting byte offset of corresponding cache entry (r/w shared - lock)
+        int cache_age[TSK_IMG_INFO_CACHE_NUM];  ///< "Age" of corresponding cache entry, higher means more recently used (r/w shared - lock)
+        size_t cache_len[TSK_IMG_INFO_CACHE_NUM];       ///< Length of cache entry used (0 if never used) (r/w shared - lock)
 
          ssize_t(*read) (TSK_IMG_INFO * img, TSK_OFF_T off, char *buf, size_t len);     ///< \internal External progs should call tsk_img_read()
         void (*close) (TSK_IMG_INFO *); ///< \internal Progs should call tsk_img_close()
@@ -145,7 +145,7 @@ extern "C" {
 
   private:
      TSK_IMG_INFO * m_imgInfo;
-    bool m_opened;              // true if open() was called and we need to free it    
+    bool m_opened;              // true if open() was called and we need to free it
      TskImgInfo(const TskImgInfo & rhs);
      TskImgInfo & operator=(const TskImgInfo & rhs);
 

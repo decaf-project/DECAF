@@ -177,8 +177,8 @@ tsk_img_open(int num_img,
                 img_set->close(img_set);
                 img_info->close(img_info);
                 tsk_error_reset();
-                tsk_errno = TSK_ERR_IMG_UNKTYPE;
-                snprintf(tsk_errstr, TSK_ERRSTR_L, "QCOW or %s", set);
+                tsk_error_set_errno(TSK_ERR_IMG_UNKTYPE);
+                tsk_error_set_errstr("EWF or %s", set);
                 return NULL;
             }
         }
@@ -228,8 +228,13 @@ tsk_img_open(int num_img,
         break;
 #endif
 
+#if HAVE_LIBQCOW
+    case TSK_IMG_TYPE_QCOW_QCOW:
+        img_info = qcow_open(num_img, images, a_ssize);
+        break;
+#endif
+
     case QEMU_IMG:
-		
         img_info =  qemu_image_open((void*) *images, a_ssize);
         break;
 
@@ -451,7 +456,7 @@ tsk_img_close(TSK_IMG_INFO * a_img_info)
 
 /**
  * \internal
- * Return the list of names for this open images. 
+ * Return the list of names for this open images.
  * This is sort of a hack implementation and is internal only at this
  * point.  Returns pointers into the IMG_INFO structs and should not be
  * modified or freed.
@@ -460,7 +465,7 @@ tsk_img_close(TSK_IMG_INFO * a_img_info)
  * @returns List of names.
  */
 const TSK_TCHAR **
-tsk_img_get_names(TSK_IMG_INFO *a_img_info, int *a_num_imgs) 
+tsk_img_get_names(TSK_IMG_INFO *a_img_info, int *a_num_imgs)
 {
     if (a_img_info == NULL) {
         tsk_error_reset();

@@ -44,18 +44,13 @@ ssize_t qcow_image_read(
 	if( offset > img_info->size )
 	{
 		tsk_error_reset();
+    tsk_error_set_errno(TSK_ERR_IMG_READ_OFF);
 
-		tsk_errno = TSK_ERR_IMG_READ_OFF;
-
-		snprintf(
-		 tsk_errstr,
-		 TSK_ERRSTR_L,
-		 "split_read - %" PRIuOFF,
-		 offset );
+		tsk_error_set_errstr("split_read - %" PRIuOFF,offset );
 
 		return( -1 );
 	}
-	read_count = libqcow_file_read_random(
+	read_count = libqcow_file_read_buffer_at_offset(
 	              qcow_info->file,
 	              buffer,
 	              size,
@@ -65,28 +60,21 @@ ssize_t qcow_image_read(
 	if( read_count < 0 )
 	{
 		tsk_error_reset();
-
-		tsk_errno = TSK_ERR_IMG_READ;
+    tsk_error_set_errno(TSK_ERR_IMG_READ);
 
 		if( libqcow_error_backtrace_sprint(
 		     qcow_error,
 		     error_string,
 		     TSK_QCOW_ERROR_STRING_SIZE ) == -1 )
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_read - offset: %" PRIuOFF " - len: %" PRIuSIZE " - %s",
+			 tsk_error_set_errstr("qcow_read - offset: %" PRIuOFF " - len: %" PRIuSIZE " - %s",
 			 offset,
 			 size,
 			 strerror( errno ) );
 		}
 		else
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_read - offset: %" PRIuOFF " - len: %" PRIuSIZE "\n%s",
+	     tsk_error_set_errstr("qcow_read - offset: %" PRIuOFF " - len: %" PRIuSIZE "\n%s",
 			 offset,
 			 size,
 			 error_string );
@@ -165,24 +153,18 @@ TSK_IMG_INFO *qcow_open(
 	{
 		tsk_error_reset();
 
-		tsk_errno = TSK_ERR_IMG_MAGIC;
+		tsk_error_set_errno(TSK_ERR_IMG_MAGIC);
 
 		if( libqcow_error_backtrace_sprint(
 		     qcow_error,
 		     error_string,
 		     TSK_QCOW_ERROR_STRING_SIZE ) == -1 )
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_open: Not an QCOW file" );
+		tsk_error_set_errstr("qcow_open: Not an QCOW file" );
 		}
 		else
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_open: Not an QCOW file\n%s",
+		tsk_error_set_errstr("qcow_open: Not an QCOW file\n%s",
 			 error_string );
 		}
                 libqcow_error_free(
@@ -205,25 +187,19 @@ TSK_IMG_INFO *qcow_open(
 	{
         	tsk_error_reset();
 
-	        tsk_errno = TSK_ERR_IMG_OPEN;
+	        tsk_error_set_errno(TSK_ERR_IMG_OPEN);
 
 		if( libqcow_error_backtrace_sprint(
 		     qcow_error,
 		     error_string,
 		     TSK_QCOW_ERROR_STRING_SIZE ) == -1 )
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_open file: %" PRIttocTSK ": Error opening",
+			tsk_error_set_errstr("qcow_open file: %" PRIttocTSK ": Error opening",
 			 images[ 0 ] );
 		}
 		else
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_open file: %" PRIttocTSK ": Error opening\n%s",
+			tsk_error_set_errstr("qcow_open file: %" PRIttocTSK ": Error opening\n%s",
 			 images[ 0 ],
 			 error_string );
 		}
@@ -254,12 +230,9 @@ TSK_IMG_INFO *qcow_open(
 	{
         	tsk_error_reset();
 
-	        tsk_errno = TSK_ERR_IMG_OPEN;
+	        tsk_error_set_errno(TSK_ERR_IMG_OPEN);
 
-	        snprintf(
-		 tsk_errstr,
-		 TSK_ERRSTR_L,
-		 "qcow_open file: %" PRIttocTSK ": Error opening",
+tsk_error_set_errstr("qcow_open file: %" PRIttocTSK ": Error opening",
 		 images[ 0 ] );
 
 	        free(
@@ -280,25 +253,19 @@ TSK_IMG_INFO *qcow_open(
 	{
 		tsk_error_reset();
 
-		tsk_errno = TSK_ERR_IMG_OPEN;
+		tsk_error_set_errno(TSK_ERR_IMG_OPEN);
 
 		if( libqcow_error_backtrace_sprint(
 		     qcow_error,
 		     error_string,
 		     TSK_QCOW_ERROR_STRING_SIZE ) == -1 )
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_open file: %" PRIttocTSK ": Error getting size of image",
+		tsk_error_set_errstr("qcow_open file: %" PRIttocTSK ": Error getting size of image",
 			 images[ 0 ] );
 		}
 		else
 		{
-			snprintf(
-			 tsk_errstr,
-			 TSK_ERRSTR_L,
-			 "qcow_open file: %" PRIttocTSK ": Error getting size of image\n%s",
+		tsk_error_set_errstr("qcow_open file: %" PRIttocTSK ": Error getting size of image\n%s",
 			 images[ 0 ],
 			 error_string );
 		}
@@ -330,4 +297,3 @@ TSK_IMG_INFO *qcow_open(
 }
 
 #endif /* HAVE_LIBQCOW */
-

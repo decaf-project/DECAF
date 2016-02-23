@@ -257,7 +257,7 @@ AS_IF([test "x$with_libqcow" != "xno"],
     [AS_IF([test "x$with_libqcow" != "xyes"],
         [AS_IF([test -d ${with_libqcow}/include],
             [CFLAGS="$CFLAGS -I${with_libqcow}/include"
-                LDFLAGS="$LDFLAGS -L${with_libqcow}/lib"],
+                LDFLAGS="$LDFLAGS -L${with_libqcow}/libqcow/.libs"],
             # Dir given was not correct
             [AC_MSG_FAILURE([libqcow directory not found at ${with_libqcow}])])
         ]
