@@ -65,10 +65,10 @@ extern "C" {
         TSK_IMG_TYPE_AFF_ANY = 0x0020,  ///< Any format supported by AFFLIB (including beta ones)
 
         TSK_IMG_TYPE_EWF_EWF = 0x0040,  ///< EWF version
-	      TSK_IMG_TYPE_QCOW_QCOW = 0x0050,  ///< QCOW version
+	TSK_IMG_TYPE_QCOW_QCOW = 0x0060,  ///< QCOW version
         TSK_IMG_TYPE_EXTERNAL = 0x1000,  ///< external defined format which at least implements TSK_IMG_INFO, used by pytsk
 
-        QEMU_IMG             = 0x0060,   // QEMU image format support
+        QEMU_IMG             = 0x0050,   // QEMU image format support
 
         TSK_IMG_TYPE_UNSUPP = 0xffff,   ///< Unsupported disk image type
     } TSK_IMG_TYPE_ENUM;
