@@ -206,6 +206,9 @@ for opt do
   ;;
   --source-path=*) source_path="$optarg"
   ;;
+  # Add qcow support --Ren
+  --libqcow-path=*) LDFLAGS="-lqcow $LDFLAGS"
+  ;;
   --cpu=*) cpu="$optarg"
   ;;
   --extra-cflags=*) QEMU_CFLAGS="$optarg $QEMU_CFLAGS"
@@ -256,7 +259,7 @@ QEMU_CPPFLAGS="-fno-strict-aliasing -Wall -Wundef -Wwrite-strings -Wredundant-de
 QEMU_INCLUDES="-I. -I\$(SRC_PATH) -I\$(SRC_PATH)/fpu -I\$(SRC_PATH)/shared/sleuthkit -I\$(SRC_PATH)/shared"
 LDFLAGS=" -g $LDFLAGS"
 # AWH - Adding -rdynamic to export QEMU global variables out to the plugins
-LDFLAGS="-rdynamic"
+LDFLAGS="-rdynamic $LDFLAGS"
 
 # make source path absolute
 source_path=`cd "$source_path"; pwd`
