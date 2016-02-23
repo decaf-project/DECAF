@@ -41,6 +41,9 @@ static IMG_TYPES img_open_table[] = {
 #if HAVE_LIBEWF
     {"ewf", TSK_IMG_TYPE_EWF_EWF, "Expert Witness format (encase)"},
 #endif
+#if HAVE_LIBQCOW
+    {"qcow", TSK_IMG_TYPE_QCOW_QCOW, "QEMU Copy-On-Write"},
+#endif
     {0},
 };
 
