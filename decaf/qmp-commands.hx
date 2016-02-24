@@ -445,6 +445,33 @@ Note: inject-nmi is only supported for x86 guest currently, it will
 EQMP
 
     {
+        .name       = "pmemaccess",
+        .args_type  = "path:s",
+        .params     = "path",
+        .help       = "mount guest physical memory image at 'path'",
+        .user_print = monitor_user_noop,
+        .mhandler.cmd_new = do_physical_memory_access,
+    },
+
+SQMP
+pmemaccess
+----------
+
+Mount guest physical memory image at 'path'.
+
+Arguments:
+
+- "path": mount point path (json-string)
+
+Example:
+
+-> { "execute": "pmemaccess",
+             "arguments": { "path": "/tmp/guestname" } }
+<- { "return": {} }
+
+EQMP
+
+    {
         .name       = "migrate",
         .args_type  = "detach:-d,blk:-b,inc:-i,uri:s",
         .params     = "[-d] [-b] [-i] uri",
