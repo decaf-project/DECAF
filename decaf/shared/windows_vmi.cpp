@@ -90,7 +90,7 @@ unordered_map < uint32_t, pair<module *, uint32_t> > phys_module_map;
 
 
 static const char * dll_modules_list[] = {
-	"ntdll.dll", "kernel32.dll", "ntoskrnl.exe", "hal.dll", "win32k.sys", "ndis.sys", "user32.dll", "advapi32.dll", "psapi.dll", "shell.dll", "ws2_32.dll",
+	"ntdll.dll", "kernel32.dll", "ntoskrnl.exe", "hal.dll", "win32k.sys", "ndis.sys", "user32.dll", "advapi32.dll", "psapi.dll", "shell.dll", "ws2_32.dll", "urlmon.dll",
 };
 
 static bool should_extract_symbol(const char *module_name)
