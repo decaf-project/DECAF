@@ -249,8 +249,10 @@ void DECAF_flushTranslationCache(int type,target_ulong addr);
 ///send a keystroke into the guest system
 extern void do_send_key(const char *string);
 
-
-
+//Selectively turns translation block chaining on and off
+extern bool DECAF_tb_chaining;
+void DECAF_enable_tb_chaining(void);
+void DECAF_disable_tb_chaining(void);
 
 #ifdef __cplusplus
 }

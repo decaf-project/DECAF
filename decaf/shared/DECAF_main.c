@@ -60,7 +60,7 @@ static int devices=0;
 
 struct __flush_list flush_list_internal;
 
-
+bool DECAF_tb_chaining = true;
 
 
 mon_cmd_t DECAF_mon_cmds[] = {
@@ -765,3 +765,10 @@ void DECAF_bdrv_open(int index, void *opaque) {
   ++devices;
 }
 
+void DECAF_enable_tb_chaining(void) {
+	DECAF_tb_chaining = true;
+}
+
+void DECAF_disable_tb_chaining(void) {
+	DECAF_tb_chaining = false;
+}

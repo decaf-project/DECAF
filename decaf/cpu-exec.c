@@ -560,8 +560,10 @@ int cpu_exec(CPUState *env)
                 /* see if we can patch the calling TB. When the TB
                    spans two pages, we cannot safely do a direct
                    jump. */
-                if (next_tb != 0 && tb->page_addr[1] == -1) {
-                    tb_add_jump((TranslationBlock *)(next_tb & ~3), next_tb & 3, tb);
+                if ((DECAF_tb_chaining == true)){
+                    if (next_tb != 0 && tb->page_addr[1] == -1) {
+                        tb_add_jump((TranslationBlock *)(next_tb & ~3), next_tb & 3, tb);
+                    }
                 }
                 spin_unlock(&tb_lock);
 
@@ -593,13 +595,13 @@ int cpu_exec(CPUState *env)
                             env->icount_extra -= insns_left;
                             env->icount_decr.u16.low = insns_left;
                         } else {
-                            if (insns_left > 0) {
-                                /* Execute remaining instructions.  */
-                                cpu_exec_nocache(env, insns_left, tb);
-                            }
-                            env->exception_index = EXCP_INTERRUPT;
-                            next_tb = 0;
-                            cpu_loop_exit(env);
+                                if (insns_left > 0) {
+                                    /* Execute remaining instructions.  */
+                                    cpu_exec_nocache(env, insns_left, tb);
+                                }
+                                env->exception_index = EXCP_INTERRUPT;
+                                next_tb = 0;
+                                cpu_loop_exit(env);
                         }
                     }
                 }
