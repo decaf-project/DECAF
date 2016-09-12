@@ -13,6 +13,8 @@ http://sycurelab.ecs.syr.edu/
 If you have any questions about DECAF,please post it on
 http://code.google.com/p/decaf-platform/
 */
+#include <string>
+#include <list>
 #include "qemu-common.h"
 #include "hw/hw.h"
 #include "DECAF_main.h"
@@ -26,8 +28,6 @@ http://code.google.com/p/decaf-platform/
 #include "vmi.h"
 #include "windows_vmi.h"
 #include "shared/DECAF_types.h"
-#include <string>
-#include <list>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
