@@ -20,11 +20,11 @@ http://code.google.com/p/decaf-platform/
  *      Author: lok
  */
 
+#include <tr1/unordered_set>
+
 #include "HashtableWrapper.h"
 #include "Output.h"
 #include "DECAF_types.h"
-
-#include <tr1/unordered_set>
 
 using namespace std::tr1;
 
