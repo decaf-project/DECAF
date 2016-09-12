@@ -4228,6 +4228,7 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     int modrm, reg, rm, mod, reg_addr, op, opreg, offset_addr, val;
     target_ulong next_eip, tval;
     int rex_w, rex_r;
+    int insn_len = -1;
 
     //LOK: update the new globals - cur_pc is NOT the current_eip
     // and next_pc is the next IF jmp
@@ -4253,6 +4254,8 @@ static target_ulong disas_insn(DisasContext *s, target_ulong pc_start)
     s->rip_offset = 0; /* for relative ip address */
 
  next_byte:
+    insn_len++;
+    if (insn_len >= 15) goto illegal_op;
     cur_opcode = b = ldub_code(s->pc);
     s->pc++;
     /* check prefixes */
