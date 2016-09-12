@@ -28,6 +28,7 @@
 #include <istream>
 #include <streambuf>
 #include <sstream>
+#include <algorithm>
 #include <inttypes.h>
 #include <string>
 #include <list>
