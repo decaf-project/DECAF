@@ -9,6 +9,7 @@
   static int in_helper_func = 0;
   static int out_helper_func = 0;
   static int sysexit_helper_func = 0;
+  static int helper_flds_FT0_func = 0;
   static int divb_helper_func = 0;
   static int divw_helper_func = 0;
   static int divl_helper_func = 0;
@@ -27,6 +28,7 @@
     taint logic for the helper. */ 
   in_helper_func = out_helper_func = sysexit_helper_func = 0;
   divb_helper_func = divw_helper_func = divl_helper_func = 0;
+  helper_flds_FT0_func = 0;
   clean_eax_after = clean_ebx_after = clean_ecx_after = 0;
   clean_edx_after = clean_esp_after = 0; 
   clean_tempidx_before = 1;
@@ -83,7 +85,7 @@
   else if (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_sysexit)
   {
     sysexit_helper_func = 1;
-    //fprintf(stderr, "helper_sysexit() found\n");
+    fprintf(stderr, "helper_sysexit() found\n");
   }
   /* Check if the constant is a helper function for IDIVB/DIVB */
   else if ( (gen_opparam_ptr[-1] == (tcg_target_ulong)helper_divb_AL) ||
@@ -103,6 +105,14 @@
   {
     divl_helper_func = 1;
   } 
+  /* for floating point instructions */
+  else if( (gen_opparam_ptr[-1] == (tcg_target_ulong) helper_flds_FT0))
+  {
+    helper_flds_FT0_func = 1;
+    fprintf(stderr, "helper_flds_FT0() found\n");
+  }
+
+
 #elif defined(HELPER_SECTION_THREE)
 #undef HELPER_SECTION_THREE
     /* HELPER_SECTION_THREE is included in the op_call opcode logic for
@@ -147,8 +157,9 @@
         t0 = tcg_temp_new_i64();
         tcg_gen_movi_i64(t0, 0);
         tcg_gen_st_tl(t0, cpu_env, offsetof(OurCPUState,tempidx));
-#endif /* TARGET_REG_BITS == 32 */
+#endif /* TARGET_REG_BITS == 32 */`
       }
+
 
       /* Manually reinsert the CALL opcode */
       *(gen_opc_ptr++) = INDEX_op_call;
@@ -158,6 +169,15 @@
         gen_opparam_ptr[-(i+1)] = backup_orig[i];
       }
     }
+
+
+    /*helper function for floating point instructions */
+      if (helper_flds_FT0_func)
+      {
+        arg0 = find_shadow_arg(gen_opparam_ptr[-1]);
+        tcg_gen_st_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+
+      }
 
 #elif defined(HELPER_SECTION_FOUR)
 #undef HELPER_SECTION_FOUR

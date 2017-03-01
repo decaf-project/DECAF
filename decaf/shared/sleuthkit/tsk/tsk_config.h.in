@@ -57,6 +57,12 @@
 /* Define to 1 if you have the <libewf.h> header file. */
 #undef HAVE_LIBEWF_H
 
+/* Define to 1 if you have the `qcow' library (-lqcow). */
+#undef HAVE_LIBQCOW
+
+/* Define to 1 if you have the <libqcow.h> header file. */
+#undef HAVE_LIBQCOW_H
+
 /* Define to 1 if you have the `stdc++' library (-lstdc++). */
 #undef HAVE_LIBSTDC__
 

@@ -3647,6 +3647,7 @@ static void fpu_raise_exception(void)
 
 void helper_flds_FT0(uint32_t val)
 {
+    fprintf(stderr, "Taintedvalue Of FT0 %d \n", cpu_single_env->tempidx);
     union {
         float32 f;
         uint32_t i;

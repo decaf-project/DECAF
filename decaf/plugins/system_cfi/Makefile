@@ -1,0 +1,68 @@
+include config-plugin.mak
+include $(SRC_PATH)/$(TARGET_DIR)/config-target.mak
+include $(SRC_PATH)/config-host.mak
+
+LLCONF_PATH=$(SRC_PATH)/shared/llconf/
+
+DEFINES=-I. -I$(SRC_PATH) -I$(SRC_PATH)/plugins -I$(SRC_PATH)/fpu -I$(SRC_PATH)/shared -I$(SRC_PATH)/target-$(TARGET_ARCH) -I$(SRC_PATH)/$(TARGET_DIR) -I$(SRC_PATH)/slirp -I$(SRC_PATH)/shared/hooks 
+DEFINES+=-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -DNEED_CPU_H
+DEFINES+=-I$(LLCONF_PATH)/install/include
+DEFINES+=-I$(GLIB_CFLAGS)
+
+CC=gcc
+CPP=g++
+CFLAGS=-Wall -O2 -g -fPIC -MMD 
+# CFLAGS=-Wall -g -fPIC 
+LDFLAGS=-g -shared 
+LIBS=-lcrypto
+LIBS+=$(LLCONF_PATH)/src/.libs/libllconf.a
+
+ifeq ($(ARCH), x86_64)
+LIBS+=-L$(SRC_PATH)/shared/xed2/xed2-intel64/lib -lxed
+DEFINES+= -I$(SRC_PATH)/shared/xed2/xed2-intel64/include
+endif
+ifeq ($(ARCH), i386)
+LIBS+=-L$(SRC_PATH)/shared/xed2/xed2-ia32/lib -lxed
+DEFINES+= -I$(SRC_PATH)/shared/xed2/xed2-ia32/include
+endif
+
+# hash table from glib
+DEFINES+=`pkg-config --cflags glib-2.0`
+LIBS+=`pkg-config --libs glib-2.0`
+
+
+OBJS=cfi.o recon.o extract_from_binary.o libdasm.o
+all: cfi.so
+
+SHARED_LIBS=$(LLCONF_PATH)/src/.libs/libllconf.a
+
+$(LLCONF_PATH)/src/.libs/libllconf.a:
+	./build-deps.sh $(SRC_PATH)
+
+ini/main.ini: ini/main.ini.in
+	@perl -pe 's[SRC_PATH][$(SRC_PATH)]g' $< >$@
+
+ini/hook_plugin.ini: ini/hook_plugin.ini.in
+	cp $< $@
+
+%.o: %.c 
+	$(CC) $(CFLAGS) $(DEFINES) -c -o $@ $<
+
+%.o: %.cpp
+	$(CPP) $(CFLAGS) $(DEFINES) -c -o $@ $<
+
+cfi.so: $(SHARED_LIBS) $(OBJS)
+	$(CPP) $(LDFLAGS) $^ -o $@ $(LIBS)
+
+cfi-static.so: $(OBJS)
+	$(CPP) -static-libgcc -Wl,-static $(LDFLAGS) $^ -o $@ $(LIBS)
+
+clean:
+	rm -f *.o *.d *.so *~ $(PLUGIN) 
+
+realclean:
+	rm -f $(OBJS)  *.d *.so *.a *~ $(PLUGIN) ini/main.ini ini/hook_plugin.ini
+
+# Include automatically generated dependency files
+-include $(wildcard *.d)
+
