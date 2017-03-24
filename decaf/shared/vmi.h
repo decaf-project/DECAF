@@ -42,9 +42,8 @@ public:
 	unordered_map < string, uint32_t> function_map_name;
 	unsigned int inode_number;
 
-	module()
+	module() : symbols_extracted(false), inode_number(0)
 	{
-		this->inode_number = 0;
 	}
 };
 
