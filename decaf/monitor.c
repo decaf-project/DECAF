@@ -75,6 +75,7 @@
 
 #include "shared/DECAF_main.h"
 #include "shared/DECAF_main_internal.h"
+#include "memory-access.h"
 
 //#define DEBUG
 //#define DEBUG_COMPLETION
@@ -1461,6 +1462,13 @@ static int do_physical_memory_save(Monitor *mon, const QDict *qdict,
 exit:
     fclose(f);
     return ret;
+}
+
+static int do_physical_memory_access(Monitor *mon, const QDict *qdict, QObject **ret_data)
+{
+    const char *path = qdict_get_str(qdict, "path");
+    memory_access_start(path);
+    return 0;
 }
 
 static void do_sum(Monitor *mon, const QDict *qdict)
