@@ -76,5 +76,5 @@ RUN make install
 
 WORKDIR /decafroot/DECAF/decaf/i386-softmmu/
 #CMD ["/bin/bash"]
-CMD export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/ &/etc/init.d/samba start & ./qemu-system-i386 -monitor stdio -m 256 -net user,smb=/app/ -netdev user,id=mynet -device rtl8139,netdev=mynet  /app/winxpsp3_ie6.1.img 
+CMD export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/ &/etc/init.d/samba start & ./qemu-system-i386 -monitor stdio -m 256 -net user,smb=/app/ -netdev user,id=mynet -device rtl8139,netdev=mynet  /app/winxpsp3_ie6.1.img -s
 #CMD /etc/init.d/samba status

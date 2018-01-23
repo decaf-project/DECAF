@@ -15,7 +15,7 @@ The [guest images](https://github.com/sycurelab/DECAFImages "DECAFImages") or ma
 
 ### Build the docker image ###
 
-`docker built -t decaf ./decaf/`
+`docker build -t decaf ./decaf/`
 
 ### How to run the docker image? ###
 
