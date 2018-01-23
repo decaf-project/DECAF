@@ -2,11 +2,13 @@
 
 A Dockerfile to create decaf running environments.
 
-### What is this repository for? ###
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+
+### Share files with the docker image###
+
+We use docker volume to share files between docker images and the host system. For example, to create a volume named decaf, use the following command.
+
+`docker volume create my-vol`
 
 ### How do I get set up? ###
 
