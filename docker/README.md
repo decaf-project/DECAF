@@ -10,7 +10,7 @@ We use docker volume to share files between docker images and the host system. F
 
 `docker volume create decaf`
 
-The [guest images] (https://github.com/sycurelab/DECAFImages "DECAFImages") or malicious samples cannbe stored in this volume, so the docker image can access it. Or the out put of DECAF plugin can be sotred in this volume, so that we can extract the analysis results.
+The [guest images](https://github.com/sycurelab/DECAFImages "DECAFImages") or malicious samples cannbe stored in this volume, so the docker image can access it. Or the out put of DECAF plugin can be sotred in this volume, so that we can extract the analysis results.
 
 
 ### Build the docker image ###
