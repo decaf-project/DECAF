@@ -257,7 +257,7 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
     gva_t addr,
     OCB_t type)
 {
-  callback_struct_t * cb_struct = (callback_struct_t *)malloc(sizeof(callback_struct_t));
+  callback_struct_t * cb_struct = (callback_struct_t *)g_malloc(sizeof(callback_struct_t));
   if (cb_struct == NULL)
   {
     return (DECAF_NULL_HANDLE);
@@ -297,13 +297,13 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
     {
       if (pOBBTable == NULL)
       {
-        free(cb_struct);
+        g_free(cb_struct);
         return (DECAF_NULL_HANDLE);
       }
       //This is not necessarily thread-safe
       if (CountingHashtable_add(pOBBTable, addr) == 1)
       {
-      	DECAF_flushTranslationCache(BLOCK_LEVEL,addr);
+      	DECAF_flushTranslationCache(BLOCK_LEVEL, addr);
       }
       break;
     }
@@ -320,14 +320,14 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
       addr &= TARGET_PAGE_MASK;
       if (pOBBPageTable == NULL)
       {
-        free(cb_struct);
+        g_free(cb_struct);
         return (DECAF_NULL_HANDLE);
       }
 
       //This is not necessarily thread-safe
       if (CountingHashtable_add(pOBBPageTable, addr) == 1)
       {
-      	DECAF_flushTranslationCache(PAGE_LEVEL,addr);
+      	DECAF_flushTranslationCache(PAGE_LEVEL, addr);
       }
       break;
     }
@@ -353,7 +353,7 @@ DECAF_Handle DECAF_registerOpcodeRangeCallbacks (
 		return DECAF_NULL_HANDLE;
 	}
 
-	callback_struct_t * cb_struct = (callback_struct_t *)malloc(sizeof(callback_struct_t));
+	callback_struct_t * cb_struct = (callback_struct_t *)g_malloc(sizeof(callback_struct_t));
 	if (cb_struct == NULL)
 	{
 	  return (DECAF_NULL_HANDLE);
@@ -379,7 +379,7 @@ DECAF_Handle DECAF_registerOpcodeRangeCallbacks (
 	LIST_INSERT_HEAD(&callback_list_heads[DECAF_OPCODE_RANGE_CB], cb_struct, link);
 
 	//Flush the tb
-  	DECAF_flushTranslationCache(ALL_CACHE,0);
+  	DECAF_flushTranslationCache(ALL_CACHE, 0);
 
 	return (DECAF_Handle)cb_struct;
 }
@@ -406,9 +406,9 @@ DECAF_errno_t DECAF_unregisterOpcodeRangeCallbacks(DECAF_Handle handle)
 			instructionCallbacks[i] = NULL;
 		}
 
-	    LIST_REMOVE(cb_struct, link);
+		LIST_REMOVE(cb_struct, link);
 
-		free(cb_struct);
+		g_free(cb_struct);
 
 		return 0;
 	}
@@ -422,79 +422,79 @@ invalid_handle:
 
 
 DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
-    DECAF_callback_func_t cb_func,
-    int *cb_cond,
-    gva_t from,
-    gva_t to)
+		DECAF_callback_func_t cb_func,
+		int *cb_cond,
+		gva_t from,
+		gva_t to)
 {
 
-  callback_struct_t * cb_struct = (callback_struct_t *)malloc(sizeof(callback_struct_t));
-  if (cb_struct == NULL)
-  {
-    return (DECAF_NULL_HANDLE);
-  }
+	callback_struct_t * cb_struct = (callback_struct_t *)g_malloc(sizeof(callback_struct_t));
+	if (cb_struct == NULL)
+	{
+		return (DECAF_NULL_HANDLE);
+	}
 
-  //pre-populate the info
-  cb_struct->callback = cb_func;
-  cb_struct->enabled = cb_cond;
-  cb_struct->from = from;
-  cb_struct->to = to;
-  cb_struct->ocb_type = OCB_ALL;
+	//pre-populate the info
+	cb_struct->callback = cb_func;
+	cb_struct->enabled = cb_cond;
+	cb_struct->from = from;
+	cb_struct->to = to;
+	cb_struct->ocb_type = OCB_ALL;
 
-  if ( (from == INV_ADDR) && (to == INV_ADDR) )
-  {
-    enableAllBlockEndCallbacksCount++;
-    bEnableAllBlockEndCallbacks = 1;
-    if (enableAllBlockEndCallbacksCount == 1)
-    {
-      DECAF_flushTranslationCache(ALL_CACHE,0);
-    }
-  }
-  else if (to == INV_ADDR) //this means only looking at the FROM list
-  {
-    if (pOBEFromPageTable == NULL)
-    {
-      free(cb_struct);
-      return(DECAF_NULL_HANDLE);
-    }
+	if ( (from == INV_ADDR) && (to == INV_ADDR) )
+	{
+		enableAllBlockEndCallbacksCount++;
+		bEnableAllBlockEndCallbacks = 1;
+		if (enableAllBlockEndCallbacksCount == 1)
+		{
+			DECAF_flushTranslationCache(ALL_CACHE,0);
+		}
+	}
+	else if (to == INV_ADDR) //this means only looking at the FROM list
+	{
+		if (pOBEFromPageTable == NULL)
+		{
+			g_free(cb_struct);
+			return(DECAF_NULL_HANDLE);
+		}
 
-    if (CountingHashtable_add(pOBEFromPageTable, from & TARGET_PAGE_MASK) == 1)
-    {
-    	DECAF_flushTranslationCache(PAGE_LEVEL,from);
-    }
-  }
-  else if (from == INV_ADDR)
-    //this is tricky, because it involves flushing the WHOLE cache
-  {
-    if (pOBEToPageTable == NULL)
-    {
-      free(cb_struct);
-      return(DECAF_NULL_HANDLE);
-    }
+		if (CountingHashtable_add(pOBEFromPageTable, from & TARGET_PAGE_MASK) == 1)
+		{
+			DECAF_flushTranslationCache(PAGE_LEVEL,from);
+		}
+	}
+	else if (from == INV_ADDR)
+		//this is tricky, because it involves flushing the WHOLE cache
+	{
+		if (pOBEToPageTable == NULL)
+		{
+			g_free(cb_struct);
+			return(DECAF_NULL_HANDLE);
+		}
 
-    if (CountingHashtable_add(pOBEToPageTable, to & TARGET_PAGE_MASK) == 1)
-    {
-      DECAF_flushTranslationCache(ALL_CACHE,0);
-    }
-  }
-  else
-  {
-    if (pOBEPageMap == NULL)
-    {
-      free(cb_struct);
-      return(DECAF_NULL_HANDLE);
-    }
+		if (CountingHashtable_add(pOBEToPageTable, to & TARGET_PAGE_MASK) == 1)
+		{
+			DECAF_flushTranslationCache(ALL_CACHE,0);
+		}
+	}
+	else
+	{
+		if (pOBEPageMap == NULL)
+		{
+			g_free(cb_struct);
+			return(DECAF_NULL_HANDLE);
+		}
 
-    //if we are here then that means we need the hashmap
-    if (CountingHashmap_add(pOBEPageMap, from & TARGET_PAGE_MASK, to & TARGET_PAGE_MASK) == 1)
-    {
-	    DECAF_flushTranslationCache(PAGE_LEVEL,from);
-    }
-  }
+		//if we are here then that means we need the hashmap
+		if (CountingHashmap_add(pOBEPageMap, from & TARGET_PAGE_MASK, to & TARGET_PAGE_MASK) == 1)
+		{
+			DECAF_flushTranslationCache(PAGE_LEVEL,from);
+		}
+	}
 
-  //insert into the list
-  LIST_INSERT_HEAD(&callback_list_heads[DECAF_BLOCK_END_CB], cb_struct, link);
-  return ((DECAF_Handle)cb_struct);
+	//insert into the list
+	LIST_INSERT_HEAD(&callback_list_heads[DECAF_BLOCK_END_CB], cb_struct, link);
+	return ((DECAF_Handle)cb_struct);
 }
 
 //this is for backwards compatibility -
@@ -519,7 +519,7 @@ DECAF_Handle DECAF_register_callback(
   //if we are here then that means its either insn begin or end - this is the old logic no changes
 
   callback_struct_t * cb_struct =
-      (callback_struct_t *)malloc(sizeof(callback_struct_t));
+      (callback_struct_t *)g_malloc(sizeof(callback_struct_t));
 
   if(cb_struct == NULL)
     return (DECAF_NULL_HANDLE);
@@ -546,78 +546,74 @@ insert_callback:
 
 DECAF_errno_t DECAF_unregisterOptimizedBlockBeginCallback(DECAF_Handle handle)
 {
-  callback_struct_t *cb_struct, *cb_temp;
+	callback_struct_t *cb_struct, *cb_temp;
 
-  //to unregister the callback, we have to first find the
-  // callback and its conditions and then remove it from the
-  // corresonding hashtable
+	//to unregister the callback, we have to first find the
+	// callback and its conditions and then remove it from the
+	// corresonding hashtable
 
-  LIST_FOREACH_SAFE(cb_struct, &callback_list_heads[DECAF_BLOCK_BEGIN_CB], link, cb_temp) {
-    if((DECAF_Handle)cb_struct != handle)
-      continue;
+	LIST_FOREACH_SAFE(cb_struct, &callback_list_heads[DECAF_BLOCK_BEGIN_CB], link, cb_temp) {
+		if((DECAF_Handle)cb_struct != handle)
+			continue;
 
-    //now that we have found it - check out its conditions
-    switch(cb_struct->ocb_type)
-    {
-      default: //same as ALL to match the register function
-      case (OCB_ALL):
-      {
-        enableAllBlockBeginCallbacksCount--;
-        if (enableAllBlockBeginCallbacksCount == 0)
-        {
-          bEnableAllBlockBeginCallbacks = 0;
-          //if its now zero flush the cache
-          DECAF_flushTranslationCache(ALL_CACHE,0);
-        }
-        else if (enableAllBlockBeginCallbacksCount < 0)
-        {
-          //if it underflowed then reset to 0
-          //this is really an error
-          //notice I don't reset enableallblockbegincallbacks to 0
-          // just in case
-          enableAllBlockBeginCallbacksCount = 0;
-        }
-        break;
-      }
-      case (OCB_CONST):
-      {
-        if (pOBBTable == NULL)
-        {
-          return (NULL_POINTER_ERROR);
-        }
-        if (CountingHashtable_remove(pOBBTable, cb_struct->from) == 0)
-        {
-          //Heng: Comment out the line below, so we don't flush the translation block immediately.
-          //Guest kernel reboot is observed if we immediately flush the translation block. So I 
-          //decide not to do so. It may even help to improve performance in certain cases.
+		//now that we have found it - check out its conditions
+		switch(cb_struct->ocb_type)
+		{
+			default: //same as ALL to match the register function
+			case (OCB_ALL):
+				{
+					enableAllBlockBeginCallbacksCount--;
+					if (enableAllBlockBeginCallbacksCount == 0)
+					{
+						bEnableAllBlockBeginCallbacks = 0;
+						//if its now zero flush the cache
+						DECAF_flushTranslationCache(ALL_CACHE,0);
+					}
+					else if (enableAllBlockBeginCallbacksCount < 0)
+					{
+						//if it underflowed then reset to 0
+						//this is really an error
+						//notice I don't reset enableallblockbegincallbacks to 0
+						// just in case
+						enableAllBlockBeginCallbacksCount = 0;
+					}
+					break;
+				}
+			case (OCB_CONST):
+				{
+					if (pOBBTable == NULL)
+					{
+						return (NULL_POINTER_ERROR);
+					}
+					if (CountingHashtable_remove(pOBBTable, cb_struct->from) == 0)
+					{
+						DECAF_flushTranslationCache(BLOCK_LEVEL,cb_struct->from);
+					}
+					break;
+				}
+			case (OCB_PAGE):
+				{
+					if (pOBBPageTable == NULL)
+					{
+						return (NULL_POINTER_ERROR);
+					}
+					if (CountingHashtable_remove(pOBBPageTable, cb_struct->from) == 0)
+					{
+						DECAF_flushTranslationCache(PAGE_LEVEL,cb_struct->from);
+					}
+					break;
+				}
+		}
 
-          DECAF_flushTranslationCache(BLOCK_LEVEL,cb_struct->from);
-        }
-        break;
-      }
-      case (OCB_PAGE):
-      {
-        if (pOBBPageTable == NULL)
-        {
-          return (NULL_POINTER_ERROR);
-        }
-        if (CountingHashtable_remove(pOBBPageTable, cb_struct->from) == 0)
-        {
-			DECAF_flushTranslationCache(PAGE_LEVEL,cb_struct->from);
-        }
-        break;
-      }
-    }
+		//now that we cleaned up the hashtables - we should remove the callback entry
+		LIST_REMOVE(cb_struct, link);
+		//and free the struct
+		g_free(cb_struct);
 
-    //now that we cleaned up the hashtables - we should remove the callback entry
-    LIST_REMOVE(cb_struct, link);
-    //and free the struct
-    free(cb_struct);
+		return 0;
+	}
 
-    return 0;
-  }
-
-  return -1;
+	return -1;
 }
 
 
@@ -666,13 +662,12 @@ int DECAF_unregisterOptimizedBlockEndCallback(DECAF_Handle handle)
     else if (CountingHashmap_remove(pOBEPageMap, cb_struct->from & TARGET_PAGE_MASK, cb_struct->to & TARGET_PAGE_MASK) == 0)
     {
     	DECAF_flushTranslationCache(PAGE_LEVEL,cb_struct->from & TARGET_PAGE_MASK);
-      // DECAF_flushTranslationPage(cb_struct->from & TARGET_PAGE_MASK);
     }
 
     //we can now remove the entry
     LIST_REMOVE(cb_struct, link);
     //and free the struct
-    free(cb_struct);
+    g_free(cb_struct);
 
     return 0;
   }
@@ -698,7 +693,7 @@ int DECAF_unregister_callback(DECAF_callback_type_t cb_type, DECAF_Handle handle
       continue;
 
     LIST_REMOVE(cb_struct, link);
-    free(cb_struct);
+    g_free(cb_struct);
 
 #ifdef CONFIG_VMI_ENABLE
     if(cb_type == DECAF_TLB_EXEC_CB) {
