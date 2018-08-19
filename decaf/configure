@@ -193,7 +193,7 @@ usb_redir=""
 opengl=""
 zlib="yes"
 guest_agent="yes"
-libiscsi=""
+libiscsi="no"
 libqcow="no"
 
 # parse CC options first

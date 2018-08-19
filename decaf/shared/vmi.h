@@ -10,7 +10,6 @@
 #ifndef VMI_H_
 #define VMI_H_
 
-#include <iostream>
 #include <list>
 #include <tr1/unordered_map>
 #include <tr1/unordered_set>
