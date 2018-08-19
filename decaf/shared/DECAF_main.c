@@ -296,7 +296,7 @@ void flush_list_insert(flush_list *list, int type, unsigned int addr )  {
 		
 	++list->size;
 	flush_node *temp=list->head;
-	flush_node *to_insert=(flush_node *)malloc(sizeof(flush_node));
+	flush_node *to_insert=(flush_node *)g_malloc(sizeof(flush_node));
 	to_insert->type=type;
 	to_insert->next=NULL;
 	to_insert->addr=addr;
@@ -335,7 +335,7 @@ void DECAF_perform_flush(CPUState* env)
 		prev=temp;
 		temp=temp->next;
 		prev->next=NULL;
-		free(prev);
+		g_free(prev);
 	}
 	flush_list_internal.head=NULL;
 	flush_list_internal.size=0;

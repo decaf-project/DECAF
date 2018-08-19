@@ -222,24 +222,20 @@ void DECAF_flushTranslationPage_env(CPUState* env, gva_t addr);
 static inline void DECAF_flushTranslationBlock(uint32_t addr)
 {
   CPUState* env;
-  DECAF_stop_vm();
   for(env = first_cpu; env != NULL; env = env->next_cpu)
   {
     DECAF_flushTranslationBlock_env(env, addr);
   }
-  DECAF_start_vm();
 }
 
 //Iterates through all virtual cpus and flushes the pages
 static inline void DECAF_flushTranslationPage(uint32_t addr)
 {
   CPUState* env;
-  DECAF_stop_vm();
   for(env = first_cpu; env != NULL; env = env->next_cpu)
   {
     DECAF_flushTranslationPage_env(env, addr);
   }
-  DECAF_start_vm();
 }
 
 //Iterates through all virtual cpus and flushes the pages
