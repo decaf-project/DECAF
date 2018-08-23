@@ -59,9 +59,9 @@
 #include "tcg-op.h"
 #include "elf.h"
 
-#ifdef CONFIG_TCG_TAINT
-#include "tainting/tcg_taint.h"
-#endif /* CONFIG_TCG_TAINT */
+//#ifdef CONFIG_TCG_TAINT
+//#include "tainting/tcg_taint.h"
+//#endif /* CONFIG_TCG_TAINT */
 
 #if defined(CONFIG_USE_GUEST_BASE) && !defined(TCG_TARGET_HAS_GUEST_BASE)
 #error GUEST_BASE not supported on this host.

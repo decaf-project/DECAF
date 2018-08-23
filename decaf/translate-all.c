@@ -30,7 +30,7 @@
 #ifdef CONFIG_TCG_TAINT
 #include "tcg-op.h"
 #include "tainting/taint_memory.h"
-#include "tainting/tcg_taint.h"
+//#include "tainting/tcg_taint.h"
 #else
 #include "tcg.h"
 #endif /* CONFIG_TCG_TAINT */
