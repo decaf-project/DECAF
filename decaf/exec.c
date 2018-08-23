@@ -3452,13 +3452,71 @@ static CPUWriteMemoryFunc * const notdirty_mem_write[3] = {
 
 #ifdef CONFIG_TCG_TAINT
 
-static uint32_t taint_mem_readb(void *opaque, target_phys_addr_t addr)
+static uint32_t taint_mem_readb(void *opaque, target_phys_addr_t ram_addr)
 {
     //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
     //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
     //Handling of unaligned access is done in softmmu_template.h
-    return ldub_phys(addr);
+    cpu_single_env->tempidx = __taint_ldb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    return ldub_p(qemu_get_ram_ptr(ram_addr));
 }
+
+static uint32_t taint_mem_readw(void *opaque, target_phys_addr_t ram_addr)
+{
+    //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
+    //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
+    //Handling of unaligned access is done in softmmu_template.h
+    cpu_single_env->tempidx = __taint_ldw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    return lduw_p(qemu_get_ram_ptr(ram_addr));
+}
+
+static uint32_t taint_mem_readl(void *opaque, target_phys_addr_t ram_addr)
+{
+    //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
+    //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
+    //Handling of unaligned access is done in softmmu_template.h
+    cpu_single_env->tempidx = __taint_ldl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    return ldl_p(qemu_get_ram_ptr(ram_addr));
+}
+
+static void taint_mem_writeb(void *opaque, target_phys_addr_t ram_addr,
+                                uint32_t val)
+{
+    //Write taint stored in cpu_single_env->tempidx into the shadow memory
+    __taint_stb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    stb_p(qemu_get_ram_ptr(ram_addr), val);
+}
+
+static void taint_mem_writew(void *opaque, target_phys_addr_t ram_addr,
+                                uint32_t val)
+{
+    //Write taint stored in cpu_single_env->tempidx into the shadow memory
+    __taint_stw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    stw_p(qemu_get_ram_ptr(ram_addr), val);
+}
+
+static void taint_mem_writel(void *opaque, target_phys_addr_t ram_addr,
+                                uint32_t val)
+{
+    //Write taint stored in cpu_single_env->tempidx into the shadow memory
+    __taint_stl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    stl_p(qemu_get_ram_ptr(ram_addr), val);
+}
+
+
+static int io_mem_taint;
+
+static CPUReadMemoryFunc * const taint_mem_read[3] = {
+    taint_mem_readb,
+    taint_mem_readw,
+    taint_mem_readl,
+};
+
+static CPUWriteMemoryFunc * const taint_mem_write[3] = {
+    taint_mem_writeb,
+    taint_mem_writew,
+    taint_mem_writel, 
+};
 
 #endif //CONFIG_TCG_TAINT
 
@@ -3888,6 +3946,12 @@ static void io_mem_init(void)
     io_mem_watch = cpu_register_io_memory(watch_mem_read,
                                           watch_mem_write, NULL,
                                           DEVICE_NATIVE_ENDIAN);
+
+#ifdef CONFIG_TCG_TAINT
+    io_mem_taint = cpu_register_io_memory(taint_mem_read,
+                                          taint_mem_write, NULL,
+                                          DEVICE_NATIVE_ENDIAN);
+#endif
 }
 
 static void memory_map_init(void)

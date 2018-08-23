@@ -43,8 +43,6 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(target_phys_addr_t physaddr,
             && !can_do_io(env)) {
         cpu_io_recompile(env, retaddr);
     }
-    cpu_single_env->tempidx = 0;
-
     env->mem_io_vaddr = addr;
 #if SHIFT <= 2
     res = io_mem_read[index][SHIFT](io_mem_opaque[index], physaddr);
@@ -57,13 +55,6 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(target_phys_addr_t physaddr,
     res |= (uint64_t)io_mem_read[index][2](io_mem_opaque[index], physaddr + 4) << 32;
 #endif
 #endif /* SHIFT > 2 */
-    //res.taint = cpu_single_env->tempidx;
-#if 0 // AWH
-    if (cpu_single_env->tempidx/*res.taint*/) {
-      fprintf(stderr, "MMAP IO %s() -> physaddr: 0x%08x, taint: %u\n", "__taint_io_read", physaddr, cpu_single_env->tempidx);
-      //__asm__ ("int $3");
-    }
-#endif // AWH
     return res;
 }
 
@@ -78,16 +69,11 @@ DATA_TYPE REGPARM glue(glue(__taint_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
     unsigned long addend;
     void *retaddr;
 
-    //res.dummy = 0;
-#if 0 // AWH
-#if DATA_SIZE == 4
-fprintf(stderr, "Entry %s() -> addr: 0x%08x mmu_idx: 0x%08x\n", "__taint_ldl", addr, mmu_idx);
-#elif DATA_SIZE == 2
-fprintf(stderr, "Entry %s() -> addr: 0x%08x mmu_idx: 0x%08x\n", "__taint_ldw", addr, mmu_idx);
-#else
-fprintf(stderr, "Entry %s() -> addr: 0x%08x mmu_idx: 0x%08x\n", "__taint_ldb", addr, mmu_idx);
+    //Set the taint to zero. Then if we read from a tainted page, it will go through taint_io_read function, which later goes into taint_mem_read
+    env->tempidx = 0;
+#if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
+    env->tempidx2 = 0;
 #endif
-#endif // AWH
 
     /* test if there is match for unaligned or IO access */
     /* XXX: could done more in memory macro in a non portable way */
@@ -121,14 +107,12 @@ fprintf(stderr, "Entry %s() -> addr: 0x%08x mmu_idx: 0x%08x\n", "__taint_ldb", a
 #endif
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
-            glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
-            //Hu-Mem read callback
+
+            //FIXME: this callback check is too slow. Need to move it to translation time
 #ifndef SOFTMMU_CODE_ACCESS
             if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))// host vitual addr+addend
               helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)), res, DATA_SIZE);
 #endif
-            //end
-
         }
     } else {
         /* the page is not in the TLB : fill it */
@@ -140,18 +124,6 @@ fprintf(stderr, "Entry %s() -> addr: 0x%08x mmu_idx: 0x%08x\n", "__taint_ldb", a
         tlb_fill(env, addr, READ_ACCESS_TYPE, mmu_idx, retaddr);
         goto redo;
     }
-#if 0 // AWH
-if (res.taint) {
-#if DATA_SIZE == 4
-fprintf(stderr, "Return %s() -> addr: 0x%08x, taint: 0x%08x\n", "__taint_ldl", addr, res.taint);
-#elif DATA_SIZE == 2
-fprintf(stderr, "Return %s() -> addr: 0x%08x, taint: 0x%04x\n", "__taint_ldw", addr, res.taint);
-#else
-fprintf(stderr, "Return %s() -> addr: 0x%08x, taint: 0x%02x\n", "__taint_ldb", addr, res.taint);
-#endif
-//__asm__("int $3");
-}
-#endif // AWH
     return res;
 }
 
@@ -183,72 +155,59 @@ static DATA_TYPE glue(glue(taint_slow_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
             addr2 = addr1 + DATA_SIZE;
             res1 = glue(glue(taint_slow_ld, SUFFIX), MMUSUFFIX)(addr1,
                                                           mmu_idx, retaddr);
+
+        //FIXME: need to doublecheck if we handle tempidx2 correctly
 /* Special case for 32-bit host/guest and a 64-bit load */
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-            taint1 = cpu_single_env->tempidx2;
+            taint1 = env->tempidx2;
             taint1 = taint1 << 32;
-            taint1 |= cpu_single_env->tempidx;
-            //taint1 = cpu_single_env->tempidx | (cpu_single_env->tempidx2 << 32);
+            taint1 |= env->tempidx;
 #else
-            taint1 = cpu_single_env->tempidx;
+            taint1 = env->tempidx;
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
             res2 = glue(glue(taint_slow_ld, SUFFIX), MMUSUFFIX)(addr2,
                                                           mmu_idx, retaddr);
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-            taint2 = cpu_single_env->tempidx2;
+            taint2 = env->tempidx2;
             taint2 = taint2 << 32;
-            taint2 |= cpu_single_env->tempidx;
-            //taint2 = cpu_single_env->tempidx | (cpu_single_env->tempidx2 << 32);
+            taint2 |= env->tempidx;
 #else
-            taint2 = cpu_single_env->tempidx;
+            taint2 = env->tempidx;
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
             shift = (addr & (DATA_SIZE - 1)) * 8;
 #ifdef TARGET_WORDS_BIGENDIAN
             res = (res1 << shift) | (res2 >> ((DATA_SIZE * 8) - shift));
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-            cpu_single_env->tempidx = ((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) & 0xFFFFFFFF;
-            cpu_single_env->tempidx2 = (((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) >> 32) & 0xFFFFFFFF;
+            env->tempidx = ((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) & 0xFFFFFFFF;
+            env->tempidx2 = (((taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift))) >> 32) & 0xFFFFFFFF;
 #else
-            cpu_single_env->tempidx = (taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift));
+            env->tempidx = (taint1 << shift) | (taint2 >> ((DATA_SIZE * 8) - shift));
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
 #else
             res = (res1 >> shift) | (res2 << ((DATA_SIZE * 8) - shift));
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-            cpu_single_env->tempidx = ((taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift))) & 0xFFFFFFFF;
-            cpu_single_env->tempidx2 = (((taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift))) >> 32) & 0xFFFFFFFF;
+            env->tempidx = ((taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift))) & 0xFFFFFFFF;
+            env->tempidx2 = (((taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift))) >> 32) & 0xFFFFFFFF;
 #else
-            cpu_single_env->tempidx = (taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift));
+            env->tempidx = (taint1 >> shift) | (taint2 << ((DATA_SIZE * 8) - shift));
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
 #endif /* TARGET_WORDS_BIGENDIAN */
             res = (DATA_TYPE)(res);
-            //cpu_single_env->tempidx = (DATA_TYPE)(cpu_single_env->tempidx);
         } else {
             /* unaligned/aligned access in the same page */
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
-            glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
-            //Hu-Mem read callback
+
 #ifndef SOFTMMU_CODE_ACCESS
             if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
               helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)), res, DATA_SIZE);
 #endif
-            //end
-
         }
     } else {
         /* the page is not in the TLB : fill it */
         tlb_fill(env, addr, READ_ACCESS_TYPE, mmu_idx, retaddr);
         goto redo;
     }
-#if 0 // AWH
-#if DATA_SIZE == 4
-fprintf(stderr, "Return %s() -> addr: 0x%08x, taint: %u\n", "__taint_slow_ldl", addr, res.taint);
-#elif DATA_SIZE == 2
-fprintf(stderr, "Return %s() -> addr: 0x%08x, taint: %u\n", "__taint_slow_ldw", addr, res.taint);
-#else
-fprintf(stderr, "Return %s() -> addr: 0x%08x, taint: %u\n", "__taint_slow_ldb", addr, res.taint);
-#endif
-#endif // AWH
     return res;
 }
 
@@ -259,6 +218,8 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
                                                    int mmu_idx,
                                                    void *retaddr);
 
+
+//what if a page is marked in both io_mem_notdirty and io_mem_taint?
 static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
                                           DATA_TYPE val,
                                           target_ulong addr,
@@ -325,9 +286,7 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
 #endif /* SHIFT > 2 */
     if (index == (IO_MEM_NOTDIRTY>>IO_MEM_SHIFT))
       glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
-    
-    /* Clean tempidx */  
-    //cpu_single_env->tempidx = 0;
+
 }
 
 void REGPARM glue(glue(__taint_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
@@ -340,18 +299,6 @@ void REGPARM glue(glue(__taint_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
     void *retaddr;
     int index;
 
-#if 0 // AWH
-if (taint) {
-#if DATA_SIZE == 4
-fprintf(stderr, "Start  %s() -> addr: 0x%08x, data: 0x%08x, mmu_idx: %d, taint: 0x%08x\n", "__taint_stl", addr, val, mmu_idx, taint);
-#elif DATA_SIZE == 2
-fprintf(stderr, "Start  %s() -> addr: 0x%08x, data: 0x%08x, mmu_idx: %d, taint: 0x%08x\n", "__taint_stw", addr, val, mmu_idx, taint);
-#else
-fprintf(stderr, "Start  %s() -> addr: 0x%08x, data: 0x%08x, mmu_idx: %d, taint: 0x%08x\n", "__taint_stb", addr, val, mmu_idx, taint);
-#endif
-//__asm__("int $3");
-}
-#endif // AWH
     index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
  redo:
     tlb_addr = env->tlb_table[mmu_idx][index].addr_write;
@@ -380,7 +327,20 @@ fprintf(stderr, "Start  %s() -> addr: 0x%08x, data: 0x%08x, mmu_idx: %d, taint: 
 #endif
             addend = env->tlb_table[mmu_idx][index].addend;
             glue(glue(st, SUFFIX), _raw)((uint8_t *)(long)(addr+addend), val);
-            glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+
+            //Since tainted pages are marked in io_mem_taint, we have a fast path:
+            //If taint is zero, and it is not accessing io_mem_taint, we don't need to update shadow memory
+            if(unlikely(env->tempidx
+#if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
+                        || env->tempidx2
+#endif
+                        )) {
+                //Now there is a taint, and this page is not marked in io_mem_taint.
+                //We need to taint it in the shadow memory, in which the corresponding TLB entry will also be marked as io_mem_taint
+                glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+            }
+
+
             //Hu-Mem write callback
 #ifndef SOFTMMU_CODE_ACCESS
             if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
@@ -428,12 +388,11 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
                setup tempidx for each of these single-byte stores */
 /* Special case for 32-bit host/guest and a 64-bit load */
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
-            backup_taint = cpu_single_env->tempidx2;
+            backup_taint = env->tempidx2;
             backup_taint = backup_taint << 32;
-            backup_taint |= cpu_single_env->tempidx;
-            //backup_taint = cpu_single_env->tempidx | (cpu_single_env->tempidx2 << 32);
+            backup_taint |= env->tempidx;
 #else
-            backup_taint = cpu_single_env->tempidx;
+            backup_taint = env->tempidx;
 #endif /* ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8)) */
 
             /* XXX: not efficient, but simple */
@@ -441,11 +400,11 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
              * previous page from the TLB cache.  */
             for(i = DATA_SIZE - 1; i >= 0; i--) {
 #ifdef TARGET_WORDS_BIGENDIAN
-                cpu_single_env->tempidx = backup_taint >> (((DATA_SIZE - 1) * 8) - (i * 8));
+                env->tempidx = backup_taint >> (((DATA_SIZE - 1) * 8) - (i * 8));
                 glue(taint_slow_stb, MMUSUFFIX)(addr + i, val >> (((DATA_SIZE - 1) * 8) - (i * 8)),
                                           mmu_idx, retaddr);
 #else
-                cpu_single_env->tempidx = backup_taint >> (i * 8);
+                env->tempidx = backup_taint >> (i * 8);
                 glue(taint_slow_stb, MMUSUFFIX)(addr + i, val >> (i * 8), mmu_idx, retaddr);
 #endif
             }
@@ -453,7 +412,18 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
             /* aligned/unaligned access in the same page */
             addend = env->tlb_table[mmu_idx][index].addend;
             glue(glue(st, SUFFIX), _raw)((uint8_t *)(long)(addr+addend), val);
-            glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+            //Since tainted pages are marked in io_mem_taint, we have a fast path:
+            //If taint is zero, and it is not accessing io_mem_taint, we don't need to update shadow memory
+            if(unlikely(env->tempidx
+#if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
+                        || env->tempidx2
+#endif
+                        )) {
+                //Now there is a taint, and this page is not marked in io_mem_taint.
+                //We need to taint it in the shadow memory, in which the corresponding TLB entry will also be marked as io_mem_taint
+                glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+            }
+
             //Hu-Mem read callback
 #if defined(ADD_MEM_CB)
             if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
@@ -470,4 +440,3 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
 }
 
 #endif /* !defined(SOFTMMU_CODE_ACCESS) */
-
