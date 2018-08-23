@@ -48,7 +48,9 @@ size: memory size expected to taint
 taint: pointer to a buffer containing taint information. "size" is also the size
 of this buffer.
 */
-static inline int taint_mem(uint32_t addr,int size,uint8_t *taint)
+//TODO: Flush TLB when allocate a new leaf node to store taint.
+//Question: what is the virtual address?
+static inline int taint_mem(uint32_t addr, int size, uint8_t *taint)
 {
         uint32_t middle_node_index;
         uint32_t leaf_node_index;
@@ -69,7 +71,7 @@ static inline int taint_mem(uint32_t addr,int size,uint8_t *taint)
 	    leaf_node=taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
           }
           leaf_node->bitmap[(addr+i)&LEAF_ADDRESS_MASK]=taint[i];
-        }    
+        }
 	return 1;
 }
 
@@ -77,7 +79,7 @@ static inline int taint_mem(uint32_t addr,int size,uint8_t *taint)
 //
 //the size should be less or equal to 2*TARGET_PAGE_SIZZE
 //taint points to a uint8_t array,which size is defined by second parameter "size"
-//after return, the array pointed to by parameter taint stores  the bit wise 
+//after return, the array pointed to by parameter taint stores  the bit wise
 // taint status of memory (vaddr,vaddr+size)
 //the mapping between taint array  and memory is:
 //taint:       taint[0],taint[1],....taint[size-1]

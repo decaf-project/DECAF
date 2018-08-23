@@ -26,7 +26,7 @@ uint32_t leaf_nodes_in_use = 0;
 tbitpage_leaf_pool_t leaf_pool;
 tbitpage_middle_pool_t middle_pool;
 const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
-const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1; 
+const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1;
 
 void allocate_leaf_pool(void) {
   int i;
@@ -61,7 +61,7 @@ static void free_pools(void) {
 static void allocate_taint_memory_page_table(void) {
   if (taint_memory_page_table) return; // AWH - Don't allocate if one exists
   taint_memory_page_table_root_size = ram_size >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-  taint_memory_page_table = (tbitpage_middle_t **) 
+  taint_memory_page_table = (tbitpage_middle_t **)
     g_malloc0(taint_memory_page_table_root_size * sizeof(void*));
   allocate_leaf_pool();
   allocate_middle_pool();
@@ -82,7 +82,6 @@ void garbage_collect_taint(int flag) {
 
   if (!flag && (counter < 4 * 1024)) { counter++; return; }
   counter = 0;
-  DECAF_stop_vm();
   for (middle_index = 0; middle_index < taint_memory_page_table_root_size; middle_index++) {
     middle_node = taint_memory_page_table[middle_index];
     if (middle_node) {
@@ -111,7 +110,6 @@ void garbage_collect_taint(int flag) {
       }
     } // if middle_node
   } // End for loop
-  DECAF_start_vm();
 }
 
 static void empty_taint_memory_page_table(void) {
@@ -145,6 +143,24 @@ static void free_taint_memory_page_table(void) {
   free_pools();
 }
 
+int is_physial_page_tainted(ram_addr_t addr)
+{
+    unsigned int middle_node_index;
+    unsigned int leaf_node_index;
+    tbitpage_leaf_t *leaf_node = NULL;
+
+    if (!taint_memory_page_table || addr >= ram_size) return;
+    middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
+    leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
+
+    if (!taint_memory_page_table[middle_node_index])
+        return 0;
+
+    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
+    return (leaf_node != NULL);
+}
+
+
 void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr)
 {
 	  unsigned int middle_node_index;
@@ -166,7 +182,6 @@ void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr)
 	  if (leaf_node) {
 	    cpu_single_env->tempidx = (*(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
 	    cpu_single_env->tempidx = cpu_single_env->tempidx & 0xFF;
-	//if (cpu_single_env->tempidx) { fprintf(stderr, "__taint_ldb_raw(0x%08x) -> 0x%08x\n", addr, cpu_single_env->tempidx); __asm__ ("int $3"); }
 	    if (cpu_single_env->tempidx && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)){
 	    	helper_DECAF_invoke_read_taint_mem(vaddr,addr,1,(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
 	    }
@@ -301,7 +316,6 @@ void REGPARM __taint_stb_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 	if (!taint_memory_page_table || addr >= ram_size)
 		return;
 
-	//if (cpu_single_env->tempidx & 0xFF) { fprintf(stderr, "__taint_stb_raw(0x%08x) -> 0x%08x\n", addr, cpu_single_env->tempidx & 0xFF); __asm__ ("int $3"); }
 	/* AWH - Keep track of whether the taint state has changed for this location.
 	   If taint was 0 and it is 0 after this store, then change is 0.  Otherwise,
 	   it is 1.  This is so any plugins can track that there has been a change
@@ -327,7 +341,6 @@ void REGPARM __taint_stw_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 	if (!taint_memory_page_table || addr >= ram_size)
 		return;
 
-	//if (cpu_single_env->tempidx & 0xFFFF) {fprintf(stderr, "__taint_stw_raw(0x%08x) -> 0x%08x\n", addr,cpu_single_env->tempidx & 0xFFFF);__asm__ ("int $3");}
 	/* AWH - Keep track of whether the taint state has changed for this location.
 	   If taint was 0 and it is 0 after this store, then change is 0.  Otherwise,
 	   it is 1.  This is so any plugins can track that there has been a change
@@ -354,7 +367,6 @@ void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 	if (!taint_memory_page_table || addr >= ram_size)
 		return;
 
-	//if (cpu_single_env->tempidx & 0xFFFFFFFF) {fprintf(stderr, "__taint_stl_raw(0x%08x) -> 0x%08x\n", addr,cpu_single_env->tempidx & 0xFFFFFFFF);__asm__ ("int $3");}
 	/* AWH - Keep track of whether the taint state has changed for this location.
 	   If taint was 0 and it is 0 after this store, then change is 0.  Otherwise,
 	   it is 1.  This is so any plugins can track that there has been a change
@@ -395,8 +407,6 @@ void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 	cpu_single_env->tempidx2 = 0;
 
 #if TCG_TARGET_REG_BITS == 64
-	//if (cpu_single_env->tempidx) {fprintf(stderr, "__taint_stq_raw(0x%08x) -> 0x%16x\n", addr, cpu_single_env->tempidx); __asm__ ("int $3");}
-
 	leaf_node = taint_st_general_i32(addr, cpu_single_env->tempidx & 0xFFFFFFFF);
 	leaf_node2 = taint_st_general_i32(addr + 4, (cpu_single_env->tempidx & 0xFFFFFFFF00000000) >> 32);
 	if (leaf_node)
@@ -404,8 +414,6 @@ void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 	if (leaf_node2)
 	*(uint32_t *)(leaf_node2->bitmap + ((addr+4) & LEAF_ADDRESS_MASK)) = (cpu_single_env->tempidx & 0xFFFFFFFF) >> 32;
 #else
-	//if (cpu_single_env->tempidx || cpu_single_env->tempidx2) {fprintf(stderr, "__taint_stq_raw(0x%08x) -> 0x%08x, 0x%08x\n", addr,cpu_single_env->tempidx, cpu_single_env->tempidx2);__asm__ ("int $3");}
-
 	leaf_node = taint_st_general_i32(addr, cpu_single_env->tempidx);
 	leaf_node2 = taint_st_general_i32(addr + 4, cpu_single_env->tempidx2);
 	if (leaf_node) {
@@ -568,7 +576,7 @@ int do_taint_nic_on(Monitor *mon, const QDict *qdict, QObject **ret_data) {
 int do_tainted_bytes(Monitor *mon,const QDict *qdict,QObject **ret_data){
   uint32_t tainted_bytes;
   if(!taint_tracking_enabled)
-    monitor_printf(default_mon,"Taint tracking is disabled,no statistics available\n"); 
+    monitor_printf(default_mon,"Taint tracking is disabled,no statistics available\n");
   else{
      tainted_bytes=calc_tainted_bytes();
      monitor_printf(default_mon,"Tainted memory: %d bytes\n",tainted_bytes);
@@ -578,10 +586,10 @@ int do_tainted_bytes(Monitor *mon,const QDict *qdict,QObject **ret_data){
 int do_taint_mem_usage(Monitor *mon, const QDict *qdict, QObject **ret_data) {
   if (!taint_tracking_enabled)
     monitor_printf(default_mon, "Taint tracking is disabled, no statistics available\n");
-  else 
+  else
     monitor_printf(default_mon, "%uM RAM: %d mid nodes, %d leaf nodes, %d/%d mid pool, %d/%d leaf pool\n",
       ((unsigned int)(ram_size)) >> 20, middle_nodes_in_use, leaf_nodes_in_use,
-      BITPAGE_MIDDLE_POOL_SIZE - middle_pool.next_available_node, BITPAGE_MIDDLE_POOL_SIZE,   
+      BITPAGE_MIDDLE_POOL_SIZE - middle_pool.next_available_node, BITPAGE_MIDDLE_POOL_SIZE,
       BITPAGE_LEAF_POOL_SIZE - leaf_pool.next_available_node, BITPAGE_LEAF_POOL_SIZE);
   return 0;
 }
@@ -596,7 +604,7 @@ int do_garbage_collect_taint(Monitor *mon, const QDict *qdict, QObject **ret_dat
     prior_leaf = leaf_nodes_in_use;
 
     garbage_collect_taint(1);
-  
+
     monitor_printf(default_mon, "Garbage Collector: Removed %d mid nodes, %d leaf nodes\n", prior_middle - middle_nodes_in_use, prior_leaf - leaf_nodes_in_use);
   }
   return 0;
@@ -611,7 +619,7 @@ int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data) {
     DECAF_stop_vm();
     env = cpu_single_env ? cpu_single_env : first_cpu;
     taint_load_pointers_enabled = qdict_get_bool(qdict, "load");
-    taint_store_pointers_enabled = qdict_get_bool(qdict, "store"); 
+    taint_store_pointers_enabled = qdict_get_bool(qdict, "store");
     tb_flush(env);
     DECAF_start_vm();
     monitor_printf(default_mon, "Tainting of pointers changed -> Load: %s, Store: %s\n", taint_load_pointers_enabled ? "ON " : "OFF", taint_store_pointers_enabled ? "ON " : "OFF");
@@ -619,4 +627,3 @@ int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data) {
   return 0;
 }
 #endif /* CONFIG_TCG_TAINT */
-

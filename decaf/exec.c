@@ -2326,6 +2326,20 @@ void tlb_set_page(CPUState *env, target_ulong vaddr,
         address |= TLB_MMIO;
     }
     addend = (unsigned long)qemu_get_ram_ptr(pd & TARGET_PAGE_MASK);
+
+#ifdef CONFIG_TCG_TAINT
+    /*What if this page is notdirty and/or watchpoint at the same time?
+      io_mem_taint has the lowest priority, to avoid breaking the funtionality.
+      This is why we put it here, so other IO memory regions have a chance to overwrite it.
+      So far, we know that notdirty memory and watchpoint may also be marked in TLB.
+      FIXME: We will update shadow memory in notdirty memory, and ignore watchpoint for now.
+    */
+    if (is_physial_page_tainted(paddr)) {
+        iotlb = io_mem_taint + paddr;
+        address |= TLB_MMIO;
+    }
+#endif
+
     if ((pd & ~TARGET_PAGE_MASK) <= IO_MEM_ROM) {
         /* Normal RAM.  */
         iotlb = pd & TARGET_PAGE_MASK;
@@ -3390,6 +3404,11 @@ static void notdirty_mem_writeb(void *opaque, target_phys_addr_t ram_addr,
 #endif
     }
     stb_p(qemu_get_ram_ptr(ram_addr), val);
+
+#ifdef CONFIG_TCG_TAINT
+    __taint_stb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+#endif
+
     dirty_flags |= (0xff & ~CODE_DIRTY_FLAG);
     cpu_physical_memory_set_dirty_flags(ram_addr, dirty_flags);
     /* we remove the notdirty callback only if the code has been
@@ -3410,6 +3429,9 @@ static void notdirty_mem_writew(void *opaque, target_phys_addr_t ram_addr,
 #endif
     }
     stw_p(qemu_get_ram_ptr(ram_addr), val);
+#ifdef CONFIG_TCG_TAINT
+    __taint_stw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+#endif
     dirty_flags |= (0xff & ~CODE_DIRTY_FLAG);
     cpu_physical_memory_set_dirty_flags(ram_addr, dirty_flags);
     /* we remove the notdirty callback only if the code has been
@@ -3430,6 +3452,10 @@ static void notdirty_mem_writel(void *opaque, target_phys_addr_t ram_addr,
 #endif
     }
     stl_p(qemu_get_ram_ptr(ram_addr), val);
+#ifdef CONFIG_TCG_TAINT
+    __taint_stl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+#endif
+
     dirty_flags |= (0xff & ~CODE_DIRTY_FLAG);
     cpu_physical_memory_set_dirty_flags(ram_addr, dirty_flags);
     /* we remove the notdirty callback only if the code has been
@@ -3515,7 +3541,7 @@ static CPUReadMemoryFunc * const taint_mem_read[3] = {
 static CPUWriteMemoryFunc * const taint_mem_write[3] = {
     taint_mem_writeb,
     taint_mem_writew,
-    taint_mem_writel, 
+    taint_mem_writel,
 };
 
 #endif //CONFIG_TCG_TAINT

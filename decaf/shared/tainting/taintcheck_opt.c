@@ -38,6 +38,9 @@ http://code.google.com/p/decaf-platform/
 #define min(X,Y) ((X) < (Y) ? (X) : (Y))
 #endif
 
+
+//FIXME: need to revisit how shadow memory is implemented for harddrive. Seems wrong!!! -Heng
+
 typedef struct disk_record{
   void *bs;
   uint64_t index;
@@ -50,7 +53,7 @@ typedef struct disk_record{
 static LIST_HEAD(disk_record_list_head, disk_record)
         disk_record_heads[DISK_HTAB_SIZE];
 
-int taintcheck_taint_disk(const uint64_t index, const uint32_t taint, 
+int taintcheck_taint_disk(const uint64_t index, const uint32_t taint,
                           const int offset, const int size, const void *bs)
 {
   struct disk_record_list_head *head =
@@ -65,16 +68,6 @@ int taintcheck_taint_disk(const uint64_t index, const uint32_t taint,
   if (taint & 0x00FF0000) taint2 |= 4;
   if (taint & 0xFF000000) taint2 |= 8;
 
-  //if (taint)
-  //  fprintf(stderr, "taintcheck_taint_disk() taint -> 0x%08x\n", taint);
-
-#if 0 // AWH
-  if (offset + size > 64) {
-    size = 64 - offset, taint &= size_to_mask(size);
-    size2 = offset + size - 64;
-    taint2 = taint >> offset;
-  }
-#endif // AWH
   LIST_FOREACH(drec, head, entry) {
     if (drec->index == index && drec->bs == bs) {
       found = 1;
@@ -111,16 +104,10 @@ int taintcheck_taint_disk(const uint64_t index, const uint32_t taint,
       g_free(drec);
     }
   }
-#if 0 // AWH
-  if (size2)
-    taintcheck_taint_disk(index + 1, taint2, 0, size2,
-                          /*record + size * temu_plugin->taint_record_size,*/
-                          bs);
-#endif // AWH
   return 0;
 }
 
-uint32_t taintcheck_disk_check(const uint64_t index, const int offset, 
+uint32_t taintcheck_disk_check(const uint64_t index, const int offset,
                                const int size, const void *bs)
 {
   //if(!TEMU_emulation_started) return 0;
@@ -228,6 +215,8 @@ int taintcheck_chk_hdwrite(const ram_addr_t paddr,unsigned long vaddr, const int
   return 0;
 }
 
+
+//FIXME:BUG!!! vaddr is wrong, offset is also calculated wrong!!!
 int taintcheck_chk_hdread(const ram_addr_t paddr,unsigned long vaddr, const int size,
 		const int64_t sect_num, const void *s) {
 #ifdef CONFIG_TCG_TAINT
@@ -248,7 +237,7 @@ int taintcheck_chk_hdread(const ram_addr_t paddr,unsigned long vaddr, const int 
 /// \param vaddr the virtual address of the memory buffer
 /// \param size  the memory buffer size
 /// \param taint the output taint array, it must hold at least [size] bytes
-///  \return 0 means success, -1 means failure	
+///  \return 0 means success, -1 means failure
 int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 {
 	gpa_t paddr = 0, offset;
@@ -278,7 +267,7 @@ int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 		paddr = DECAF_get_phys_addr(env, (vaddr&TARGET_PAGE_MASK) + TARGET_PAGE_SIZE);
 		if(paddr == -1)
 			return -1;
-	
+
 		taint_mem_check(paddr, size2, (uint8_t*)(taint+size1));
 	}
 
@@ -291,7 +280,7 @@ int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 /// \param vaddr the virtual address of the memory buffer
 /// \param size  the memory buffer size
 /// \param taint the taint array, it must hold at least [size] bytes
-/// \return 0 means success, -1 means failure	
+/// \return 0 means success, -1 means failure
 int  taintcheck_taint_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 {
 	gpa_t paddr = 0, offset;
@@ -320,7 +309,7 @@ int  taintcheck_taint_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 		paddr = DECAF_get_phys_addr(env, (vaddr&TARGET_PAGE_MASK) + TARGET_PAGE_SIZE);
 		if(paddr == -1)
 			return -1;
-	
+
 		taint_mem(paddr, size2, (uint8_t*)(taint+size1));
 	}
 

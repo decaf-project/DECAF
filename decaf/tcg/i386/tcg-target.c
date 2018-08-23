@@ -96,12 +96,12 @@ static const int tcg_target_call_oarg_regs[] = {
 static void REGPARM ldb_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "ldb_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
-    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint8_t *) addr, 1);  
+    helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint8_t *) addr, 1);
 }
 
 static void REGPARM ldw_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "ldw_cb: %08x %08x\n", addr, vaddr);
-  if(DECAF_is_callback_needed(DECAF_MEM_READ_CB)) 
+  if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
     helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)),*(uint16_t *) addr, 2);
 }
 
@@ -1300,8 +1300,8 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
                      label_ptr, offsetof(CPUTLBEntry, addr_read));
 
     /* TLB Hit.  */
-    /* AWH - Before we call the functionality in the function 
-       tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load 
+    /* AWH - Before we call the functionality in the function
+       tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
     tcg_out_pop(s, args[addrlo_idx]);
 
@@ -1673,7 +1673,7 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     tcg_out_pop(s, args[addrlo_idx]);
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
-    tcg_out_mov(s, TCG_TYPE_I32, 
+    tcg_out_mov(s, TCG_TYPE_I32,
       tcg_target_call_iarg_regs[1], args[addrlo_idx]);
     tcg_out_mov(s, TCG_TYPE_I32,
       tcg_target_call_iarg_regs[2], args[0]); //store the value write to memory
@@ -1802,8 +1802,8 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
                      label_ptr, offsetof(CPUTLBEntry, addr_read));
 
     /* TLB Hit.  */
-    /* AWH - Before we call the functionality in the function 
-       tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load 
+    /* AWH - Before we call the functionality in the function
+       tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
     tcg_out_pop(s, args[addrlo_idx]);
 
@@ -1812,7 +1812,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     tcg_out_push(s, data_reg);
     tcg_out_push(s, tcg_target_call_iarg_regs[0]);
     tcg_out_push(s, tcg_target_call_iarg_regs[1]);
-    tcg_out_mov(s, TCG_TYPE_I32, 
+    tcg_out_mov(s, TCG_TYPE_I32,
       tcg_target_call_iarg_regs[1], args[addrlo_idx]);
     switch (s_bits) {
     case 0:
@@ -2304,7 +2304,7 @@ static const TCGTargetOpDef x86_op_defs[] = {
     { INDEX_op_br, { } },
 #ifdef CONFIG_TCG_TAINT
     {INDEX_op_DECAF_checkeip,{"r","r"}},
-#endif /*CONFIG_TCG_TAITN*/
+#endif /*CONFIG_TCG_TAINT*/
     { INDEX_op_mov_i32, { "r", "r" } },
     { INDEX_op_movi_i32, { "r" } },
     { INDEX_op_ld8u_i32, { "r", "r" } },
@@ -2475,7 +2475,7 @@ static const TCGTargetOpDef x86_op_defs[] = {
     { INDEX_op_taint_qemu_ld8s, { "r", "L", "L" } },
     { INDEX_op_taint_qemu_ld16u, { "r", "L", "L" } },
     { INDEX_op_taint_qemu_ld16s, { "r", "L", "L" } },
-    { INDEX_op_taint_qemu_ld32, { "r", "L", "L" } }, 
+    { INDEX_op_taint_qemu_ld32, { "r", "L", "L" } },
     { INDEX_op_taint_qemu_ld64, { "r", "r", "L", "L" } },
 
     { INDEX_op_taint_qemu_st8, { "cb", "L", "L" } },

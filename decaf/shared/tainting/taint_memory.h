@@ -25,16 +25,16 @@ extern void qemu_free(void *ptr);
   1. The RAM address space can be represented as X number of bits. 1024 megs
   of physical RAM would be represented as 30 bits, for example.
 
-  2. The leaf nodes hold 2 << BITPAGE_LEAF_BITS entries to represent 
+  2. The leaf nodes hold 2 << BITPAGE_LEAF_BITS entries to represent
   2 << BITPAGE_LEAF_BITS bytes of physical RAM address space.
 
   3. The middle nodes that each hold 2 << BITPAGE_MIDDLE_BITS entries to represent
   2 << BITPAGE_MIDDLE_BITS bytes of physical RAM address space.  Each of those
   entries is a pointer to a leaf node.
 
-  4. The root node, taint_memory_page_table, that has 
+  4. The root node, taint_memory_page_table, that has
   2^(X-(2 << (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS))) entries, each of
-  which is a middle node. 
+  which is a middle node.
 */
 
 #define BITPAGE_LEAF_BITS TARGET_PAGE_BITS
@@ -90,8 +90,10 @@ extern void do_enable_tainting_internal(void);
 /* This deallocates all of the nodes in the tree, including the root */
 extern void do_disable_tainting_internal(void);
 
+int is_physial_page_tainted(ram_addr_t addr);
+
 /* This deallocates nodes that do not contain taint */
-extern void garbage_collect_taint(int flag);
+void garbage_collect_taint(int flag);
 
 static inline tbitpage_leaf_t *read_leaf_node_i32(uint32_t address) {
   unsigned int middle_node_index = address >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
@@ -157,6 +159,12 @@ static inline tbitpage_leaf_t *taint_st_general_i32(const uint32_t address, cons
     else {
       leaf_node = fetch_leaf_node_from_pool();
       taint_memory_page_table[middle_node_index]->leaf[leaf_node_index] = leaf_node;
+      /* Now we are writing a taint into a newly allocated leaf node. We should flush the TLB entry,
+         so the related entry will be marked as io_mem_taint. The virtual address is stored in env->mem_io_vaddr,
+         because all tainted memory write either go through io_mem_taint or io_mem_nortdirty.
+         FIXME: what about DMA? There will be no related virtual address.
+      */
+      tlb_flush_page(cpu_single_env, cpu_single_env->mem_io_vaddr);
     }
   /* Is there no middle node and no taint to add? */
   } else if (!taint)
@@ -166,6 +174,12 @@ static inline tbitpage_leaf_t *taint_st_general_i32(const uint32_t address, cons
     leaf_node = fetch_leaf_node_from_pool();
     taint_memory_page_table[middle_node_index] = fetch_middle_node_from_pool();
     taint_memory_page_table[middle_node_index]->leaf[leaf_node_index] = leaf_node;
+    /* Now we are writing a taint into a newly allocated leaf node. We should flush the TLB entry,
+       so the related entry will be marked as io_mem_taint (or io_mem_notdirty). The virtual address is stored in env->mem_io_vaddr,
+       because all tainted memory writes either go through io_mem_write (i.e., io_mem_taint or io_mem_notdirty).
+       FIXME: what about DMA? There will be no related virtual address.
+    */
+    tlb_flush_page(cpu_single_env, cpu_single_env->mem_io_vaddr);
   }
   return leaf_node;
 }
@@ -196,4 +210,3 @@ extern void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr);
 #endif /* __cplusplus */
 
 #endif /* __DECAF_TAINT_MEMORY_H__ */
-
