@@ -284,8 +284,9 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
     //end
 #endif
 #endif /* SHIFT > 2 */
-    if (index == (IO_MEM_NOTDIRTY>>IO_MEM_SHIFT))
-      glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
+    //Shadow memory write is moved to notdirty_mem_write
+//    if (index == (IO_MEM_NOTDIRTY>>IO_MEM_SHIFT))
+//      glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
 
 }
 
