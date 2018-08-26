@@ -155,36 +155,28 @@ void taintcheck_chk_hdin(const int size, const int64_t sect_num,
             offset, size, s);
 }
 
-void taintcheck_chk_hdwrite(const ram_addr_t paddr, const int size,
-                        const int64_t sect_num, const void *s)
+void taintcheck_chk_hdwrite(const ram_addr_t paddr, const int size, const int64_t sect_num, const void *s)
 {
-  uint32_t i;
+    //We assume size is multiple of 512, because this function is used in DMA, and paddr is also aligned.
+    int i;
+    uint8_t taint[512];
 
-  assert((paddr & 511) == 0);
-
-  for (i = paddr; i < paddr + size; i += 4) {
-      //FIXME: wrong!!!
-    __taint_ldl_raw_paddr(i, vaddr+i-paddr);
-    taintcheck_taint_disk(sect_num * 8 + (i - paddr) / 64,
-                          /*(entry) ? entry->bitmap[((paddr & 63) >> 2)] : 0*/cpu_single_env->tempidx, 0, 4/*size*/,
-                          /*(entry) ? entry->records : NULL,*/ s);
-  } // end for
-  return 0;
+    for (i = 0; i < size; i += 512) {
+        taint_mem_check(paddr+i, 512, taint);
+        taintcheck_taint_disk(taint, sect_num + i/512, 0, 512, s);
+    }
 }
 
 
-//FIXME:BUG!!! vaddr is wrong, offset is also calculated wrong!!!
-int taintcheck_chk_hdread(const ram_addr_t paddr,unsigned long vaddr, const int size,
-		const int64_t sect_num, const void *s) {
-#ifdef CONFIG_TCG_TAINT
-	unsigned long i;
-	for (i = paddr; i < paddr + size; i += 4) {
-		cpu_single_env->tempidx = taintcheck_disk_check(
-				sect_num * 8 + (i - paddr) / 64, 0, 4, s);
-		__taint_stl_raw_paddr(i, vaddr+i-paddr);
+void taintcheck_chk_hdread(const ram_addr_t paddr, const int size, const int64_t sect_num, const void *s) {
+    //We assume size is multiple of 512, because this function is used in DMA, and paddr is also aligned.
+	int i;
+    uint8_t taint[512];
+
+	for (i = 0; i < size; i += 512) {
+        taintcheck_disk_check(taint, sect_num + i/512, 0, size, s);
+        taint_mem(paddr+i, 512, taint);
 	}
-#endif /* CONFIG_TCG_TAINT */
-	return 0;
 }
 
 #ifdef CONFIG_TCG_TAINT

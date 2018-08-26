@@ -186,23 +186,26 @@ static inline tbitpage_leaf_t *taint_st_general_i32(const uint32_t address, cons
 
 /* RAM tainting functions */
 #ifdef CONFIG_TCG_TAINT
-extern void REGPARM __taint_ldb_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_ldw_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_ldl_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_ldq_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr);
-extern void REGPARM __taint_ldw_raw_paddr(ram_addr_t addr,gva_t vaddr);
-extern void REGPARM __taint_ldl_raw_paddr(ram_addr_t addr,gva_t vaddr);
-extern void REGPARM __taint_ldq_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_ldb_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_ldw_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_ldl_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_ldq_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_ldw_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_ldl_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_ldq_raw_paddr(ram_addr_t addr,gva_t vaddr);
 
-extern void REGPARM __taint_stb_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_stw_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_stl_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr);
-extern void REGPARM __taint_stb_raw_paddr(ram_addr_t addr,gva_t vaddr);
-extern void REGPARM __taint_stw_raw_paddr(ram_addr_t addr,gva_t vaddr);
-extern void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr);
-extern void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_stb_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_stw_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_stl_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_stb_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_stw_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr);
+void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr);
+
+void REGPARM taint_mem(ram_addr_t addr, int size, uint8_t *taint);
+void REGPARM taint_mem_check(ram_addr_t addr, uint32_t size, uint8_t * taint);
 
 #endif /* CONFIG_TCG_TAINT */
 #ifdef __cplusplus

@@ -388,7 +388,7 @@ void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr) {
 	return;
 }
 
-void REGPARM __taint_stq_raw_paddr(ram_addr_t addr,gva_t vaddr) {
+void REGPARM __taint_stq_raw_paddr(ram_addr_t addr, gva_t vaddr) {
 	if (!taint_memory_page_table || addr >= ram_size)
 		return;
 
@@ -461,6 +461,51 @@ void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr) {
 	__taint_stq_raw_paddr(addr, vaddr);
 }
 
+/*
+addr: physical addr
+size: memory size expected to taint
+taint: pointer to a buffer containing taint information. "size" is also the size
+of this buffer.
+*/
+//TODO: Flush TLB when allocate a new leaf node to store taint.
+void REGPARM taint_mem(ram_addr_t addr, int size, uint8_t *taint)
+{
+	uint32_t i, offset, len = 0;
+    tbitpage_leaf_t *leaf_node = NULL;
+    int is_tainted;
+    uint8_t zero_mem[(2 << BITPAGE_LEAF_BITS];
+
+    bzero(zero_mem, sizeof(zero_mem)); //TODO: would be nice to zero it only once.
+    for (i=0; i<size; i+=len) {
+		offset = (addr + i) & LEAF_ADDRESS_MASK;
+		len = min(2<<BITPAGE_LEAF_BITS) - offset, size - i);
+        is_tainted = !memcmp(taint+i, zero_mem, len);
+
+        //the name of this function is a little misleading.
+        //What we want is to get a leaf_node based on the address.
+        leaf_node = taint_st_general_i32(addr+i, is_tainted);
+		if (leaf_node) {
+			memcpy(&leaf_node->bitmap[offset], taint+i, len);
+		}
+    }
+}
+
+
+void REGPARM taint_mem_check(ram_addr_t addr, uint32_t size, uint8_t * taint)
+{
+	tbitpage_leaf_t *leaf_node = NULL;
+    uint32_t i, offset, len=0;
+
+  	bzero(taint, size);
+    for (i=0; i<size; i+=len) {
+        offset = (addr + i) & LEAF_ADDRESS_MASK;
+        len = min(2<<BITPAGE_LEAF_BITS) - offset, size - i);
+        leaf_node = read_leaf_node_i32(addr + i);
+        if(leaf_node) {
+            memcpy(taint+i, &leaf_node->bitmap[offset], len)
+        }
+    }
+}
 
 uint32_t calc_tainted_bytes(void){
 	uint32_t tainted_bytes, i;
