@@ -25,7 +25,6 @@ http://code.google.com/p/decaf-platform/
 #include "cpu.h"
 #include "DECAF_main.h"
 #include "DECAF_main_internal.h"
-#include "shared/tainting/tainting.h"
 #include "shared/tainting/taintcheck_opt.h"
 //#include "shared/tainting/taintcheck.h"
 #include "shared/DECAF_vm_compress.h"
@@ -39,11 +38,9 @@ http://code.google.com/p/decaf-platform/
 #endif
 
 
-//FIXME: need to revisit how shadow memory is implemented for harddrive. Seems wrong!!! -Heng
-
 //each disk sector is 512 bytes
-typedef struct _disk_record {
-  void *bs;
+typedef struct disk_record {
+  const void *bs;
   uint64_t index;
   uint8_t bitmap[512];
   LIST_ENTRY(disk_record) entry;
@@ -54,7 +51,7 @@ static LIST_HEAD(disk_record_list_head, disk_record)
         disk_record_heads[DISK_HTAB_SIZE];
 static uint8_t zero_mem[512];
 
-int taintcheck_taint_disk(const uint8_t *taint, const uint64_t index,
+static int taintcheck_taint_disk(const uint8_t *taint, const uint64_t index,
     const int offset, const int size, const void *bs)
 {
     struct disk_record_list_head *head =
@@ -87,7 +84,7 @@ int taintcheck_taint_disk(const uint8_t *taint, const uint64_t index,
         LIST_INSERT_HEAD(head, new_drec, entry);
     } else {
         memcpy(&drec->bitmap[offset], taint, size);
-        if (!is_tainted && !memcmp(drec->bitmap, zero_mem, sizeof(drec->bitmap)) {
+        if (!is_tainted && !memcmp(drec->bitmap, zero_mem, sizeof(drec->bitmap))) {
             LIST_REMOVE(drec, entry);
             g_free(drec);
         }
@@ -95,7 +92,7 @@ int taintcheck_taint_disk(const uint8_t *taint, const uint64_t index,
     return 0;
 }
 
-void taintcheck_disk_check(uint8_t *taint, const uint64_t index, const int offset,
+static void taintcheck_disk_check(uint8_t *taint, const uint64_t index, const int offset,
                                const int size, const void *bs)
 {
     struct disk_record_list_head *head =
@@ -178,8 +175,6 @@ void taintcheck_chk_hdread(const ram_addr_t paddr, const int size, const int64_t
         taint_mem(paddr+i, 512, taint);
 	}
 }
-
-#ifdef CONFIG_TCG_TAINT
 
 /// \brief check the taint of a memory buffer given the start virtual address.
 ///
@@ -281,5 +276,3 @@ void taintcheck_nic_cleanbuf(const uint32_t addr, const int size)
 {
 	memset(&nic_bitmap[addr], 0, size);
 }
-
-#endif //CONFIG_TCG_TAINT

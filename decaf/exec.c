@@ -59,6 +59,9 @@
 
 #include "DECAF_main.h"
 #include "shared/DECAF_callback_to_QEMU.h"
+#ifdef CONFIG_TCG_TAINT
+#include "shared/tainting/taint_memory.h"
+#endif
 
 //#define DEBUG_TB_INVALIDATE
 //#define DEBUG_FLUSH
@@ -222,6 +225,11 @@ CPUReadMemoryFunc *io_mem_read[IO_MEM_NB_ENTRIES][4];
 void *io_mem_opaque[IO_MEM_NB_ENTRIES];
 static char io_mem_used[IO_MEM_NB_ENTRIES];
 static int io_mem_watch;
+
+#ifdef CONFIG_TCG_TAINT
+static int io_mem_taint;
+#endif
+
 #endif
 
 /* log support */
@@ -3483,7 +3491,7 @@ static uint32_t taint_mem_readb(void *opaque, target_phys_addr_t ram_addr)
     //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
     //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
     //Handling of unaligned access is done in softmmu_template.h
-    cpu_single_env->tempidx = __taint_ldb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    __taint_ldb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
     return ldub_p(qemu_get_ram_ptr(ram_addr));
 }
 
@@ -3492,7 +3500,7 @@ static uint32_t taint_mem_readw(void *opaque, target_phys_addr_t ram_addr)
     //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
     //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
     //Handling of unaligned access is done in softmmu_template.h
-    cpu_single_env->tempidx = __taint_ldw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    __taint_ldw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
     return lduw_p(qemu_get_ram_ptr(ram_addr));
 }
 
@@ -3501,7 +3509,7 @@ static uint32_t taint_mem_readl(void *opaque, target_phys_addr_t ram_addr)
     //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
     //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
     //Handling of unaligned access is done in softmmu_template.h
-    cpu_single_env->tempidx = __taint_ldl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    __taint_ldl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
     return ldl_p(qemu_get_ram_ptr(ram_addr));
 }
 
@@ -3529,8 +3537,6 @@ static void taint_mem_writel(void *opaque, target_phys_addr_t ram_addr,
     stl_p(qemu_get_ram_ptr(ram_addr), val);
 }
 
-
-static int io_mem_taint;
 
 static CPUReadMemoryFunc * const taint_mem_read[3] = {
     taint_mem_readb,

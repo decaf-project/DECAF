@@ -62,10 +62,6 @@ void taintcheck_chk_hdwrite(const ram_addr_t paddr, const int size, const int64_
 
 void taintcheck_chk_hdread(const ram_addr_t paddr, const int size, const int64_t sect_num, const void *s);
 
-int taintcheck_taint_disk(const uint64_t index, const uint32_t taint, const int offset, const int size, const void *bs);
-
-uint32_t taintcheck_disk_check(const uint64_t index, const int offset, const int size, const void *bs);
-
 int taintcheck_init(void);
 
 void taintcheck_cleanup(void);

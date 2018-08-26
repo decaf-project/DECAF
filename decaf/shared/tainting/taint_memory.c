@@ -9,8 +9,14 @@
 
 #ifdef CONFIG_TCG_TAINT
 
-/* Track whether the taint tracking system is enabled or not */
+#ifndef min
+#define min(a, b) ({\
+		typeof(a) _a = a;\
+		typeof(b) _b = b;\
+		_a < _b ? _a : _b; })
+#endif
 
+/* Track whether the taint tracking system is enabled or not */
 int taint_tracking_enabled = 0;
 int taint_nic_enabled = 0;
 int taint_pointers_enabled = 0;
@@ -149,7 +155,9 @@ int is_physial_page_tainted(ram_addr_t addr)
     unsigned int leaf_node_index;
     tbitpage_leaf_t *leaf_node = NULL;
 
-    if (!taint_memory_page_table || addr >= ram_size) return;
+    if (!taint_memory_page_table || addr >= ram_size)
+        return 0;
+
     middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
     leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
 
@@ -163,132 +171,121 @@ int is_physial_page_tainted(ram_addr_t addr)
 
 void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr)
 {
-	  unsigned int middle_node_index;
-	  unsigned int leaf_node_index;
-	  tbitpage_leaf_t *leaf_node = NULL;
-	  cpu_single_env->tempidx = 0;
-	  cpu_single_env->tempidx2 = 0;
+	unsigned int middle_node_index;
+	unsigned int leaf_node_index;
+	tbitpage_leaf_t *leaf_node = NULL;
+	cpu_single_env->tempidx = 0;
+	cpu_single_env->tempidx2 = 0;
 
+	if (!taint_memory_page_table || addr >= ram_size) return;
 
-	  if (!taint_memory_page_table || addr >= ram_size) return;
-	  middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-	  leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
+	middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
+	leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
 
-	  if (taint_memory_page_table[middle_node_index])
-	    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
-	  else
-	    return;
+	if (!taint_memory_page_table[middle_node_index])
+        return;
 
-	  if (leaf_node) {
-	    cpu_single_env->tempidx = (*(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
-	    cpu_single_env->tempidx = cpu_single_env->tempidx & 0xFF;
-	    if (cpu_single_env->tempidx && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)){
-	    	helper_DECAF_invoke_read_taint_mem(vaddr,addr,1,(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
-	    }
-	  }
-	  return;
+    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
+	if (!leaf_node)
+        return;
 
+    cpu_single_env->tempidx = (*(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+
+    if (cpu_single_env->tempidx && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)){
+    	helper_DECAF_invoke_read_taint_mem(vaddr,addr,1,(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+    }
 }
+
+
 void REGPARM __taint_ldw_raw_paddr(ram_addr_t addr,gva_t vaddr)
 {
 	unsigned int middle_node_index;
-	  unsigned int leaf_node_index;
-	  tbitpage_leaf_t *leaf_node = NULL;
+	unsigned int leaf_node_index;
+	tbitpage_leaf_t *leaf_node = NULL;
 
-	  cpu_single_env->tempidx = 0;
-	  cpu_single_env->tempidx2 = 0;
+	cpu_single_env->tempidx = 0;
+	cpu_single_env->tempidx2 = 0;
 
-	  if (!taint_memory_page_table || addr >= ram_size) return;
-	  middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-	  leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
-	  if (taint_memory_page_table[middle_node_index])
-	    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
-	  else
-	    return;
+	if (!taint_memory_page_table || addr >= ram_size) return;
 
-	  if (leaf_node) {
-	    cpu_single_env->tempidx =  (*(uint16_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
-	    cpu_single_env->tempidx = cpu_single_env->tempidx & 0xFFFF;
-	//if (cpu_single_env->tempidx) { fprintf(stderr, "__taint_ldw_raw(0x%08x) -> 0x%08x\n", addr, cpu_single_env->tempidx); __asm__ ("int $3"); }
-		if (cpu_single_env->tempidx && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)) {
-			helper_DECAF_invoke_read_taint_mem(vaddr,addr,2,(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
-		}
-	  }
-	  return;
+    middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
+	leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
+	if (!taint_memory_page_table[middle_node_index])
+        return;
+
+	leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
+
+	if (!leaf_node)
+        return;
+
+    cpu_single_env->tempidx =  (*(uint16_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+	if (cpu_single_env->tempidx && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)) {
+		helper_DECAF_invoke_read_taint_mem(vaddr,addr,2,(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+    }
 }
+
 void REGPARM __taint_ldl_raw_paddr(ram_addr_t addr,gva_t vaddr)
 {
-	 unsigned int middle_node_index;
-	  unsigned int leaf_node_index;
-	  tbitpage_leaf_t *leaf_node = NULL;
+	unsigned int middle_node_index;
+	unsigned int leaf_node_index;
+	tbitpage_leaf_t *leaf_node = NULL;
 
-	  cpu_single_env->tempidx = 0;
-	  cpu_single_env->tempidx2 = 0;
+	cpu_single_env->tempidx = 0;
+	cpu_single_env->tempidx2 = 0;
 
-	  if (!taint_memory_page_table || addr >= ram_size) return;
-	  middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-	  leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
-	  if (taint_memory_page_table[middle_node_index])
-	    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
-	  else
-	    return;
+	if (!taint_memory_page_table || addr >= ram_size) return;
 
-	  if (leaf_node) {
-	    cpu_single_env->tempidx = (*(uint32_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
-	#if TCG_TARGET_REG_BITS == 64
-	    cpu_single_env->tempidx = cpu_single_env->tempidx & 0xFFFFFFFF;
-	#endif /* TCG_TARGET_REG_BITS == 64 */
-	//if (cpu_single_env->tempidx) { fprintf(stderr, "__taint_ldl_raw(0x%08x) -> 0x%08x\n", addr, cpu_single_env->tempidx); __asm__ ("int $3"); }
-		if (cpu_single_env->tempidx && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)) {
-			helper_DECAF_invoke_read_taint_mem(vaddr,addr,4,(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
-		}
+    middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
+	leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
 
-	  }
-	  return;
+    if (!taint_memory_page_table[middle_node_index])
+        return;
+
+    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
+    if (!leaf_node)
+        return;
+
+    cpu_single_env->tempidx = (*(uint32_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+	if (cpu_single_env->tempidx && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)) {
+		helper_DECAF_invoke_read_taint_mem(vaddr,addr,4,(uint8_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+	}
 }
+
+
 void REGPARM __taint_ldq_raw_paddr(ram_addr_t addr,gva_t vaddr)
 {
-	  unsigned int middle_node_index;
-	  unsigned int leaf_node_index;
-	  tbitpage_leaf_t *leaf_node = NULL, *leaf_node2 = NULL;
-	  cpu_single_env->tempidx = 0;
-	  cpu_single_env->tempidx2 = 0;
-	  uint32_t taint_temp[2];
+	unsigned int middle_node_index;
+	unsigned int leaf_node_index;
+	tbitpage_leaf_t *leaf_node = NULL;
+	cpu_single_env->tempidx = 0;
+	cpu_single_env->tempidx2 = 0;
+	uint32_t taint_temp[2];
 
-	  if (!taint_memory_page_table || addr >= ram_size) return;
-	  middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-	  leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
-	  if (taint_memory_page_table[middle_node_index])
-	    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
+	if (!taint_memory_page_table || addr >= ram_size) return;
 
-	  if ((addr + 4) >= ram_size) return;
-	  middle_node_index = (addr + 4) >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-	  leaf_node_index = ((addr + 4) >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
-	  if (taint_memory_page_table[middle_node_index])
-	    leaf_node2 = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
+	middle_node_index = addr >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
+	leaf_node_index = (addr >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
+	if (!taint_memory_page_table[middle_node_index])
+        return;
 
-	  if (leaf_node) {
-	    cpu_single_env->tempidx = (*(uint32_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
-	#if TCG_TARGET_REG_BITS == 64
-	    cpu_single_env->tempidx = cpu_single_env->tempidx & 0xFFFFFFFF;
-	#endif /* TCG_TARGET_REG_BITS == 64 */
-	  }
-	  if (leaf_node2) {
-	#if TCG_TARGET_REG_BITS == 64
-	    cpu_single_env->tempidx |= (*(uint32_t *)(leaf_node2->bitmap + ((addr+4) & LEAF_ADDRESS_MASK))) << 32;
-	#else
-	    cpu_single_env->tempidx2 = (*(uint32_t *)(leaf_node2->bitmap + ((addr+4) & LEAF_ADDRESS_MASK)));
-	#endif /* TCG_TARGET_REG_BITS == 64 */
-	  }
-	// 32 -bit debug
-	//if (cpu_single_env->tempidx || cpu_single_env->tempidx2) { fprintf(stderr, "__taint_ldq_raw(0x%08x) -> 0x%08x, 0x%08x\n", addr, cpu_single_env->tempidx, cpu_single_env->tempidx2); __asm__ ("int $3"); }
-	  if ((cpu_single_env->tempidx || cpu_single_env->tempidx2) && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB))
-	  {
-		  taint_temp[0] = cpu_single_env->tempidx;
-		  taint_temp[1] = cpu_single_env->tempidx2;
-		  helper_DECAF_invoke_read_taint_mem(vaddr,addr,8, (uint8_t *) taint_temp);
-	  }
-	  return;
+    leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
+    if (!leaf_node)
+        return;
+
+    //FIXME: need to handle different endianness between guest and host.
+    //Right now, we only assume little endian for memory on both
+#if TARGET_LONG_BITS == 64
+    cpu_single_env->tempidx = (*(uint64_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+#else
+    cpu_single_env->tempidx = (*(uint32_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)));
+    cpu_single_env->tempidx2 = (*(uint32_t *)(leaf_node->bitmap + ((addr+4) & LEAF_ADDRESS_MASK)));
+#endif
+
+    if ((cpu_single_env->tempidx || cpu_single_env->tempidx2) && DECAF_is_callback_needed(DECAF_READ_TAINTMEM_CB)) {
+	   taint_temp[0] = cpu_single_env->tempidx;
+	   taint_temp[1] = cpu_single_env->tempidx2;
+	   helper_DECAF_invoke_read_taint_mem(vaddr, addr, 8, (uint8_t *) taint_temp);
+	}
 }
 
 void REGPARM __taint_ldb_raw(unsigned long addr, gva_t vaddr) {
@@ -396,8 +393,8 @@ void REGPARM __taint_stq_raw_paddr(ram_addr_t addr, gva_t vaddr) {
 	   If taint was 0 and it is 0 after this store, then change is 0.  Otherwise,
 	   it is 1.  This is so any plugins can track that there has been a change
 	   in taint. */
-	uint16_t before, after;
-	char changed = 0;
+	//uint16_t before, after;
+	//char changed = 0;
 
 	tbitpage_leaf_t *leaf_node = NULL, *leaf_node2 = NULL;
 	uint32_t taint_temp[2];
@@ -406,39 +403,29 @@ void REGPARM __taint_stq_raw_paddr(ram_addr_t addr, gva_t vaddr) {
 	cpu_single_env->tempidx = 0;
 	cpu_single_env->tempidx2 = 0;
 
-#if TCG_TARGET_REG_BITS == 64
-	leaf_node = taint_st_general_i32(addr, cpu_single_env->tempidx & 0xFFFFFFFF);
-	leaf_node2 = taint_st_general_i32(addr + 4, (cpu_single_env->tempidx & 0xFFFFFFFF00000000) >> 32);
-	if (leaf_node)
-	*(uint32_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)) = (cpu_single_env->tempidx & 0xFFFFFFFF);
-	if (leaf_node2)
-	*(uint32_t *)(leaf_node2->bitmap + ((addr+4) & LEAF_ADDRESS_MASK)) = (cpu_single_env->tempidx & 0xFFFFFFFF) >> 32;
+
+    //FIXME: endianness
+#if TARGET_LONG_BITS == 64
+    leaf_node = taint_st_general_i32(addr, cpu_single_env->tempidx);
+    if (leaf_node) {
+        *(uint64_t *)(leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)) = cpu_single_env->tempidx;
+    }
 #else
-	leaf_node = taint_st_general_i32(addr, cpu_single_env->tempidx);
-	leaf_node2 = taint_st_general_i32(addr + 4, cpu_single_env->tempidx2);
+	leaf_node = taint_st_general_i32(addr, cpu_single_env->tempidx || cpu_single_env->tempidx2);
 	if (leaf_node) {
-		before = *(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
 		*(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK)) =
 				cpu_single_env->tempidx;
-		after = *(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
-    if ((before != after) || (cpu_single_env->tempidx & 0xFFFFFFFF)) changed = 1;
-	}
-	if (leaf_node2) {
-		before = *(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
 		*(uint32_t *) (leaf_node2->bitmap + ((addr+4) & LEAF_ADDRESS_MASK)) =
 				cpu_single_env->tempidx2;
-		after = *(uint32_t *) (leaf_node->bitmap + (addr & LEAF_ADDRESS_MASK));
-		if ((before != after) || (cpu_single_env->tempidx2 & 0xFFFFFFFF)) changed = 1;
 	}
 #endif /* TCG_TARGET_REG_BITS check */
 
-	if ( changed && DECAF_is_callback_needed (DECAF_WRITE_TAINTMEM_CB) )
+	if ((cpu_single_env->tempidx || cpu_single_env->tempidx2) && DECAF_is_callback_needed (DECAF_WRITE_TAINTMEM_CB) )
 	{
 		taint_temp[0] = cpu_single_env->tempidx;
 		taint_temp[1] = cpu_single_env->tempidx2;
-		helper_DECAF_invoke_write_taint_mem(vaddr, addr, 4, taint_temp);
+		helper_DECAF_invoke_write_taint_mem(vaddr, addr, 8, (uint8_t *)taint_temp);
 	}
-	return;
 }
 
 void REGPARM __taint_stb_raw(unsigned long addr, gva_t vaddr) {
@@ -473,12 +460,12 @@ void REGPARM taint_mem(ram_addr_t addr, int size, uint8_t *taint)
 	uint32_t i, offset, len = 0;
     tbitpage_leaf_t *leaf_node = NULL;
     int is_tainted;
-    uint8_t zero_mem[(2 << BITPAGE_LEAF_BITS];
+    uint8_t zero_mem[2 << BITPAGE_LEAF_BITS];
 
     bzero(zero_mem, sizeof(zero_mem)); //TODO: would be nice to zero it only once.
     for (i=0; i<size; i+=len) {
 		offset = (addr + i) & LEAF_ADDRESS_MASK;
-		len = min(2<<BITPAGE_LEAF_BITS) - offset, size - i);
+		len = min( (2<<BITPAGE_LEAF_BITS) - offset, size - i);
         is_tainted = !memcmp(taint+i, zero_mem, len);
 
         //the name of this function is a little misleading.
@@ -499,10 +486,10 @@ void REGPARM taint_mem_check(ram_addr_t addr, uint32_t size, uint8_t * taint)
   	bzero(taint, size);
     for (i=0; i<size; i+=len) {
         offset = (addr + i) & LEAF_ADDRESS_MASK;
-        len = min(2<<BITPAGE_LEAF_BITS) - offset, size - i);
+        len = min((2<<BITPAGE_LEAF_BITS) - offset, size - i);
         leaf_node = read_leaf_node_i32(addr + i);
         if(leaf_node) {
-            memcpy(taint+i, &leaf_node->bitmap[offset], len)
+            memcpy(taint+i, &leaf_node->bitmap[offset], len);
         }
     }
 }
@@ -656,7 +643,8 @@ int do_garbage_collect_taint(Monitor *mon, const QDict *qdict, QObject **ret_dat
 
 }
 
-int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data) {
+int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data)
+{
   if (!taint_tracking_enabled)
     monitor_printf(default_mon, "Ignored, taint tracking is disabled\n");
   else {
@@ -671,4 +659,5 @@ int do_taint_pointers(Monitor *mon, const QDict *qdict, QObject **ret_data) {
   }
   return 0;
 }
+
 #endif /* CONFIG_TCG_TAINT */
