@@ -1309,11 +1309,6 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc & 3;
 
-    /* AWH - Save the virtual address */
-#ifdef CONFIG_MEM_READ_CB
-    tcg_out_push(s, args[addrlo_idx]);
-#endif
-
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_read));
 
@@ -1322,8 +1317,6 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
        tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
  #ifdef CONFIG_MEM_READ_CB
-    tcg_out_pop(s, args[addrlo_idx]);
-
     if (s_bits == 3)
         tcg_out_push(s, data_reg2);
     tcg_out_push(s, data_reg);
@@ -1371,11 +1364,6 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
     if (TARGET_LONG_BITS > TCG_TARGET_REG_BITS) {
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
-
-#ifdef CONFIG_MEM_READ_CB
-    /* AWH - Pop the virtual address off the stack */
-    tcg_out_pop(s, args[addrlo_idx]);
-#endif
 
     /* XXX: move that code at the end of the TB */
     /* The first argument is already loaded with addrlo.  */
@@ -1532,18 +1520,12 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc;
 
-    /* AWH - Save the virtual address */
-#ifdef CONFIG_MEM_WRITE_CB
-    tcg_out_push(s, args[addrlo_idx]);
-#endif
-
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_write));
 
 #ifdef CONFIG_MEM_WRITE_CB
     /* TLB Hit.  */
     /* AWH - Restore the virtual address */
-    tcg_out_pop(s, args[addrlo_idx]);
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
 
@@ -1590,11 +1572,6 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
     if (TARGET_LONG_BITS > TCG_TARGET_REG_BITS) {
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
-
-#ifdef CONFIG_MEM_WRITE_CB
-    /* AWH - Pop the virtual address off the stack */
-    tcg_out_pop(s, args[addrlo_idx]);
-#endif
 
     /* XXX: move that code at the end of the TB */
     if (TCG_TARGET_REG_BITS == 64) {
@@ -1691,15 +1668,10 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc;
 
-    /* AWH - Save the virtual address */
-    tcg_out_push(s, args[addrlo_idx]);
-
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_write));
 
     /* TLB Hit.  */
-    /* AWH - Restore the virtual address */
-    tcg_out_pop(s, args[addrlo_idx]);
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
     tcg_out_mov(s, TCG_TYPE_I32,
@@ -1746,9 +1718,6 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     if (TARGET_LONG_BITS > TCG_TARGET_REG_BITS) {
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
-
-    /* AWH - Pop the virtual address off the stack */
-    tcg_out_pop(s, args[addrlo_idx]);
 
     /* XXX: move that code at the end of the TB */
     /* TCG_TARGET_REG_BITS == 64 case in x86_op_defs[] */
@@ -1826,17 +1795,10 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc & 3;
 
-    /* AWH - Save the virtual address */
-    tcg_out_push(s, args[addrlo_idx]);
-
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_read));
 
     /* TLB Hit.  */
-    /* AWH - Before we call the functionality in the function
-       tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load
-       functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
-    tcg_out_pop(s, args[addrlo_idx]);
 
     tcg_out_qemu_ld_direct(s, data_reg, data_reg2,
                            tcg_target_call_iarg_regs[0], 0, opc);
@@ -1876,8 +1838,6 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     if (TARGET_LONG_BITS > TCG_TARGET_REG_BITS) {
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
-    /* AWH - Pop the virtual address off the stack */
-    tcg_out_pop(s, args[addrlo_idx]);
 
     /* XXX: move that code at the end of the TB */
     /* The first argument is already loaded with addrlo.  */
