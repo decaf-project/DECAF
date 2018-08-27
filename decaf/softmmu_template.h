@@ -132,7 +132,7 @@ DATA_TYPE REGPARM glue(glue(__ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
             //Hu-Mem read callback
-#ifndef SOFTMMU_CODE_ACCESS
+#if  !defined(SOFTMMU_CODE_ACCESS) && defined(CONFIG_MEM_READ_CB)
          	if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))// host vitual addr+addend
          		helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)), res, DATA_SIZE);
 #endif
@@ -193,14 +193,11 @@ static DATA_TYPE glue(glue(slow_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
             /* unaligned/aligned access in the same page */
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
-            //Hu-Mem read callback
-#ifndef SOFTMMU_CODE_ACCESS
 
+#if !defined(SOFTMMU_CODE_ACCESS) && defined(CONFIG_MEM_READ_CB)
          	if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
          	    helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)), res, DATA_SIZE);
 #endif
-     	    //end
-
         }
     } else {
         /* the page is not in the TLB : fill it */
@@ -236,27 +233,23 @@ static inline void glue(io_write, SUFFIX)(target_phys_addr_t physaddr,
     env->mem_io_pc = (unsigned long)retaddr;
 #if SHIFT <= 2
     io_mem_write[index][SHIFT](io_mem_opaque[index], physaddr, val);
-    //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
     	helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
 #endif
-    //end
 #else
 #ifdef TARGET_WORDS_BIGENDIAN
     io_mem_write[index][2](io_mem_opaque[index], physaddr, val >> 32);
 
-    //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
     	helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
 #endif
-    //end
     io_mem_write[index][2](io_mem_opaque[index], physaddr + 4, val);
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
     	helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
@@ -266,7 +259,7 @@ static inline void glue(io_write, SUFFIX)(target_phys_addr_t physaddr,
 #else
     io_mem_write[index][2](io_mem_opaque[index], physaddr, val);
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
     	helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
@@ -275,7 +268,7 @@ static inline void glue(io_write, SUFFIX)(target_phys_addr_t physaddr,
 
     io_mem_write[index][2](io_mem_opaque[index], physaddr + 4, val >> 32);
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
     	helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
@@ -326,7 +319,7 @@ void REGPARM glue(glue(__st, SUFFIX), MMUSUFFIX)(target_ulong addr,
             addend = env->tlb_table[mmu_idx][index].addend;
             glue(glue(st, SUFFIX), _raw)((uint8_t *)(long)(addr+addend), val);
             //Hu-Mem write callback
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
          	if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
          	    helper_DECAF_invoke_mem_write_callback(addr, qemu_ram_addr_from_host_nofail((void *)(addr+addend)), val, DATA_SIZE);
 #endif
@@ -384,7 +377,7 @@ static void glue(glue(slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
             addend = env->tlb_table[mmu_idx][index].addend;
             glue(glue(st, SUFFIX), _raw)((uint8_t *)(long)(addr+addend), val);
             //Hu-Mem read callback
-#if defined(ADD_MEM_CB)
+#ifdef CONFIG_MEM_WRITE_CB
             if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
          	    helper_DECAF_invoke_mem_write_callback(addr, qemu_ram_addr_from_host_nofail((void *)(addr+addend)), val, DATA_SIZE);
 #endif

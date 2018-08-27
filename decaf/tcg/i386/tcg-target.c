@@ -24,7 +24,6 @@
 
 #ifdef CONFIG_TCG_TAINT
 #include "tainting/taint_memory.h"
-//#include "TEMU_main.h"
 #ifndef CONFIG_SOFTMMU
 #error "CONFIG_TCG_TAINT can only be enabled with a SOFTMMU target!"
 #endif /* CONFIG_SOFTMMU */
@@ -92,6 +91,7 @@ static const int tcg_target_call_oarg_regs[] = {
 #endif
 };
 
+#ifdef CONFIG_MEM_READ_CB
 /* AWH - Memory callback logic to be called via TCG calls */
 static void REGPARM ldb_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "ldb_cb: %08x %08x\n", addr, vaddr);
@@ -116,7 +116,9 @@ static void REGPARM ldq_cb(unsigned long addr, gva_t vaddr) {
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
     helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint64_t *) addr, 8);
 }
+#endif
 
+#ifdef CONFIG_MEM_WRITE_CB
 static void REGPARM stb_cb(unsigned long addr, gva_t vaddr,unsigned long value) {
 //fprintf(stderr, "stb_cb: %08x %08x\n", addr, vaddr);
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
@@ -140,61 +142,75 @@ static void REGPARM stq_cb(unsigned long addr, gva_t vaddr, unsigned long value)
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
     helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value,8);
 }
+#endif
+
 
 static void REGPARM taint_ldb_cb(unsigned long addr, gva_t vaddr) {
-//fprintf(stderr, "taint_ldb_cb: %08x %08x\n", addr, vaddr);
-  __taint_ldb_raw(addr, vaddr);
+  __taint_ldb_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_READ_CB
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
     helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint8_t *) addr, 1);
+#endif
 }
 
 static void REGPARM taint_ldw_cb(unsigned long addr, gva_t vaddr ) {
-//fprintf(stderr, "taint_ldw_cb: %08x %08x\n", addr, vaddr);
-  __taint_ldw_raw(addr, vaddr);
+  __taint_ldw_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_READ_CB
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
     helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint16_t*) addr, 2);
+#endif
 }
 
 static void REGPARM taint_ldl_cb(unsigned long addr, gva_t vaddr) {
 //fprintf(stderr, "taint_ldl_cb: %08x %08x\n", addr, vaddr);
-  __taint_ldl_raw(addr, vaddr);
+  __taint_ldl_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_READ_CB
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
     helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint32_t * ) addr, 4);
+#endif
 }
 
 static void REGPARM taint_ldq_cb(unsigned long addr, gva_t vaddr) {
-//fprintf(stderr, "taint_ldq_cb: %08x %08x\n", addr, vaddr);
-  __taint_ldq_raw(addr, vaddr);
+  __taint_ldq_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_READ_CB
   if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
     helper_DECAF_invoke_mem_read_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), *(uint64_t *) addr, 8);
+#endif
 }
 
 static void REGPARM taint_stb_cb(unsigned long addr, gva_t vaddr,unsigned long value) {
-//fprintf(stderr, "taint_stb_cb: %08x %08x\n", addr, vaddr);
-  __taint_stb_raw(addr, vaddr);
+  __taint_stb_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_WRITE_CB
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
     helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value & 0xFF,1);
+#endif
 }
 
 static void REGPARM taint_stw_cb(unsigned long addr, gva_t vaddr, unsigned long value) {
 //fprintf(stderr, "taint_stw_cb: %08x %08x\n", addr, vaddr);
-  __taint_stw_raw(addr, vaddr);
+  __taint_stw_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_WRITE_CB
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
     helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value & 0xFFFF, 2);
+#endif
 }
 
 static void REGPARM taint_stl_cb(unsigned long addr, gva_t vaddr, unsigned long value) {
 //fprintf(stderr, "taint_stl_cb: %08x %08x\n", addr, vaddr);
-  __taint_stl_raw(addr, vaddr);
+  __taint_stl_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_WRITE_CB
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
     helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value & 0xFFFFFFFF, 4);
+#endif
 }
 
 static void REGPARM taint_stq_cb(unsigned long addr, gva_t vaddr, unsigned long value) {
 //fprintf(stderr, "taint_stq_cb: %08x %08x\n", addr, vaddr);
-  __taint_stq_raw(addr, vaddr);
+  __taint_stq_raw((void *)addr, vaddr);
+#ifdef CONFIG_MEM_WRITE_CB
   if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
     helper_DECAF_invoke_mem_write_callback(vaddr,qemu_ram_addr_from_host_nofail((void *)(addr)), value, 8);
+#endif
 }
 
 static uint8_t *tb_ret_addr;
@@ -1294,7 +1310,9 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
     s_bits = opc & 3;
 
     /* AWH - Save the virtual address */
+#ifdef CONFIG_MEM_READ_CB
     tcg_out_push(s, args[addrlo_idx]);
+#endif
 
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_read));
@@ -1303,38 +1321,40 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
     /* AWH - Before we call the functionality in the function
        tcg_out_qemu_ld_direct(), we push some parms, call our "raw" taint load
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
+ #ifdef CONFIG_MEM_READ_CB
     tcg_out_pop(s, args[addrlo_idx]);
 
-      if (s_bits == 3)
+    if (s_bits == 3)
         tcg_out_push(s, data_reg2);
-      tcg_out_push(s, data_reg);
-      tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-      tcg_out_push(s, tcg_target_call_iarg_regs[1]);
-      tcg_out_mov(s, TCG_TYPE_I32,
+    tcg_out_push(s, data_reg);
+    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+    tcg_out_push(s, tcg_target_call_iarg_regs[1]);
+    tcg_out_mov(s, TCG_TYPE_I32,
         tcg_target_call_iarg_regs[1], args[addrlo_idx]);
-      switch (s_bits) {
-        case 0:
-        case 0 | 4:
-          tcg_out_calli(s, (tcg_target_long)ldb_cb);
-          break;
-        case 1:
-        case 1 | 4:
-          tcg_out_calli(s, (tcg_target_long)ldw_cb);
-          break;
-        case 2:
-          tcg_out_calli(s, (tcg_target_long)ldl_cb);
-          break;
-        case 3:
-          tcg_out_calli(s, (tcg_target_long)ldq_cb);
-          break;
-        default:
-          tcg_abort();
-      }
-      tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
-      tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
-      tcg_out_pop(s, data_reg);
-      if (s_bits == 3)
+    switch (s_bits) {
+    case 0:
+    case 0 | 4:
+        tcg_out_calli(s, (tcg_target_long)ldb_cb);
+        break;
+    case 1:
+    case 1 | 4:
+        tcg_out_calli(s, (tcg_target_long)ldw_cb);
+        break;
+    case 2:
+        tcg_out_calli(s, (tcg_target_long)ldl_cb);
+        break;
+    case 3:
+        tcg_out_calli(s, (tcg_target_long)ldq_cb);
+        break;
+    default:
+        tcg_abort();
+    }
+    tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
+    tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+    tcg_out_pop(s, data_reg);
+    if (s_bits == 3)
         tcg_out_pop(s, data_reg2);
+#endif
 
     tcg_out_qemu_ld_direct(s, data_reg, data_reg2,
                            tcg_target_call_iarg_regs[0], 0, opc);
@@ -1352,8 +1372,10 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
 
+#ifdef CONFIG_MEM_READ_CB
     /* AWH - Pop the virtual address off the stack */
     tcg_out_pop(s, args[addrlo_idx]);
+#endif
 
     /* XXX: move that code at the end of the TB */
     /* The first argument is already loaded with addrlo.  */
@@ -1511,11 +1533,14 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
     s_bits = opc;
 
     /* AWH - Save the virtual address */
+#ifdef CONFIG_MEM_WRITE_CB
     tcg_out_push(s, args[addrlo_idx]);
+#endif
 
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_write));
 
+#ifdef CONFIG_MEM_WRITE_CB
     /* TLB Hit.  */
     /* AWH - Restore the virtual address */
     tcg_out_pop(s, args[addrlo_idx]);
@@ -1527,7 +1552,7 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
     tcg_out_mov(s, TCG_TYPE_I32,
       tcg_target_call_iarg_regs[2], args[0]); //store the value write to memory
 
-      switch (opc) {
+     switch (opc) {
         case 0:
           tcg_out_calli(s, (tcg_target_long)stb_cb);
           break;
@@ -1543,10 +1568,11 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
           break;
         default:
           tcg_abort();
-      }
+    }
 
     tcg_out_pop(s, tcg_target_call_iarg_regs[0]); // Pop for call to qemu_st_direct() below
     tcg_out_pop(s, data_reg); // Same
+#endif
 
     /* TLB Hit.  */
     tcg_out_qemu_st_direct(s, data_reg, data_reg2,
@@ -1565,8 +1591,10 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
 
+#ifdef CONFIG_MEM_WRITE_CB
     /* AWH - Pop the virtual address off the stack */
     tcg_out_pop(s, args[addrlo_idx]);
+#endif
 
     /* XXX: move that code at the end of the TB */
     if (TCG_TARGET_REG_BITS == 64) {
@@ -1645,7 +1673,8 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
 }
 
 #ifdef CONFIG_TCG_TAINT
-static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
+static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
+{
     int data_reg, data_reg2 = 0;
     int addrlo_idx;
     int mem_index, s_bits;
@@ -1778,6 +1807,8 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc) {
     *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
 }
 
+extern TCGv tempidx, tempidx2;
+
 static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 {
     int data_reg, data_reg2 = 0;
@@ -1807,44 +1838,31 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
        functions, pop the original parms, and then call tcg_out_qemu_ld_direct(). */
     tcg_out_pop(s, args[addrlo_idx]);
 
-    if (s_bits == 3)
-      tcg_out_push(s, data_reg2);
-    tcg_out_push(s, data_reg);
-    tcg_out_push(s, tcg_target_call_iarg_regs[0]);
-    tcg_out_push(s, tcg_target_call_iarg_regs[1]);
-    tcg_out_mov(s, TCG_TYPE_I32,
-      tcg_target_call_iarg_regs[1], args[addrlo_idx]);
+    tcg_out_qemu_ld_direct(s, data_reg, data_reg2,
+                           tcg_target_call_iarg_regs[0], 0, opc);
+
+    //TLB Hit means the related page is not tainted (otherwise, it will go through io_mem_taint).
+    //So we can skip checking shadow memory and simply set taint (stored in args[1]) as zero.
+    tcg_out_movi(s, TCG_TYPE_TL, TCG_REG_EAX, 0);
     switch (s_bits) {
     case 0:
     case 0 | 4:
-        //tcg_out_calli(s, (tcg_target_long)__taint_ldb_raw);
-        tcg_out_calli(s, (tcg_target_long)taint_ldb_cb);
-        break;
     case 1:
     case 1 | 4:
-        //tcg_out_calli(s, (tcg_target_long)__taint_ldw_raw);
-        tcg_out_calli(s, (tcg_target_long)taint_ldw_cb);
-        break;
     case 2:
-        //tcg_out_calli(s, (tcg_target_long)__taint_ldl_raw);
-        tcg_out_calli(s, (tcg_target_long)taint_ldl_cb);
+        tcg_out_st(s, TCG_TYPE_TL, TCG_REG_EAX, s->temps[tempidx].mem_reg, s->temps[tempidx].mem_offset);
         break;
     case 3:
-        //tcg_out_calli(s, (tcg_target_long)__taint_ldq_raw);
-        tcg_out_calli(s, (tcg_target_long)taint_ldq_cb);
+        if (TCG_TARGET_REG_BITS == 32 && TARGET_LONG_BITS == 64) {
+            //tcg_out_st(s, TCG_TYPE_TL, TCG_REG_EAX, cpu_single_env, offsetof(CPUState, tempidx));
+            //tcg_out_st(s, TCG_TYPE_TL, TCG_REG_EAX, cpu_single_env, offsetof(CPUState, tempidx2));
+        } else {
+            //tcg_out_st(s, TCG_TYPE_TL, TCG_REG_EAX, cpu_single_env, offsetof(CPUState, tempidx));
+        }
         break;
     default:
         tcg_abort();
     }
-    tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
-    tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
-    tcg_out_pop(s, data_reg);
-    if (s_bits == 3)
-      tcg_out_pop(s, data_reg2);
-    /* AWH - End of our taint functionality for the TLB Hit case. */
-
-    tcg_out_qemu_ld_direct(s, data_reg, data_reg2,
-                           tcg_target_call_iarg_regs[0], 0, opc);
 
     /* jmp label2 */
     tcg_out8(s, OPC_JMP_short);
@@ -1858,7 +1876,6 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     if (TARGET_LONG_BITS > TCG_TARGET_REG_BITS) {
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
-
     /* AWH - Pop the virtual address off the stack */
     tcg_out_pop(s, args[addrlo_idx]);
 
@@ -2444,6 +2461,7 @@ static const TCGTargetOpDef x86_op_defs[] = {
     { INDEX_op_qemu_st64, { "L", "L", "L", "L" } },
 #endif
 #ifdef CONFIG_TCG_TAINT
+//add another argument to pass taint
 #if TCG_TARGET_REG_BITS == 64 // 64-bit host, 32/64-bit guest
     { INDEX_op_taint_qemu_ld8u, { "r", "L" } },
     { INDEX_op_taint_qemu_ld8s, { "r", "L" } },

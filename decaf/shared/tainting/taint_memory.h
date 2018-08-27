@@ -95,110 +95,21 @@ int is_physial_page_tainted(ram_addr_t addr);
 /* This deallocates nodes that do not contain taint */
 void garbage_collect_taint(int flag);
 
-static inline tbitpage_leaf_t *read_leaf_node_i32(uint32_t address) {
-  unsigned int middle_node_index = address >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-  unsigned int leaf_node_index = (address >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
-  // Check for out of range physical address
-  if (address >= ram_size)
-    return NULL;
-
-  if (taint_memory_page_table[middle_node_index])
-    return taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
-
-  return NULL;
-}
-
-static inline void return_leaf_node_to_pool(tbitpage_leaf_t *node) {
-  if (leaf_pool.next_available_node != 0) {
-    memset((void *)node, 0, sizeof(tbitpage_leaf_t));
-    leaf_pool.next_available_node -= 1;
-    leaf_pool.pool[leaf_pool.next_available_node] = node;
-  } else
-    g_free(node);
-  leaf_nodes_in_use--;
-}
-
-static inline void return_middle_node_to_pool(tbitpage_middle_t *node) {
-  if (middle_pool.next_available_node > 0) {
-    memset((void *)node, 0, sizeof(tbitpage_middle_t));
-    middle_pool.next_available_node -= 1;
-    middle_pool.pool[middle_pool.next_available_node] = node;
-  } else
-    g_free(node);
-  middle_nodes_in_use--;
-}
-
-static inline tbitpage_leaf_t *fetch_leaf_node_from_pool(void) {
-  /* If the pool is empty, refill the pool */
-  if (leaf_pool.next_available_node >= BITPAGE_LEAF_POOL_SIZE) allocate_leaf_pool();
-  leaf_nodes_in_use++;
-  return leaf_pool.pool[leaf_pool.next_available_node++];
-}
-
-static inline tbitpage_middle_t *fetch_middle_node_from_pool(void) {
-  /* If the pool is empty, refill the pool */
-  if (middle_pool.next_available_node >= BITPAGE_MIDDLE_POOL_SIZE) allocate_middle_pool();
-  middle_nodes_in_use++;
-  return middle_pool.pool[middle_pool.next_available_node++];
-}
-
-static inline tbitpage_leaf_t *taint_st_general_i32(const uint32_t address, const uint32_t taint) {
-  unsigned int middle_node_index = address >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
-  unsigned int leaf_node_index = (address >> BITPAGE_LEAF_BITS) & MIDDLE_ADDRESS_MASK;
-  tbitpage_leaf_t *leaf_node;
-
-  /* Does a middle node exist for this address? */
-  if (taint_memory_page_table[middle_node_index]) {
-    /* Does a leaf node exist for this address? */
-    if (taint_memory_page_table[middle_node_index]->leaf[leaf_node_index]) {
-      leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
-    /* Is there no leaf node and no taint to add? */
-    } else if (!taint)
-      return NULL;
-    /* Pull leaf node from pool and put taint in it */
-    else {
-      leaf_node = fetch_leaf_node_from_pool();
-      taint_memory_page_table[middle_node_index]->leaf[leaf_node_index] = leaf_node;
-      /* Now we are writing a taint into a newly allocated leaf node. We should flush the TLB entry,
-         so the related entry will be marked as io_mem_taint. The virtual address is stored in env->mem_io_vaddr,
-         because all tainted memory write either go through io_mem_taint or io_mem_nortdirty.
-         FIXME: what about DMA? There will be no related virtual address.
-      */
-      tlb_flush_page(cpu_single_env, cpu_single_env->mem_io_vaddr);
-    }
-  /* Is there no middle node and no taint to add? */
-  } else if (!taint)
-    return NULL;
-  /* Pull middle node from pool */
-  else {
-    leaf_node = fetch_leaf_node_from_pool();
-    taint_memory_page_table[middle_node_index] = fetch_middle_node_from_pool();
-    taint_memory_page_table[middle_node_index]->leaf[leaf_node_index] = leaf_node;
-    /* Now we are writing a taint into a newly allocated leaf node. We should flush the TLB entry,
-       so the related entry will be marked as io_mem_taint (or io_mem_notdirty). The virtual address is stored in env->mem_io_vaddr,
-       because all tainted memory writes either go through io_mem_write (i.e., io_mem_taint or io_mem_notdirty).
-       FIXME: what about DMA? There will be no related virtual address.
-    */
-    tlb_flush_page(cpu_single_env, cpu_single_env->mem_io_vaddr);
-  }
-  return leaf_node;
-}
-
 /* RAM tainting functions */
 #ifdef CONFIG_TCG_TAINT
-void REGPARM __taint_ldb_raw(unsigned long addr, gva_t vaddr);
-void REGPARM __taint_ldw_raw(unsigned long addr, gva_t vaddr);
-void REGPARM __taint_ldl_raw(unsigned long addr, gva_t vaddr);
-void REGPARM __taint_ldq_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_ldb_raw(void * p, gva_t vaddr);
+void REGPARM __taint_ldw_raw(void * p, gva_t vaddr);
+void REGPARM __taint_ldl_raw(void * p, gva_t vaddr);
+void REGPARM __taint_ldq_raw(void * p, gva_t vaddr);
 void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr);
 void REGPARM __taint_ldw_raw_paddr(ram_addr_t addr,gva_t vaddr);
 void REGPARM __taint_ldl_raw_paddr(ram_addr_t addr,gva_t vaddr);
 void REGPARM __taint_ldq_raw_paddr(ram_addr_t addr,gva_t vaddr);
 
-void REGPARM __taint_stb_raw(unsigned long addr, gva_t vaddr);
-void REGPARM __taint_stw_raw(unsigned long addr, gva_t vaddr);
-void REGPARM __taint_stl_raw(unsigned long addr, gva_t vaddr);
-void REGPARM __taint_stq_raw(unsigned long addr, gva_t vaddr);
+void REGPARM __taint_stb_raw(void * p, gva_t vaddr);
+void REGPARM __taint_stw_raw(void * p, gva_t vaddr);
+void REGPARM __taint_stl_raw(void * p, gva_t vaddr);
+void REGPARM __taint_stq_raw(void * p, gva_t vaddr);
 void REGPARM __taint_stb_raw_paddr(ram_addr_t addr,gva_t vaddr);
 void REGPARM __taint_stw_raw_paddr(ram_addr_t addr,gva_t vaddr);
 void REGPARM __taint_stl_raw_paddr(ram_addr_t addr,gva_t vaddr);

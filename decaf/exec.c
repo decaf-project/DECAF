@@ -2335,19 +2335,6 @@ void tlb_set_page(CPUState *env, target_ulong vaddr,
     }
     addend = (unsigned long)qemu_get_ram_ptr(pd & TARGET_PAGE_MASK);
 
-#ifdef CONFIG_TCG_TAINT
-    /*What if this page is notdirty and/or watchpoint at the same time?
-      io_mem_taint has the lowest priority, to avoid breaking the funtionality.
-      This is why we put it here, so other IO memory regions have a chance to overwrite it.
-      So far, we know that notdirty memory and watchpoint may also be marked in TLB.
-      FIXME: We will update shadow memory in notdirty memory, and ignore watchpoint for now.
-    */
-    if (is_physial_page_tainted(paddr)) {
-        iotlb = io_mem_taint + paddr;
-        address |= TLB_MMIO;
-    }
-#endif
-
     if ((pd & ~TARGET_PAGE_MASK) <= IO_MEM_ROM) {
         /* Normal RAM.  */
         iotlb = pd & TARGET_PAGE_MASK;
@@ -2384,10 +2371,26 @@ void tlb_set_page(CPUState *env, target_ulong vaddr,
         }
     }
 
+#ifdef CONFIG_TCG_TAINT
+    /*What if this page is notdirty and/or watchpoint at the same time?
+      io_mem_taint has the lowest priority, to avoid breaking the funtionality.
+      This is why we put it here, so other IO memory regions have a chance to overwrite it.
+      So far, we know that notdirty memory and watchpoint may also be marked in TLB.
+      FIXME: We will update shadow memory in notdirty memory, and ignore watchpoint for now.
+    */
+    if ((iotlb  & ~TARGET_PAGE_MASK) && is_physial_page_tainted(paddr)) {
+        iotlb = io_mem_taint + paddr;
+        address |= TLB_MMIO;
+        //printf("tlb_set_page: iotlb=%0lx address=%0x\n", iotlb, address);
+    }
+#endif
+
+
     index = (vaddr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     env->iotlb[mmu_idx][index] = iotlb - vaddr;
     te = &env->tlb_table[mmu_idx][index];
     te->addend = addend - vaddr;
+
     if (prot & PAGE_READ) {
         te->addr_read = address;
     } else {
@@ -4060,6 +4063,10 @@ void cpu_physical_memory_rw(target_phys_addr_t addr, uint8_t *buf,
     target_phys_addr_t page;
     ram_addr_t pd;
     PhysPageDesc *p;
+#ifdef CONFIG_TCG_TAINT
+    uint8_t zero_mem[TARGET_PAGE_SIZE];
+    bzero(zero_mem, len>TARGET_PAGE_SIZE? TARGET_PAGE_SIZE : len);
+#endif
 
     while (len > 0) {
         page = addr & TARGET_PAGE_MASK;
@@ -4103,6 +4110,11 @@ void cpu_physical_memory_rw(target_phys_addr_t addr, uint8_t *buf,
                 /* RAM case */
                 ptr = qemu_get_ram_ptr(addr1);
                 memcpy(ptr, buf, l);
+
+#ifdef CONFIG_TCG_TAINT
+                taint_mem(addr1, l, zero_mem);
+#endif
+
                 if (!cpu_physical_memory_is_dirty(addr1)) {
                     /* invalidate code */
                     tb_invalidate_phys_page_range(addr1, addr1 + l, 0);
@@ -4663,6 +4675,10 @@ void stl_phys_notdirty(target_phys_addr_t addr, uint32_t val)
         unsigned long addr1 = (pd & TARGET_PAGE_MASK) + (addr & ~TARGET_PAGE_MASK);
         ptr = qemu_get_ram_ptr(addr1);
         stl_p(ptr, val);
+#ifdef CONFIG_TCG_TAINT
+        cpu_single_env->tempidx = 0;
+        __taint_stl_raw_paddr(addr1, 0);
+#endif
 
         if (unlikely(in_migration)) {
             if (!cpu_physical_memory_is_dirty(addr1)) {
@@ -4705,6 +4721,11 @@ void stq_phys_notdirty(target_phys_addr_t addr, uint64_t val)
         ptr = qemu_get_ram_ptr(pd & TARGET_PAGE_MASK) +
             (addr & ~TARGET_PAGE_MASK);
         stq_p(ptr, val);
+#ifdef CONFIG_TCG_TAINT
+        cpu_single_env->tempidx = 0;
+        __taint_stq_raw(ptr, 0);
+#endif
+
     }
 }
 
@@ -4754,6 +4775,12 @@ static inline void stl_phys_internal(target_phys_addr_t addr, uint32_t val,
             stl_p(ptr, val);
             break;
         }
+
+#ifdef CONFIG_TCG_TAINT
+        cpu_single_env->tempidx = 0;
+        __taint_stl_raw_paddr(addr1, 0);
+#endif
+
         if (!cpu_physical_memory_is_dirty(addr1)) {
             /* invalidate code */
             tb_invalidate_phys_page_range(addr1, addr1 + 4, 0);

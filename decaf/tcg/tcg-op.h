@@ -2136,7 +2136,7 @@ static inline void tcg_gen_deposit_i64(TCGv_i64 ret, TCGv_i64 arg1,
 #define tcg_temp_local_new() tcg_temp_local_new_i32()
 #define tcg_temp_free tcg_temp_free_i32
 #ifdef CONFIG_TCG_TAINT
-#define tcg_gen_taint_qemu_ldst_op tcg_gen_op3i_i32
+//#define tcg_gen_taint_qemu_ldst_op tcg_gen_op3i_i32
 //#define tcg_gen_taint_qemu_ldst_op_i64 tcg_gen_taint_qemu_ldst_op_i64_i32
 #endif /* CONFIG_TCG_TAINT */
 #define tcg_gen_qemu_ldst_op tcg_gen_op3i_i32

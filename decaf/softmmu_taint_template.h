@@ -108,8 +108,7 @@ DATA_TYPE REGPARM glue(glue(__taint_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
 
-            //FIXME: this callback check is too slow. Need to move it to translation time
-#ifndef SOFTMMU_CODE_ACCESS
+#if !defined(SOFTMMU_CODE_ACCESS) && defined(CONFIG_MEM_READ_CB)
             if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))// host vitual addr+addend
               helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)), res, DATA_SIZE);
 #endif
@@ -198,7 +197,7 @@ static DATA_TYPE glue(glue(taint_slow_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
 
-#ifndef SOFTMMU_CODE_ACCESS
+#if !defined(SOFTMMU_CODE_ACCESS) && defined(CONFIG_MEM_READ_CB)
             if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
               helper_DECAF_invoke_mem_read_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)), res, DATA_SIZE);
 #endif
@@ -238,7 +237,7 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
 #if SHIFT <= 2
     io_mem_write[index][SHIFT](io_mem_opaque[index], physaddr, val);
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
         helper_DECAF_invoke_mem_write_callback(addr,physaddr, val, DATA_SIZE);
     }
@@ -249,7 +248,7 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
     io_mem_write[index][2](io_mem_opaque[index], physaddr, val >> 32);
 
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
         helper_DECAF_invoke_mem_write_callback(addr,physaddr, val, DATA_SIZE);
     }
@@ -257,7 +256,7 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
     //end
     io_mem_write[index][2](io_mem_opaque[index], physaddr + 4, val);
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
         helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
@@ -267,7 +266,7 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
 #else
     io_mem_write[index][2](io_mem_opaque[index], physaddr, val);
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
         helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
@@ -276,7 +275,7 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
 
     io_mem_write[index][2](io_mem_opaque[index], physaddr + 4, val >> 32);
     //Hu-for io mem not dirty
-#ifndef SOFTMMU_CODE_ACCESS
+#ifdef CONFIG_MEM_WRITE_CB
     if((index == 3)&DECAF_is_callback_needed(DECAF_MEM_WRITE_CB)) { //IO_MEM_NOTDIRTY
         helper_DECAF_invoke_mem_write_callback(addr, physaddr, val, DATA_SIZE);
     }
@@ -284,10 +283,6 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
     //end
 #endif
 #endif /* SHIFT > 2 */
-    //Shadow memory write is moved to notdirty_mem_write
-//    if (index == (IO_MEM_NOTDIRTY>>IO_MEM_SHIFT))
-//      glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
-
 }
 
 void REGPARM glue(glue(__taint_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
@@ -331,21 +326,21 @@ void REGPARM glue(glue(__taint_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
 
             //Since tainted pages are marked in io_mem_taint, we have a fast path:
             //If taint is zero, and it is not accessing io_mem_taint, we don't need to update shadow memory
-            if(unlikely(env->tempidx
+            if (unlikely(env->tempidx
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
                         || env->tempidx2
 #endif
                         )) {
                 //Now there is a taint, and this page is not marked in io_mem_taint.
                 //We need to taint it in the shadow memory, in which the corresponding TLB entry will also be marked as io_mem_taint
-                glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+                glue(glue(__taint_st, SUFFIX), _raw)((void *)(addr+addend), addr);
             }
 
 
             //Hu-Mem write callback
-#ifndef SOFTMMU_CODE_ACCESS
-            if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-              helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void *)(addr+addend)), val, DATA_SIZE);
+#ifdef CONFIG_MEM_WRITE_CB
+            if (DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
+                helper_DECAF_invoke_mem_write_callback(addr, qemu_ram_addr_from_host_nofail((void *)(addr+addend)), val, DATA_SIZE);
 #endif
             //end
         }
@@ -415,20 +410,20 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
             glue(glue(st, SUFFIX), _raw)((uint8_t *)(long)(addr+addend), val);
             //Since tainted pages are marked in io_mem_taint, we have a fast path:
             //If taint is zero, and it is not accessing io_mem_taint, we don't need to update shadow memory
-            if(unlikely(env->tempidx
+            if (unlikely(env->tempidx
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
                         || env->tempidx2
 #endif
                         )) {
                 //Now there is a taint, and this page is not marked in io_mem_taint.
                 //We need to taint it in the shadow memory, in which the corresponding TLB entry will also be marked as io_mem_taint
-                glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+                glue(glue(__taint_st, SUFFIX), _raw)((void *)(addr+addend), addr);
             }
 
             //Hu-Mem read callback
-#if defined(ADD_MEM_CB)
-            if(DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
-              helper_DECAF_invoke_mem_write_callback(addr,qemu_ram_addr_from_host_nofail((void*)(addr+addend)), val, DATA_SIZE);
+#ifdef CONFIG_MEM_WRITE_CB
+            if (DECAF_is_callback_needed(DECAF_MEM_WRITE_CB))
+                helper_DECAF_invoke_mem_write_callback(addr, qemu_ram_addr_from_host_nofail((void*)(addr+addend)), val, DATA_SIZE);
 #endif
             //end
 
