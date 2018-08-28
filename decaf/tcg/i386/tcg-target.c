@@ -1127,6 +1127,10 @@ static void *taint_qemu_st_helpers[4] = {
 };
 #endif /* CONFIG_TCG_TAINT */
 
+#ifdef CONFIG_TCG_TAINT
+extern TCGv tempidx, tempidx2;
+#endif
+
 /* Perform the TLB load and compare.
 
    Inputs:
@@ -1152,7 +1156,7 @@ static void *taint_qemu_st_helpers[4] = {
 static inline void tcg_out_tlb_load(TCGContext *s, int addrlo_idx,
                                     int mem_index, int s_bits,
                                     const TCGArg *args,
-                                    uint8_t **label_ptr, int which)
+                                    uint8_t **label_ptr, int which, int is_store)
 {
     const int addrlo = args[addrlo_idx];
     const int r0 = tcg_target_call_iarg_regs[0];
@@ -1167,6 +1171,33 @@ static inline void tcg_out_tlb_load(TCGContext *s, int addrlo_idx,
 
     tcg_out_mov(s, type, r1, addrlo);
     tcg_out_mov(s, type, r0, addrlo);
+
+#ifdef CONFIG_TCG_TAINT
+    //This is a bit awkward to put this piece of code here. The reason is the above two lines stores virtual address into
+    //tcg_target_call_iarg_regs. The code in tcg_out_(taint_)qemu_ld/st asssumes this has been done. So for TLB Miss case,
+    //when it is about to call a helper function, it skips passing this virtual address.
+    if (is_store) {
+        tcg_out_push(s, TCG_REG_RAX);
+        if (s_bits == 3) {
+            if (TCG_TARGET_REG_BITS == 32 && TARGET_LONG_BITS == 64) {
+                tcg_out_ld(s, TCG_TYPE_TL, TCG_REG_EAX, s->temps[tempidx].mem_reg, s->temps[tempidx].mem_offset);
+                tcg_out_ld(s, TCG_TYPE_TL, TCG_REG_EDX, s->temps[tempidx2].mem_reg, s->temps[tempidx2].mem_offset);
+                tgen_arithr(s, ARITH_OR, TCG_REG_EAX, TCG_REG_EDX);
+                tcg_out_cmp(s, TCG_REG_EAX, 0, 1, 0);
+            } else {
+                tcg_out_ld(s, TCG_TYPE_TL, TCG_REG_RAX, s->temps[tempidx].mem_reg, s->temps[tempidx].mem_offset);
+                tcg_out_cmp(s, TCG_REG_RAX, 0, 1, 0);
+            }
+        } else {
+            tcg_out_ld(s, TCG_TYPE_TL, TCG_REG_EAX, s->temps[tempidx].mem_reg, s->temps[tempidx].mem_offset);
+            tcg_out_cmp(s, TCG_REG_EAX, 0, 1, 0);
+        }
+        tcg_out_pop(s, TCG_REG_RAX);
+        tcg_out8(s, OPC_JCC_short + JCC_JNE);
+        label_ptr[2] = s->code_ptr;
+        s->code_ptr++;
+    }
+#endif
 
     tcg_out_shifti(s, SHIFT_SHR + rexw, r1,
                    TARGET_PAGE_BITS - CPU_TLB_ENTRY_BITS);
@@ -1310,7 +1341,7 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
     s_bits = opc & 3;
 
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
-                     label_ptr, offsetof(CPUTLBEntry, addr_read));
+                     label_ptr, offsetof(CPUTLBEntry, addr_read), 0);
 
     /* TLB Hit.  */
     /* AWH - Before we call the functionality in the function
@@ -1521,7 +1552,7 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
     s_bits = opc;
 
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
-                     label_ptr, offsetof(CPUTLBEntry, addr_write));
+                     label_ptr, offsetof(CPUTLBEntry, addr_write), 1);
 
 #ifdef CONFIG_MEM_WRITE_CB
     /* TLB Hit.  */
@@ -1650,13 +1681,14 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
 }
 
 #ifdef CONFIG_TCG_TAINT
+
 static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
 {
     int data_reg, data_reg2 = 0;
     int addrlo_idx;
     int mem_index, s_bits;
     int stack_adjust;
-    uint8_t *label_ptr[3];
+    uint8_t *label_ptr[4];
 
     data_reg = args[0];
     addrlo_idx = 1;
@@ -1668,10 +1700,12 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc;
 
-    tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
-                     label_ptr, offsetof(CPUTLBEntry, addr_write));
 
+    tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
+                     label_ptr, offsetof(CPUTLBEntry, addr_write), 1);
     /* TLB Hit.  */
+
+#if 0
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
     tcg_out_mov(s, TCG_TYPE_I32,
@@ -1702,13 +1736,14 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     }
     tcg_out_pop(s, tcg_target_call_iarg_regs[0]); // Pop for call to qemu_st_direct() below
     tcg_out_pop(s, data_reg); // Same
+#endif
 
     tcg_out_qemu_st_direct(s, data_reg, data_reg2,
                            tcg_target_call_iarg_regs[0], 0, opc);
 
     /* jmp label2 */
     tcg_out8(s, OPC_JMP_short);
-    label_ptr[2] = s->code_ptr;
+    label_ptr[3] = s->code_ptr;
     s->code_ptr++;
 
     /* TLB Miss.  */
@@ -1718,6 +1753,7 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     if (TARGET_LONG_BITS > TCG_TARGET_REG_BITS) {
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
+    *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
 
     /* XXX: move that code at the end of the TB */
     /* TCG_TARGET_REG_BITS == 64 case in x86_op_defs[] */
@@ -1773,10 +1809,9 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     }
 
     /* label2: */
-    *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
-}
+    *label_ptr[3] = s->code_ptr - label_ptr[3] - 1;
 
-extern TCGv tempidx, tempidx2;
+}
 
 static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
 {
@@ -1796,7 +1831,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     s_bits = opc & 3;
 
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
-                     label_ptr, offsetof(CPUTLBEntry, addr_read));
+                     label_ptr, offsetof(CPUTLBEntry, addr_read), 0);
 
     /* TLB Hit.  */
 
@@ -1825,6 +1860,8 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     default:
         tcg_abort();
     }
+
+    //TODO: call memory read callback 
 
     /* jmp label2 */
     tcg_out8(s, OPC_JMP_short);
