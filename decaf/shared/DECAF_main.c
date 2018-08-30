@@ -31,6 +31,7 @@
 #include "shared/DECAF_callback_to_QEMU.h"
 #include "shared/hookapi.h"
 #include "DECAF_target.h"
+#include"bswap.h"
 
 // AVB, Add only when file analysis is needed
 #include "shared/DECAF_fileio.h"
@@ -661,28 +662,22 @@ void DECAF_keystroke_read(uint8_t taint_status) {
 #endif /*CONFIG_TCG_TAINT*/
 }
 
-
 DECAF_errno_t DECAF_read_ptr(CPUState* env, gva_t vaddr, gva_t *pptr)
 {
 	int ret = DECAF_read_mem(env, vaddr, sizeof(gva_t), pptr);
 	if(0 == ret)
 	{
 #ifdef TARGET_WORDS_BIGENDIAN
-		convert_endian_4b(pptr);
+#if TARGET_LONG_BITS == 32
+		bswap_32(*pptr);
+#else
+		bswap_64(*pptr);
+#endif
 #endif
 	}
 	return ret;
 }
 
-#if 0
-static void convert_endian_4b(uint32_t *data)
-{
-   *data = ((*data & 0xff000000) >> 24)
-         | ((*data & 0x00ff0000) >>  8)
-         | ((*data & 0x0000ff00) <<  8)
-         | ((*data & 0x000000ff) << 24);
-}
-#endif
 
 // AVB, This function is used to read 'n' bytes off the disk images give by `opaque'
 // at an offset

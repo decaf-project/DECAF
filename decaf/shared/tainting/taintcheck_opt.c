@@ -31,7 +31,9 @@ http://code.google.com/p/decaf-platform/
 #include "shared/tainting/taint_memory.h"
 #include "tcg.h" // tcg_abort()
 
-/*uint64_t*/uint8_t nic_bitmap[1024 * 32 /*/ 64*/]; //!<bitmap for nic
+#ifdef CONFIG_TCG_TAINT
+
+uint8_t nic_bitmap[1024 * 32 ]; //!<bitmap for nic
 
 #ifndef min
 #define min(X,Y) ((X) < (Y) ? (X) : (Y))
@@ -276,3 +278,5 @@ void taintcheck_nic_cleanbuf(const uint32_t addr, const int size)
 {
 	memset(&nic_bitmap[addr], 0, size);
 }
+
+#endif
