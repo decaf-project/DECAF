@@ -547,12 +547,11 @@ static int DECAF_load(QEMUFile * f, void *opaque, int version_id) {
 	return 0;
 }
 
-extern void tainting_init(void);
 extern void function_map_init(void);
 
-void DECAF_init(void) {
+void DECAF_init(void)
+{
 	DECAF_callback_init();
-	tainting_init();
 	DECAF_virtdev_init();
 	// AWH - change in API, added NULL as first parm
 	/* Aravind - NOTE: DECAF_save *must* be called before function_map_save and DECAF_load must be called
