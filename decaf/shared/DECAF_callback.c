@@ -124,7 +124,7 @@ static int enableAllBlockEndCallbacksCount = 0;
 
 //We use hashtables to keep track of individual basic blocks
 // that is associated with a callback - we ignore
-// the conditional that is registered with the callback 
+// the conditional that is registered with the callback
 // right now - that is the conditional has been changed
 // into a simple "enable" bit. The reasoning is that the condition is controlled
 // by the user, and so there is no way for us to update
@@ -185,7 +185,7 @@ static LIST_HEAD(callback_list_head, callback_struct) callback_list_heads[DECAF_
 
 //LOK: I turned this into a dumb function
 // and so we can have the more specialized helper functions
-// for the block begin and block end callbacks 
+// for the block begin and block end callbacks
 int DECAF_is_callback_needed(DECAF_callback_type_t cb_type)
 {
   return !LIST_EMPTY(&callback_list_heads[cb_type]);
@@ -262,7 +262,7 @@ DECAF_Handle DECAF_registerOptimizedBlockBeginCallback(
   {
     return (DECAF_NULL_HANDLE);
   }
-  
+
   //Heng: Optimization on OCB_CONST is not stable. We use OCB_ALL instead for now.
   if (type == OCB_CONST) type = OCB_ALL;
 
@@ -700,7 +700,7 @@ int DECAF_unregister_callback(DECAF_callback_type_t cb_type, DECAF_Handle handle
 		goto done;
     }
 #endif
-    
+
    if(LIST_EMPTY(&callback_list_heads[cb_type]))    {
       DECAF_flushTranslationCache(ALL_CACHE,0);
    }
@@ -983,6 +983,7 @@ void helper_DECAF_invoke_keystroke_callback(int keycode,uint32_t *taint_mark)
 
 }
 
+#ifdef CONFIG_MEM_READ_CB
 void helper_DECAF_invoke_mem_read_callback(gva_t virt_addr,gpa_t phy_addr, unsigned long value, DATA_TYPE data_type)
 {
 
@@ -1006,7 +1007,9 @@ PUSH_ALL()
   }
 POP_ALL()
 }
+#endif
 
+#ifdef CONFIG_MEM_WRITE_CB
 void helper_DECAF_invoke_mem_write_callback(gva_t virt_addr,gpa_t phy_addr,unsigned long value, DATA_TYPE data_type)
 {
 
@@ -1030,6 +1033,7 @@ PUSH_ALL()
 	}
   POP_ALL()
 }
+#endif
 
 void helper_DECAF_invoke_nic_rec_callback(const uint8_t * buf,int size,int cur_pos,int start,int stop)
 {
@@ -1156,4 +1160,3 @@ void DECAF_callback_init(void)
   bEnableAllBlockEndCallbacks = 0;
   enableAllBlockEndCallbacksCount = 0;
 }
-

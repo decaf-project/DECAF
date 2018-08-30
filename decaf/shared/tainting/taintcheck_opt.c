@@ -25,149 +25,110 @@ http://code.google.com/p/decaf-platform/
 #include "cpu.h"
 #include "DECAF_main.h"
 #include "DECAF_main_internal.h"
-#include "shared/tainting/tainting.h"
 #include "shared/tainting/taintcheck_opt.h"
 //#include "shared/tainting/taintcheck.h"
 #include "shared/DECAF_vm_compress.h"
 #include "shared/tainting/taint_memory.h"
 #include "tcg.h" // tcg_abort()
 
-/*uint64_t*/uint8_t nic_bitmap[1024 * 32 /*/ 64*/]; //!<bitmap for nic
+#ifdef CONFIG_TCG_TAINT
+
+uint8_t nic_bitmap[1024 * 32 ]; //!<bitmap for nic
 
 #ifndef min
 #define min(X,Y) ((X) < (Y) ? (X) : (Y))
 #endif
 
-typedef struct disk_record{
-  void *bs;
+
+//each disk sector is 512 bytes
+typedef struct disk_record {
+  const void *bs;
   uint64_t index;
-  uint64_t bitmap;
+  uint8_t bitmap[512];
   LIST_ENTRY(disk_record) entry;
-  uint8_t records[0];
 } disk_record_t;
 
 #define DISK_HTAB_SIZE (1024)
 static LIST_HEAD(disk_record_list_head, disk_record)
         disk_record_heads[DISK_HTAB_SIZE];
+static uint8_t zero_mem[512];
 
-int taintcheck_taint_disk(const uint64_t index, const uint32_t taint, 
-                          const int offset, const int size, const void *bs)
+static int taintcheck_taint_disk(const uint8_t *taint, const uint64_t index,
+    const int offset, const int size, const void *bs)
 {
-  struct disk_record_list_head *head =
-      &disk_record_heads[index & (DISK_HTAB_SIZE - 1)];
-  disk_record_t *drec,  *new_drec;
-  int found = 0;
-  // AWH int size2 = 0;
-  uint64_t taint2 = 0;
+    struct disk_record_list_head *head =
+        &disk_record_heads[index & (DISK_HTAB_SIZE - 1)];
+    disk_record_t *drec,  *new_drec;
+    int found = 0;
 
-  if (taint & 0x000000FF) taint2 |= 1;
-  if (taint & 0x0000FF00) taint2 |= 2;
-  if (taint & 0x00FF0000) taint2 |= 4;
-  if (taint & 0xFF000000) taint2 |= 8;
+    assert(offset + size <= 512);
 
-  //if (taint)
-  //  fprintf(stderr, "taintcheck_taint_disk() taint -> 0x%08x\n", taint);
+    int is_tainted = (memcmp(taint, zero_mem, size) != 0);
 
-#if 0 // AWH
-  if (offset + size > 64) {
-    size = 64 - offset, taint &= size_to_mask(size);
-    size2 = offset + size - 64;
-    taint2 = taint >> offset;
-  }
-#endif // AWH
-  LIST_FOREACH(drec, head, entry) {
-    if (drec->index == index && drec->bs == bs) {
-      found = 1;
-      break;
+    LIST_FOREACH(drec, head, entry) {
+        if (drec->index == index && drec->bs == bs) {
+            found = 1;
+            break;
+        }
+        if (drec->index > index)
+            break;
     }
-    if (drec->index > index)
-      break;
-  }
-  if (!found) {
-    if (!taint)
-      return 0;
+    if (!found) {
+        if (!is_tainted)
+            return 0;
 
-//fprintf(stderr, "taintcheck_taint_disk() -> Not found w/ taint\n");
-    if (!(new_drec = g_malloc0((size_t)sizeof(disk_record_t) /*+
-                              64 * temu_plugin->taint_record_size*/)))
-      return 0;
+        if (!(new_drec = g_malloc0((size_t)sizeof(disk_record_t))))
+            return -1;
 
-    new_drec->index = index;
-    new_drec->bs = bs;
-    new_drec->bitmap = taint2 << offset;
-    LIST_INSERT_HEAD(head, new_drec, entry);
-//fprintf(stderr, "taintcheck_taint_disk() -> Adding new taint record\n");
-  }
-  else {
-//fprintf(stderr, "taintcheck_taint_disk() -> Changing taint record\n");
-    drec->bitmap &= ~(size_to_mask(size) << offset);
-    if (taint) {
-      drec->bitmap |= taint2 << offset;
-      /*memcpy(drec->records + offset * temu_plugin->taint_record_size,
-             record, size * temu_plugin->taint_record_size);*/
+        new_drec->index = index;
+        new_drec->bs = bs;
+        memcpy(&new_drec->bitmap[offset], taint, size);
+        LIST_INSERT_HEAD(head, new_drec, entry);
+    } else {
+        memcpy(&drec->bitmap[offset], taint, size);
+        if (!is_tainted && !memcmp(drec->bitmap, zero_mem, sizeof(drec->bitmap))) {
+            LIST_REMOVE(drec, entry);
+            g_free(drec);
+        }
     }
-    else if (!drec->bitmap) {
-      LIST_REMOVE(drec, entry);
-      g_free(drec);
-    }
-  }
-#if 0 // AWH
-  if (size2)
-    taintcheck_taint_disk(index + 1, taint2, 0, size2,
-                          /*record + size * temu_plugin->taint_record_size,*/
-                          bs);
-#endif // AWH
-  return 0;
+    return 0;
 }
 
-uint32_t taintcheck_disk_check(const uint64_t index, const int offset, 
+static void taintcheck_disk_check(uint8_t *taint, const uint64_t index, const int offset,
                                const int size, const void *bs)
 {
-  //if(!TEMU_emulation_started) return 0;
+    struct disk_record_list_head *head =
+        &disk_record_heads[index & (DISK_HTAB_SIZE - 1)];
+    disk_record_t *drec;
+    int found = 0;
 
-  struct disk_record_list_head *head =
-      &disk_record_heads[index & (DISK_HTAB_SIZE - 1)];
-  disk_record_t *drec;
-  int found = 0;
-  uint64_t taint;
-  uint32_t retval = 0;
-  uint32_t ourSize = size;
-  if (offset + size > 64)
-    ourSize = 64 - offset, taint &= size_to_mask(size);   //fixme:ignore the unalignment
+    assert(offset + size <= 512);
 
-  LIST_FOREACH(drec, head, entry) {
-    if (drec->index == index && drec->bs == bs) {
-      found = 1;
-      break;
+    LIST_FOREACH(drec, head, entry) {
+        if (drec->index == index && drec->bs == bs) {
+            found = 1;
+            break;
+        }
+        if (drec->index > index)
+            break;
     }
-    if (drec->index > index)
-      break;
-  }
 
-  if (!found)
-    return 0;
+    if (!found) {
+        bzero(taint, size);
+        return;
+    }
 
-  taint = (drec->bitmap >> offset) & size_to_mask(ourSize);
-  if (taint & 1) retval |= 0x000000FF;
-  if (taint & 2) retval |= 0x0000FF00;
-  if (taint & 4) retval |= 0x00FF0000;
-  if (taint & 8) retval |= 0xFF000000;
-  //fprintf(stderr, "taintcheck_disk_check() -> taint 0x%08x\n", retval);
-    //memcpy(record, drec->records + offset * temu_plugin->taint_record_size,
-    //       size * temu_plugin->taint_record_size);
-  return retval;
+    memcpy(taint, &drec->bitmap[offset], size);
 }
 
 int taintcheck_init(void)
 {
-  int i;
-  for (i = 0; i < DISK_HTAB_SIZE; i++)
-    LIST_INIT(&disk_record_heads[i]);
+    int i;
+    for (i = 0; i < DISK_HTAB_SIZE; i++)
+        LIST_INIT(&disk_record_heads[i]);
 
-  // AWH assert(tpage_table == NULL); //make sure it is not double created
-  // AWH tpage_table = (tpage_entry_t **) qemu_malloc((ram_size/64) * sizeof(void*));
-
-  return 0;
+    bzero(zero_mem, sizeof(zero_mem));
+    return 0;
 }
 
 void taintcheck_cleanup(void)
@@ -180,75 +141,49 @@ void taintcheck_cleanup(void)
   unregister_savevm(NULL, "taintcheck", 0);
 }
 
-int taintcheck_chk_hdout(const int size, const int64_t sect_num,
+void taintcheck_chk_hdout(const int size, const int64_t sect_num,
   const uint32_t offset, const void *s)
 {
-#ifdef CONFIG_TCG_TAINT
-  //uint8_t taint_rec;
-  int taint = cpu_single_env->tempidx;
-  if (size > 4) tcg_abort();
-
-  //taint_rec = taint_reg_check_slow(reg, 0, size);
-  taintcheck_taint_disk(sect_num * 8 + offset / 64, taint, offset & 63,
-                        size,
-                        /*regs_records +
-                        reg * temu_plugin->taint_record_size,*/ s);
-#endif /* CONFIG_TCG_TAINT */
-  return 0;
+     taintcheck_taint_disk((uint8_t *)&cpu_single_env->tempidx, sect_num, offset, size, s);
 }
 
-int taintcheck_chk_hdin(const int size, const int64_t sect_num,
+void taintcheck_chk_hdin(const int size, const int64_t sect_num,
   const uint32_t offset, const void *s)
 {
-#ifdef CONFIG_TCG_TAINT
-  /*taint_rec*/ cpu_single_env->tempidx =
-      taintcheck_disk_check(sect_num * 8 + offset / 64, offset & 63, size,
-                            /*records,*/ s);
-#endif /*CONFIG_TCG_TAINT*/
-  return 0;
+    taintcheck_disk_check((uint8_t *)&cpu_single_env->tempidx, sect_num,
+            offset, size, s);
 }
 
-int taintcheck_chk_hdwrite(const ram_addr_t paddr,unsigned long vaddr, const int size,
-  const int64_t sect_num, const void *s)
+void taintcheck_chk_hdwrite(const ram_addr_t paddr, const int size, const int64_t sect_num, const void *s)
 {
-#ifdef CONFIG_TCG_TAINT
-  uint32_t i;
+    //We assume size is multiple of 512, because this function is used in DMA, and paddr is also aligned.
+    int i;
+    uint8_t taint[512];
 
-  if ((paddr & 63))
-    return 0;
-
-  for (i = paddr; i < paddr + size; i += 4) {
-    __taint_ldl_raw_paddr(i, vaddr+i-paddr);
-    //if (cpu_single_env->tempidx) fprintf(stderr, "taintcheck_chk_hdwrite() -> Writing taint 0x%08x to disk\n", cpu_single_env->tempidx);
-    taintcheck_taint_disk(sect_num * 8 + (i - paddr) / 64,
-                          /*(entry) ? entry->bitmap[((paddr & 63) >> 2)] : 0*/cpu_single_env->tempidx, 0, 4/*size*/,
-                          /*(entry) ? entry->records : NULL,*/ s);
-  } // end for
-#endif /* CONFIG_TCG_TAINT */
-  return 0;
+    for (i = 0; i < size; i += 512) {
+        taint_mem_check(paddr+i, 512, taint);
+        taintcheck_taint_disk(taint, sect_num + i/512, 0, 512, s);
+    }
 }
 
-int taintcheck_chk_hdread(const ram_addr_t paddr,unsigned long vaddr, const int size,
-		const int64_t sect_num, const void *s) {
-#ifdef CONFIG_TCG_TAINT
-	unsigned long i;
-	for (i = paddr; i < paddr + size; i += 4) {
-		cpu_single_env->tempidx = taintcheck_disk_check(
-				sect_num * 8 + (i - paddr) / 64, 0, 4, s);
-		__taint_stl_raw_paddr(i, vaddr+i-paddr);
+
+void taintcheck_chk_hdread(const ram_addr_t paddr, const int size, const int64_t sect_num, const void *s) {
+    //We assume size is multiple of 512, because this function is used in DMA, and paddr is also aligned.
+	int i;
+    uint8_t taint[512];
+
+	for (i = 0; i < size; i += 512) {
+        taintcheck_disk_check(taint, sect_num + i/512, 0, size, s);
+        taint_mem(paddr+i, 512, taint);
 	}
-#endif /* CONFIG_TCG_TAINT */
-	return 0;
 }
-
-#ifdef CONFIG_TCG_TAINT
 
 /// \brief check the taint of a memory buffer given the start virtual address.
 ///
 /// \param vaddr the virtual address of the memory buffer
 /// \param size  the memory buffer size
 /// \param taint the output taint array, it must hold at least [size] bytes
-///  \return 0 means success, -1 means failure	
+///  \return 0 means success, -1 means failure
 int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 {
 	gpa_t paddr = 0, offset;
@@ -278,7 +213,7 @@ int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 		paddr = DECAF_get_phys_addr(env, (vaddr&TARGET_PAGE_MASK) + TARGET_PAGE_SIZE);
 		if(paddr == -1)
 			return -1;
-	
+
 		taint_mem_check(paddr, size2, (uint8_t*)(taint+size1));
 	}
 
@@ -291,7 +226,7 @@ int  taintcheck_check_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 /// \param vaddr the virtual address of the memory buffer
 /// \param size  the memory buffer size
 /// \param taint the taint array, it must hold at least [size] bytes
-/// \return 0 means success, -1 means failure	
+/// \return 0 means success, -1 means failure
 int  taintcheck_taint_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 {
 	gpa_t paddr = 0, offset;
@@ -320,7 +255,7 @@ int  taintcheck_taint_virtmem(gva_t vaddr, uint32_t size, uint8_t * taint)
 		paddr = DECAF_get_phys_addr(env, (vaddr&TARGET_PAGE_MASK) + TARGET_PAGE_SIZE);
 		if(paddr == -1)
 			return -1;
-	
+
 		taint_mem(paddr, size2, (uint8_t*)(taint+size1));
 	}
 
@@ -344,4 +279,4 @@ void taintcheck_nic_cleanbuf(const uint32_t addr, const int size)
 	memset(&nic_bitmap[addr], 0, size);
 }
 
-#endif //CONFIG_TCG_TAINT
+#endif

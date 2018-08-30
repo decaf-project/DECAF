@@ -36,42 +36,24 @@ http://code.google.com/p/decaf-platform/
 	.name		= "guest_ps|ps",
 	.args_type	= "",
 	.mhandler.info	= do_guest_ps,
-	.params		= "", 
+	.params		= "",
 	.help		= "list the processes on guest system"
 },
 {
 	.name		= "lsmod",
 	.args_type	= "",
 	.mhandler.info	= do_print_modules,
-	.params 	= "", 
+	.params 	= "",
 	.help		= "list the loaded kernel modules"
 },
 
 {
-	.name		= "guest_modules", 
-	.args_type	= "pid:i", 
+	.name		= "guest_modules",
+	.args_type	= "pid:i",
 	.mhandler.cmd	= do_guest_modules,
 	.params		= "pid",
 	.help		= "list the modules of the process with <pid>"
 },
-
-{
-	.name		= "toggle_kvm",
-	.args_type	= "status:b",
-	.mhandler.cmd	= do_toggle_kvm,
-	.params		= "on|off",
-	.help		= "turn kvm on or off at runtime"
-},
-
-#if 0 //To be removed
-{
-	.name		= "linux_ps",
-	.args_type	= "mmap_flag:i?", 
-	.mhandler.cmd	= do_linux_ps,
-	.params		= "[mmap_flag]", 
-	.help		= "list the processes on linux guest system (default: mmap_flag = 1)"
-},
-#endif
 
 #ifdef CONFIG_TCG_TAINT
 /* TCG tainting commands */
@@ -80,49 +62,49 @@ http://code.google.com/p/decaf-platform/
         .args_type  = "",
         .params     = "",
         .help       = "Turn on taint tracking",
-        .mhandler.cmd = do_enable_tainting,
+        .mhandler.cmd_new = do_enable_tainting,
 },
 {
         .name       = "disable_tainting",
         .args_type  = "",
         .params     = "",
         .help       = "Turn off taint tracking",
-        .mhandler.cmd = do_disable_tainting,
+        .mhandler.cmd_new = do_disable_tainting,
 },
 {
         .name       = "taint_nic_on",
         .args_type  = "",
         .params     = "",
         .help       = "Turn on tainting of all data coming from the NE2000 NIC",
-        .mhandler.cmd = do_taint_nic_on,
+        .mhandler.cmd_new = do_taint_nic_on,
 },
 {
         .name       = "taint_nic_off",
         .args_type  = "",
         .params     = "",
         .help       = "Turn off tainting of all data coming from the NE2000 NIC",
-        .mhandler.cmd = do_taint_nic_off,
+        .mhandler.cmd_new = do_taint_nic_off,
 },
 {
         .name       = "taint_mem_usage",
         .args_type  = "",
         .params     = "",
         .help       = "Print usage stats pertaining to tracking tainted memory",
-        .mhandler.cmd = do_taint_mem_usage,
+        .mhandler.cmd_new = do_taint_mem_usage,
 },
 {
 	.name       = "tainted_bytes",
 	.args_type  = "",
 	.params     = "",
 	.help       = "Print the No. of tainted memory bytes",
-	.mhandler.cmd = do_tainted_bytes,
+	.mhandler.cmd_new = do_tainted_bytes,
 },
 {
         .name       = "taint_garbage_collect",
         .args_type  = "",
         .params     = "",
         .help       = "Manually garbage collect any unused taint-tracking memory",
-        .mhandler.cmd = do_garbage_collect_taint,
+        .mhandler.cmd_new = do_garbage_collect_taint,
 },
 {
         .name       = "taint_pointers",
@@ -132,4 +114,3 @@ http://code.google.com/p/decaf-platform/
         .mhandler.cmd_new = do_taint_pointers,
 },
 #endif /* CONFIG_TCG_TAINT */
-

@@ -1406,7 +1406,7 @@ static inline void tcg_gen_bswap16_i32(TCGv_i32 ret, TCGv_i32 arg)
         tcg_gen_op2_i32(INDEX_op_bswap16_i32, ret, arg);
     } else {
         TCGv_i32 t0 = tcg_temp_new_i32();
-    
+
         tcg_gen_ext8u_i32(t0, arg);
         tcg_gen_shli_i32(t0, t0, 8);
         tcg_gen_shri_i32(ret, arg, 8);
@@ -1423,17 +1423,17 @@ static inline void tcg_gen_bswap32_i32(TCGv_i32 ret, TCGv_i32 arg)
         TCGv_i32 t0, t1;
         t0 = tcg_temp_new_i32();
         t1 = tcg_temp_new_i32();
-    
+
         tcg_gen_shli_i32(t0, arg, 24);
-    
+
         tcg_gen_andi_i32(t1, arg, 0x0000ff00);
         tcg_gen_shli_i32(t1, t1, 8);
         tcg_gen_or_i32(t0, t0, t1);
-    
+
         tcg_gen_shri_i32(t1, arg, 8);
         tcg_gen_andi_i32(t1, t1, 0x0000ff00);
         tcg_gen_or_i32(t0, t0, t1);
-    
+
         tcg_gen_shri_i32(t1, arg, 24);
         tcg_gen_or_i32(ret, t0, t1);
         tcg_temp_free_i32(t0);
@@ -1653,13 +1653,13 @@ static inline void tcg_gen_bswap64_i64(TCGv_i64 ret, TCGv_i64 arg)
     } else {
         TCGv_i64 t0 = tcg_temp_new_i64();
         TCGv_i64 t1 = tcg_temp_new_i64();
-    
+
         tcg_gen_shli_i64(t0, arg, 56);
-    
+
         tcg_gen_andi_i64(t1, arg, 0x0000ff00);
         tcg_gen_shli_i64(t1, t1, 40);
         tcg_gen_or_i64(t0, t0, t1);
-    
+
         tcg_gen_andi_i64(t1, arg, 0x00ff0000);
         tcg_gen_shli_i64(t1, t1, 24);
         tcg_gen_or_i64(t0, t0, t1);
@@ -1671,7 +1671,7 @@ static inline void tcg_gen_bswap64_i64(TCGv_i64 ret, TCGv_i64 arg)
         tcg_gen_shri_i64(t1, arg, 8);
         tcg_gen_andi_i64(t1, t1, 0xff000000);
         tcg_gen_or_i64(t0, t0, t1);
-    
+
         tcg_gen_shri_i64(t1, arg, 24);
         tcg_gen_andi_i64(t1, t1, 0x00ff0000);
         tcg_gen_or_i64(t0, t0, t1);
@@ -2136,8 +2136,8 @@ static inline void tcg_gen_deposit_i64(TCGv_i64 ret, TCGv_i64 arg1,
 #define tcg_temp_local_new() tcg_temp_local_new_i32()
 #define tcg_temp_free tcg_temp_free_i32
 #ifdef CONFIG_TCG_TAINT
-#define tcg_gen_taint_qemu_ldst_op tcg_gen_op3i_i32
-#define tcg_gen_taint_qemu_ldst_op_i64 tcg_gen_taint_qemu_ldst_op_i64_i32
+//#define tcg_gen_taint_qemu_ldst_op tcg_gen_op3i_i32
+//#define tcg_gen_taint_qemu_ldst_op_i64 tcg_gen_taint_qemu_ldst_op_i64_i32
 #endif /* CONFIG_TCG_TAINT */
 #define tcg_gen_qemu_ldst_op tcg_gen_op3i_i32
 #define tcg_gen_qemu_ldst_op_i64 tcg_gen_qemu_ldst_op_i64_i32
@@ -2152,7 +2152,7 @@ static inline void tcg_gen_deposit_i64(TCGv_i64 ret, TCGv_i64 arg1,
 #define tcg_temp_free tcg_temp_free_i64
 #ifdef CONFIG_TCG_TAINT
 #define tcg_gen_taint_qemu_ldst_op tcg_gen_op3i_i64
-#define tcg_gen_taint_qemu_ldst_op_i64 tcg_gen_taint_qemu_ldst_op_i64_i64
+//#define tcg_gen_taint_qemu_ldst_op_i64 tcg_gen_taint_qemu_ldst_op_i64_i64
 #endif /* CONFIG_TCG_TAINT */
 #define tcg_gen_qemu_ldst_op tcg_gen_op3i_i64
 #define tcg_gen_qemu_ldst_op_i64 tcg_gen_qemu_ldst_op_i64_i64
@@ -2165,7 +2165,7 @@ static inline void tcg_gen_debug_insn_start(uint64_t pc)
 {
     /* XXX: must really use a 32 bit size for TCGArg in all cases */
 #if TARGET_LONG_BITS > TCG_TARGET_REG_BITS
-    tcg_gen_op2ii(INDEX_op_debug_insn_start, 
+    tcg_gen_op2ii(INDEX_op_debug_insn_start,
                   (uint32_t)(pc), (uint32_t)(pc >> 32));
 #else
     tcg_gen_op1i(INDEX_op_debug_insn_start, pc);
@@ -2729,4 +2729,3 @@ static inline void tcg_gen_qemu_st64(TCGv_i64 arg, TCGv addr, int mem_index)
 #endif /* TCG_TARGET_REG_BITS != 32 */
 
 #endif /* __TCG_OP_H__ */
-

@@ -31,6 +31,7 @@
 #include "shared/DECAF_callback_to_QEMU.h"
 #include "shared/hookapi.h"
 #include "DECAF_target.h"
+#include"bswap.h"
 
 // AVB, Add only when file analysis is needed
 #include "shared/DECAF_fileio.h"
@@ -74,9 +75,6 @@ mon_cmd_t DECAF_info_cmds[] = {
 
 int g_bNeedFlush = 0;
 disk_info_t disk_info_internal[5];
-
-static void convert_endian_4b(uint32_t *data);
-
 
 static gpa_t _DECAF_get_phys_addr(CPUState* env, gva_t addr) {
 	int mmu_idx, index;
@@ -287,20 +285,20 @@ void DECAF_flushTranslationPage_env(CPUState* env, /*uint32_t*/target_ulong addr
 	}
 }
 
-/* Method to insert into the flush linked list, 
+/* Method to insert into the flush linked list,
    It holds a list of all the flushes that need to be performed
    Flushed can be BLOCK_LEVEL, PAGE_LEVEL or ALL_CACHE, which is a flush
 	of the complete cache */
 
 void flush_list_insert(flush_list *list, int type, unsigned int addr )  {
-		
+
 	++list->size;
 	flush_node *temp=list->head;
 	flush_node *to_insert=(flush_node *)g_malloc(sizeof(flush_node));
 	to_insert->type=type;
 	to_insert->next=NULL;
 	to_insert->addr=addr;
-	
+
 	if(temp==NULL) {
 		list->head=to_insert;
 		return;
@@ -322,10 +320,10 @@ void DECAF_perform_flush(CPUState* env)
 	flush_node *prev,*temp=flush_list_internal.head;
 	while(temp!=NULL) {
 		switch (temp->type) {
-			case BLOCK_LEVEL: 
+			case BLOCK_LEVEL:
 				DECAF_flushTranslationBlock(temp->addr);
 				break;
-			case PAGE_LEVEL: 
+			case PAGE_LEVEL:
 				DECAF_flushTranslationPage(temp->addr);
 				break;
 			case ALL_CACHE:
@@ -399,34 +397,7 @@ void do_load_plugin_internal(Monitor *mon, const char *plugin_path) {
 #endif
 	decaflog = fopen("decaf.log", "w");
 	assert(decaflog != NULL);
-#if 0 //LOK: Removed // AWH TAINT_ENABLED
-	taintcheck_create();
-#endif
 
-#if 0 //TO BE REMOVED -heng
-	if (decaf_plugin->bdrv_open) {
-#if 0 // AWH - uses blockdev.c "drives" queue now
-		int i;
-		for (i = 0; i <= nb_drives; ++i) {
-			if (drives_table[i].bdrv)
-			decaf_plugin->bdrv_open(i, drives_table[i].bdrv);
-		}
-#else
-		BlockInterfaceType interType = IF_NONE;
-		int index = 0;
-		DriveInfo *drvInfo = NULL;
-		for (interType = IF_NONE; interType < IF_COUNT; interType++) {
-			index = 0;
-			do {
-				drvInfo = drive_get_by_index(interType, index);
-				if (drvInfo && drvInfo->bdrv)
-				decaf_plugin->bdrv_open(interType, index, drvInfo->bdrv);
-				index++;
-			}while (drvInfo);
-		}
-#endif // AWH
-	}
-#endif // Heng
 	strncpy(decaf_plugin_path, plugin_path, PATH_MAX);
 	monitor_printf(mon, "%s is loaded successfully!\n", plugin_path);
 }
@@ -455,23 +426,16 @@ int do_unload_plugin(Monitor *mon, const QDict *qdict, QObject **ret_data) {
 }
 
 /* AWH - Fix for bugzilla bug #9 */
-static int runningState = 0;
 void DECAF_stop_vm(void) {
 	if (runstate_is_running()) {
         vm_stop(RUN_STATE_PAUSED);
     }
-	// if (runstate_check(RUN_STATE_RUNNING)) {
-	// 	runningState = 1;
-	// 	vm_stop(RUN_STATE_PAUSED);
-	// } else
-	// 	runningState = 0;
 }
 
 void DECAF_start_vm(void) {
-	// if (runningState) vm_start();
     if (!runstate_is_running()) {
         vm_start();
-    }	
+    }
 }
 
 void DECAF_loadvm(void *opaque) {
@@ -584,12 +548,11 @@ static int DECAF_load(QEMUFile * f, void *opaque, int version_id) {
 	return 0;
 }
 
-extern void tainting_init(void);
 extern void function_map_init(void);
 
-void DECAF_init(void) {
+void DECAF_init(void)
+{
 	DECAF_callback_init();
-	tainting_init();
 	DECAF_virtdev_init();
 	// AWH - change in API, added NULL as first parm
 	/* Aravind - NOTE: DECAF_save *must* be called before function_map_save and DECAF_load must be called
@@ -622,7 +585,7 @@ static void DECAF_virtdev_write_data(void *opaque, uint32_t addr, uint32_t val) 
 
 	if ((syslogline[pos++] = (char) val) == 0) {
 #ifndef CONFIG_VMI_ENABLE
-		
+
 		handle_guest_message(syslogline);
 		// fprintf(guestlog, "%s", syslogline);
 		// fflush(guestlog);
@@ -699,28 +662,24 @@ void DECAF_keystroke_read(uint8_t taint_status) {
 #endif /*CONFIG_TCG_TAINT*/
 }
 
-
 DECAF_errno_t DECAF_read_ptr(CPUState* env, gva_t vaddr, gva_t *pptr)
 {
 	int ret = DECAF_read_mem(env, vaddr, sizeof(gva_t), pptr);
 	if(0 == ret)
 	{
 #ifdef TARGET_WORDS_BIGENDIAN
-		convert_endian_4b(pptr);
+#if TARGET_LONG_BITS == 32
+		bswap_32(*pptr);
+#else
+		bswap_64(*pptr);
+#endif
 #endif
 	}
 	return ret;
 }
 
-static void convert_endian_4b(uint32_t *data)
-{
-   *data = ((*data & 0xff000000) >> 24)
-         | ((*data & 0x00ff0000) >>  8)
-         | ((*data & 0x0000ff00) <<  8)
-         | ((*data & 0x000000ff) << 24);
-}
 
-// AVB, This function is used to read 'n' bytes off the disk images give by `opaque' 
+// AVB, This function is used to read 'n' bytes off the disk images give by `opaque'
 // at an offset
 int DECAF_bdrv_pread(void *opaque, int64_t offset, void *buf, int count) {
 
@@ -729,25 +688,22 @@ int DECAF_bdrv_pread(void *opaque, int64_t offset, void *buf, int count) {
 }
 
 // AVB, This function is used to open the disk on sleuthkit by calling `tsk_fs_open_img'.
-void DECAF_bdrv_open(int index, void *opaque) {
-
-  TSK_FS_INFO *fs=NULL;
-  TSK_OFF_T a_offset = 0;
+void DECAF_bdrv_open(int index, void *opaque)
+{
   unsigned long img_size = ((BlockDriverState *)opaque)->total_sectors * 512;
 
   if(!qemu_pread)
 	  qemu_pread=(qemu_pread_t)DECAF_bdrv_pread;
 
-  monitor_printf(default_mon, "inside bdrv open, drv addr= 0x%0x, size= %lu\n", opaque, img_size);
-  
+  monitor_printf(default_mon, "inside bdrv open, drv addr= 0x%p, size= %lu\n", opaque, img_size);
+
   disk_info_internal[devices].bs = opaque;
   disk_info_internal[devices].img = tsk_img_open(1, (const char **) &opaque, QEMU_IMG, 0);
   disk_info_internal[devices].img->size = img_size;
-	
 
-  if (disk_info_internal[devices].img==NULL)
-  {
-    monitor_printf(default_mon, "img_open error! \n",opaque);
+
+  if (disk_info_internal[devices].img==NULL) {
+    monitor_printf(default_mon, "img_open error! drv addr=0x%p\n", opaque);
   }
 
   // TODO: AVB, also add an option of 56 as offset with sector size of 4k, Sector size is now assumed to be 512 by default
@@ -755,8 +711,8 @@ void DECAF_bdrv_open(int index, void *opaque) {
   	    !(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 63 * (disk_info_internal[devices].img)->sector_size, TSK_FS_TYPE_EXT_DETECT)) &&
   	    	!(disk_info_internal[devices].fs = tsk_fs_open_img(disk_info_internal[devices].img, 2048 * (disk_info_internal[devices].img)->sector_size , TSK_FS_TYPE_EXT_DETECT)) )
   {
-	monitor_printf(default_mon, "fs_open error! \n",opaque);
-  }	
+	monitor_printf(default_mon, "fs_open error! drv addr=0x%p\n", opaque);
+  }
   else
   {
   	monitor_printf(default_mon, "fs_open = %s \n",(disk_info_internal[devices].fs)->duname);
@@ -764,4 +720,3 @@ void DECAF_bdrv_open(int index, void *opaque) {
 
   ++devices;
 }
-

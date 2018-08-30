@@ -59,6 +59,9 @@
 
 #include "DECAF_main.h"
 #include "shared/DECAF_callback_to_QEMU.h"
+#ifdef CONFIG_TCG_TAINT
+#include "shared/tainting/taint_memory.h"
+#endif
 
 //#define DEBUG_TB_INVALIDATE
 //#define DEBUG_FLUSH
@@ -222,6 +225,11 @@ CPUReadMemoryFunc *io_mem_read[IO_MEM_NB_ENTRIES][4];
 void *io_mem_opaque[IO_MEM_NB_ENTRIES];
 static char io_mem_used[IO_MEM_NB_ENTRIES];
 static int io_mem_watch;
+
+#ifdef CONFIG_TCG_TAINT
+static int io_mem_taint;
+#endif
+
 #endif
 
 /* log support */
@@ -247,21 +255,21 @@ static void map_exec(void *addr, long size)
     DWORD old_protect;
     VirtualProtect(addr, size,
                    PAGE_EXECUTE_READWRITE, &old_protect);
-    
+
 }
 #else
 static void map_exec(void *addr, long size)
 {
     unsigned long start, end, page_size;
-    
+
     page_size = getpagesize();
     start = (unsigned long)addr;
     start &= ~(page_size - 1);
-    
+
     end = (unsigned long)addr + size;
     end += page_size - 1;
     end &= ~(page_size - 1);
-    
+
     mprotect((void *)start, end - start,
              PROT_READ | PROT_WRITE | PROT_EXEC);
 }
@@ -497,7 +505,7 @@ static void code_gen_alloc(unsigned long tb_size)
         code_gen_buffer_size = MIN_CODE_GEN_BUFFER_SIZE;
     /* The code gen buffer location may have constraints depending on
        the host cpu and OS */
-#if defined(__linux__) 
+#if defined(__linux__)
     {
         int flags;
         void *start = NULL;
@@ -560,7 +568,7 @@ static void code_gen_alloc(unsigned long tb_size)
         }
 #endif
         code_gen_buffer = mmap(addr, code_gen_buffer_size,
-                               PROT_WRITE | PROT_READ | PROT_EXEC, 
+                               PROT_WRITE | PROT_READ | PROT_EXEC,
                                flags, -1, 0);
         if (code_gen_buffer == MAP_FAILED) {
             fprintf(stderr, "Could not allocate dynamic translator buffer\n");
@@ -576,7 +584,7 @@ static void code_gen_alloc(unsigned long tb_size)
     code_gen_buffer_max_size = code_gen_buffer_size -
         (TCG_MAX_OP_SIZE * OPC_BUF_SIZE);
 #if defined(CONFIG_TCG_IR_LOG)
-/* AWH - IR storage requires too much RAM for the default code_gen_max_blocks.  
+/* AWH - IR storage requires too much RAM for the default code_gen_max_blocks.
    So, we make the number of code blocks much smaller. */
     code_gen_max_blocks = code_gen_buffer_size / CODE_GEN_AVG_BLOCK_SIZE / 16;
 #else
@@ -592,10 +600,10 @@ fprintf(stderr, "AWH: code_gen_alloc(): gDECAF_gen_opparam_buf: %dk\n", ((OPC_MA
 
     for (i = 0; i < code_gen_max_blocks; i++) {
       tbs[i].DECAF_tb_id = i;
-      tbs[i].DECAF_gen_opc_buf = 
+      tbs[i].DECAF_gen_opc_buf =
         gDECAF_gen_opc_buf + ((OPC_MAX_SIZE + TCG_IR_LOG_PADDING) * i);
       /* Allocate 6 arguments per IR opcode */
-      tbs[i].DECAF_gen_opparam_buf = 
+      tbs[i].DECAF_gen_opparam_buf =
         gDECAF_gen_opparam_buf + ((OPC_MAX_SIZE + TCG_IR_LOG_PADDING) * 6 * i);
       //printf("Allocating block %d of %d\n", i+1, code_gen_max_blocks);
     }
@@ -2018,11 +2026,11 @@ static inline void tlb_flush_jmp_cache(CPUState *env, target_ulong addr)
     /* Discard jump cache entries for any tb which might potentially
        overlap the flushed page.  */
     i = tb_jmp_cache_hash_page(addr - TARGET_PAGE_SIZE);
-    memset (&env->tb_jmp_cache[i], 0, 
+    memset (&env->tb_jmp_cache[i], 0,
             TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
 
     i = tb_jmp_cache_hash_page(addr);
-    memset (&env->tb_jmp_cache[i], 0, 
+    memset (&env->tb_jmp_cache[i], 0,
             TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
 }
 
@@ -2326,6 +2334,7 @@ void tlb_set_page(CPUState *env, target_ulong vaddr,
         address |= TLB_MMIO;
     }
     addend = (unsigned long)qemu_get_ram_ptr(pd & TARGET_PAGE_MASK);
+
     if ((pd & ~TARGET_PAGE_MASK) <= IO_MEM_ROM) {
         /* Normal RAM.  */
         iotlb = pd & TARGET_PAGE_MASK;
@@ -2362,10 +2371,26 @@ void tlb_set_page(CPUState *env, target_ulong vaddr,
         }
     }
 
+#ifdef CONFIG_TCG_TAINT
+    /*What if this page is notdirty and/or watchpoint at the same time?
+      io_mem_taint has the lowest priority, to avoid breaking the funtionality.
+      This is why we put it here, so other IO memory regions have a chance to overwrite it.
+      So far, we know that notdirty memory and watchpoint may also be marked in TLB.
+      FIXME: We will update shadow memory in notdirty memory, and ignore watchpoint for now.
+    */
+    if ((iotlb  & ~TARGET_PAGE_MASK) && is_physial_page_tainted(paddr)) {
+        iotlb = io_mem_taint + paddr;
+        address |= TLB_MMIO;
+        //printf("tlb_set_page: iotlb=%0lx address=%0x\n", iotlb, address);
+    }
+#endif
+
+
     index = (vaddr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     env->iotlb[mmu_idx][index] = iotlb - vaddr;
     te = &env->tlb_table[mmu_idx][index];
     te->addend = addend - vaddr;
+
     if (prot & PAGE_READ) {
         te->addr_read = address;
     } else {
@@ -3390,6 +3415,11 @@ static void notdirty_mem_writeb(void *opaque, target_phys_addr_t ram_addr,
 #endif
     }
     stb_p(qemu_get_ram_ptr(ram_addr), val);
+
+#ifdef CONFIG_TCG_TAINT
+    __taint_stb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+#endif
+
     dirty_flags |= (0xff & ~CODE_DIRTY_FLAG);
     cpu_physical_memory_set_dirty_flags(ram_addr, dirty_flags);
     /* we remove the notdirty callback only if the code has been
@@ -3410,6 +3440,9 @@ static void notdirty_mem_writew(void *opaque, target_phys_addr_t ram_addr,
 #endif
     }
     stw_p(qemu_get_ram_ptr(ram_addr), val);
+#ifdef CONFIG_TCG_TAINT
+    __taint_stw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+#endif
     dirty_flags |= (0xff & ~CODE_DIRTY_FLAG);
     cpu_physical_memory_set_dirty_flags(ram_addr, dirty_flags);
     /* we remove the notdirty callback only if the code has been
@@ -3430,6 +3463,10 @@ static void notdirty_mem_writel(void *opaque, target_phys_addr_t ram_addr,
 #endif
     }
     stl_p(qemu_get_ram_ptr(ram_addr), val);
+#ifdef CONFIG_TCG_TAINT
+    __taint_stl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+#endif
+
     dirty_flags |= (0xff & ~CODE_DIRTY_FLAG);
     cpu_physical_memory_set_dirty_flags(ram_addr, dirty_flags);
     /* we remove the notdirty callback only if the code has been
@@ -3449,6 +3486,74 @@ static CPUWriteMemoryFunc * const notdirty_mem_write[3] = {
     notdirty_mem_writew,
     notdirty_mem_writel,
 };
+
+#ifdef CONFIG_TCG_TAINT
+
+static uint32_t taint_mem_readb(void *opaque, target_phys_addr_t ram_addr)
+{
+    //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
+    //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
+    //Handling of unaligned access is done in softmmu_template.h
+    __taint_ldb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    return ldub_p(qemu_get_ram_ptr(ram_addr));
+}
+
+static uint32_t taint_mem_readw(void *opaque, target_phys_addr_t ram_addr)
+{
+    //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
+    //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
+    //Handling of unaligned access is done in softmmu_template.h
+    __taint_ldw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    return lduw_p(qemu_get_ram_ptr(ram_addr));
+}
+
+static uint32_t taint_mem_readl(void *opaque, target_phys_addr_t ram_addr)
+{
+    //Check shadow memory, and store the taint value into thread local storage like cpu_single_env->tempidx
+    //Need to handle the case where this access breaks into two physical pages, then we need to merge two taint values
+    //Handling of unaligned access is done in softmmu_template.h
+    __taint_ldl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    return ldl_p(qemu_get_ram_ptr(ram_addr));
+}
+
+static void taint_mem_writeb(void *opaque, target_phys_addr_t ram_addr,
+                                uint32_t val)
+{
+    //Write taint stored in cpu_single_env->tempidx into the shadow memory
+    __taint_stb_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    stb_p(qemu_get_ram_ptr(ram_addr), val);
+}
+
+static void taint_mem_writew(void *opaque, target_phys_addr_t ram_addr,
+                                uint32_t val)
+{
+    //Write taint stored in cpu_single_env->tempidx into the shadow memory
+    __taint_stw_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    stw_p(qemu_get_ram_ptr(ram_addr), val);
+}
+
+static void taint_mem_writel(void *opaque, target_phys_addr_t ram_addr,
+                                uint32_t val)
+{
+    //Write taint stored in cpu_single_env->tempidx into the shadow memory
+    __taint_stl_raw_paddr(ram_addr, cpu_single_env->mem_io_vaddr);
+    stl_p(qemu_get_ram_ptr(ram_addr), val);
+}
+
+
+static CPUReadMemoryFunc * const taint_mem_read[3] = {
+    taint_mem_readb,
+    taint_mem_readw,
+    taint_mem_readl,
+};
+
+static CPUWriteMemoryFunc * const taint_mem_write[3] = {
+    taint_mem_writeb,
+    taint_mem_writew,
+    taint_mem_writel,
+};
+
+#endif //CONFIG_TCG_TAINT
 
 /* Generate a debug exception if a watchpoint has been hit.  */
 static void check_watchpoint(int offset, int len_mask, int flags)
@@ -3876,6 +3981,12 @@ static void io_mem_init(void)
     io_mem_watch = cpu_register_io_memory(watch_mem_read,
                                           watch_mem_write, NULL,
                                           DEVICE_NATIVE_ENDIAN);
+
+#ifdef CONFIG_TCG_TAINT
+    io_mem_taint = cpu_register_io_memory(taint_mem_read,
+                                          taint_mem_write, NULL,
+                                          DEVICE_NATIVE_ENDIAN);
+#endif
 }
 
 static void memory_map_init(void)
@@ -3952,6 +4063,10 @@ void cpu_physical_memory_rw(target_phys_addr_t addr, uint8_t *buf,
     target_phys_addr_t page;
     ram_addr_t pd;
     PhysPageDesc *p;
+#ifdef CONFIG_TCG_TAINT
+    uint8_t zero_mem[TARGET_PAGE_SIZE];
+    bzero(zero_mem, len>TARGET_PAGE_SIZE? TARGET_PAGE_SIZE : len);
+#endif
 
     while (len > 0) {
         page = addr & TARGET_PAGE_MASK;
@@ -3995,6 +4110,11 @@ void cpu_physical_memory_rw(target_phys_addr_t addr, uint8_t *buf,
                 /* RAM case */
                 ptr = qemu_get_ram_ptr(addr1);
                 memcpy(ptr, buf, l);
+
+#ifdef CONFIG_TCG_TAINT
+                taint_mem(addr1, l, zero_mem);
+#endif
+
                 if (!cpu_physical_memory_is_dirty(addr1)) {
                     /* invalidate code */
                     tb_invalidate_phys_page_range(addr1, addr1 + l, 0);
@@ -4555,6 +4675,10 @@ void stl_phys_notdirty(target_phys_addr_t addr, uint32_t val)
         unsigned long addr1 = (pd & TARGET_PAGE_MASK) + (addr & ~TARGET_PAGE_MASK);
         ptr = qemu_get_ram_ptr(addr1);
         stl_p(ptr, val);
+#ifdef CONFIG_TCG_TAINT
+        cpu_single_env->tempidx = 0;
+        __taint_stl_raw_paddr(addr1, 0);
+#endif
 
         if (unlikely(in_migration)) {
             if (!cpu_physical_memory_is_dirty(addr1)) {
@@ -4597,6 +4721,11 @@ void stq_phys_notdirty(target_phys_addr_t addr, uint64_t val)
         ptr = qemu_get_ram_ptr(pd & TARGET_PAGE_MASK) +
             (addr & ~TARGET_PAGE_MASK);
         stq_p(ptr, val);
+#ifdef CONFIG_TCG_TAINT
+        cpu_single_env->tempidx = 0;
+        __taint_stq_raw(ptr, 0);
+#endif
+
     }
 }
 
@@ -4646,6 +4775,12 @@ static inline void stl_phys_internal(target_phys_addr_t addr, uint32_t val,
             stl_p(ptr, val);
             break;
         }
+
+#ifdef CONFIG_TCG_TAINT
+        cpu_single_env->tempidx = 0;
+        __taint_stl_raw_paddr(addr1, 0);
+#endif
+
         if (!cpu_physical_memory_is_dirty(addr1)) {
             /* invalidate code */
             tb_invalidate_phys_page_range(addr1, addr1 + 4, 0);
@@ -4809,7 +4944,7 @@ void cpu_io_recompile(CPUState *env, void *retaddr)
 
     tb = tb_find_pc((unsigned long)retaddr);
     if (!tb) {
-        cpu_abort(env, "cpu_io_recompile: could not find TB for pc=%p", 
+        cpu_abort(env, "cpu_io_recompile: could not find TB for pc=%p",
                   retaddr);
     }
     n = env->icount_decr.u16.low + tb->icount;
@@ -4888,7 +5023,7 @@ void dump_exec_info(FILE *f, fprintf_function cpu_fprintf)
     cpu_fprintf(f, "Translation buffer state:\n");
     cpu_fprintf(f, "gen code size       %td/%ld\n",
                 code_gen_ptr - code_gen_buffer, code_gen_buffer_max_size);
-    cpu_fprintf(f, "TB count            %d/%d\n", 
+    cpu_fprintf(f, "TB count            %d/%d\n",
                 nb_tbs, code_gen_max_blocks);
     cpu_fprintf(f, "TB avg target size  %d max=%d bytes\n",
                 nb_tbs ? target_code_size / nb_tbs : 0,

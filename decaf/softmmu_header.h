@@ -47,9 +47,6 @@
 #error unsupported data size
 #endif
 
-/* AWH - Assume that we are adding a memory callback */
-#define ADD_MEM_CB 1
-
 #if ACCESS_TYPE < (NB_MMU_MODES)
 
 #define CPU_MMU_INDEX ACCESS_TYPE
@@ -64,8 +61,6 @@
 
 #define CPU_MMU_INDEX (cpu_mmu_index(env))
 #define MMUSUFFIX _cmmu
-/* AWH - No memory callback for this one */
-#undef ADD_MEM_CB 
 #else
 #error invalid ACCESS_TYPE
 #endif

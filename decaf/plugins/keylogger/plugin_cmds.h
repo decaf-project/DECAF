@@ -3,7 +3,7 @@
 	.name		= "taint_sendkey",
 	.args_type	= "key:s",
 	.mhandler.cmd	= do_taint_sendkey,
-	.params		= "key taint_origin offset",
+	.params		= "key",
 	.help		= "send a tainted key to the guest system"
 },
 {

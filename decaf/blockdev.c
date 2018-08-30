@@ -783,7 +783,7 @@ int do_block_resize(Monitor *mon, const QDict *qdict, QObject **ret_data)
 
 // AVB, Traverses the disk devices and adds them to DECAF's internal list if
 // they are either SCSI, IDE or default_media
-void DECAF_blocks_init()
+void DECAF_blocks_init(void)
 {
 	DriveInfo *dinfo;
 	int index = 0;
@@ -793,4 +793,4 @@ void DECAF_blocks_init()
 			++index;
         }
     }
-}	
+}

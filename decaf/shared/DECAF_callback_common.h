@@ -46,8 +46,6 @@ typedef enum {
         DECAF_BLOCK_END_CB,
         DECAF_INSN_BEGIN_CB,
         DECAF_INSN_END_CB,
-        DECAF_MEM_READ_CB,
-        DECAF_MEM_WRITE_CB,
         DECAF_EIP_CHECK_CB,
         DECAF_KEYSTROKE_CB,//keystroke event
         DECAF_NIC_REC_CB,
@@ -56,6 +54,12 @@ typedef enum {
         DECAF_TLB_EXEC_CB,
         DECAF_READ_TAINTMEM_CB,
         DECAF_WRITE_TAINTMEM_CB,
+#ifdef CONFIG_MEM_READ_CB
+		DECAF_MEM_READ_CB,
+#endif
+#ifdef CONFIG_MEM_WRITE_CB
+        DECAF_MEM_WRITE_CB,
+#endif
 #ifdef CONFIG_TCG_LLVM
 	DECAF_BLOCK_TRANS_CB,
 #endif /* CONFIG_TCG_LLVM */
