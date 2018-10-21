@@ -1,1 +1,0 @@
-CONFIG_VIRTIO=y
