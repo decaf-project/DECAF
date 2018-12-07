@@ -80,6 +80,9 @@ extern void allocate_leaf_pool(void);
 extern void allocate_middle_pool(void);
 
 extern int taint_tracking_enabled;
+#ifdef CONFIG_2nd_CCACHE
+extern int ccache_debug; //sina
+#endif
 extern int taint_nic_enabled;
 extern int taint_load_pointers_enabled;
 extern int taint_store_pointers_enabled;

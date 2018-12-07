@@ -20,6 +20,14 @@
  *  Created on: Oct 14, 2012
  *      Author: lok
  */
+#if defined(CONFIG_2nd_CCACHE) && defined(TARGET_I386) //sina
+	#include "target-i386/cpu.h" //For raise exception
+#endif
+
+#ifdef CONFIG_2nd_CCACHE
+extern int ccache_debug; //sina
+#endif
+
 
 #include <dlfcn.h>
 #include "sysemu.h"
@@ -236,6 +244,21 @@ static TranslationBlock *DECAF_tb_find_slow(CPUState *env, target_ulong pc) {
 			ptb1 = &tb->phys_hash_next;
 		}
 	}
+
+#if defined(CONFIG_2nd_CCACHE)
+	for (h = 0; h < CODE_GEN_PHYS_HASH_SIZE; h++) { //sina: searching in the second code cache as well.
+		ptb1 = &tb_phys_2hash[h];
+		for (;;) {
+			tb = *ptb1;
+			if (!tb)
+				break;
+			if (tb->pc + tb->cs_base == pc) {
+				goto found;
+			}
+			ptb1 = &tb->phys_hash_next;
+		}
+	}
+#endif
 
 	//DECAF_printf("DECAF_tb_find_slow: not found!\n");
 	return NULL ;
@@ -656,6 +679,15 @@ void DECAF_keystroke_place(int keycode) {
 void DECAF_keystroke_read(uint8_t taint_status) {
 #ifdef CONFIG_TCG_TAINT
 	if (taint_keystroke_enabled) {
+		#if defined(CONFIG_2nd_CCACHE) && defined(TARGET_I386) //sina
+			if (!second_ccache_flag && taint_status){
+				if (ccache_debug){
+					DECAF_printf("Status not clean: %d in DECAF_keystroke_read, DECAF_main.c:726!\n",cpu_single_env->tempidx);
+				}
+				cpu_single_env->exception_index = EXCP12_TNT; //sina: longjmp works neater in comparison to raise_exception because the latter passes the exception to guest.
+				longjmp(cpu_single_env->jmp_env, 1);
+			}
+		#endif
 		cpu_single_env->tempidx = taint_status;
 		cpu_single_env->tempidx = cpu_single_env->tempidx & 0xFF;
 	}
@@ -720,3 +752,21 @@ void DECAF_bdrv_open(int index, void *opaque)
 
   ++devices;
 }
+
+#if defined(TARGET_I386)
+
+void taint_reg(CPUState* env, unsigned int reg){
+
+#if defined(CONFIG_TCG_TAINT)
+	env->taint_regs[reg] = 0xffffffff; //sina: put it in the taintcheck API.
+#if defined(CONFIG_2nd_CCACHE) //sina
+	if (!second_ccache_flag){
+		env->exception_index = EXCP12_TNT; //sina: longjmp works neater in comparison to raise_exception because the latter passes the exception to guest.
+		longjmp(env->jmp_env, 1);
+	}
+#endif
+#endif CONFIG_TCG_TAINT
+}
+
+#endif
+

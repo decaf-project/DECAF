@@ -70,3 +70,18 @@ void do_toggle_kvm(Monitor *mon, const QDict *qdict)
 
 }
 
+#ifdef CONFIG_2nd_CCACHE
+
+extern int ccache_debug; //sina
+
+void do_2cache_debug(Monitor *mon, const QDict *qdict) {
+    int status = qdict_get_bool(qdict, "status");
+    if(ccache_debug == status) {
+    	monitor_printf(default_mon, "2nd ccache debug reporting has already been turned %s!\n", status? "on": "off");
+    	return;
+    }
+    ccache_debug = status;
+    monitor_printf(default_mon, "2nd ccache debug reporting is now turned %s!\n", status? "on": "off");
+}
+
+#endif

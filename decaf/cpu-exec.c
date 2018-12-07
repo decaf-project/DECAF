@@ -23,8 +23,18 @@
 #include "qemu-barrier.h"
 #include "DECAF_main.h"
 
+#if defined(CONFIG_2nd_CCACHE) //sina
+	#define register_taint_status_check_interval 200
+	#define smoother 20
+#endif
+
 int tb_invalidated_flag;
 
+#if defined(CONFIG_2nd_CCACHE) //sina
+	int counter_reg_taint;
+	extern int second_ccache_flag;
+	extern int ccache_debug;
+#endif
 //#define CONFIG_DEBUG_EXEC
 
 bool qemu_cpu_has_work(CPUState *env)
@@ -96,7 +106,16 @@ static TranslationBlock *tb_find_slow(CPUState *env,
     phys_pc = get_page_addr_code(env, pc);
     phys_page1 = phys_pc & TARGET_PAGE_MASK;
     h = tb_phys_hash_func(phys_pc);
-    ptb1 = &tb_phys_hash[h];
+#if defined(CONFIG_2nd_CCACHE) //sina
+	if(second_ccache_flag){
+		ptb1 = &tb_phys_2hash[h];
+	}
+	else{
+		ptb1 = &tb_phys_hash[h];
+	}
+#else
+	ptb1 = &tb_phys_hash[h];
+#endif
     for(;;) {
         tb = *ptb1;
         if (!tb)
@@ -128,11 +147,31 @@ static TranslationBlock *tb_find_slow(CPUState *env,
     /* Move the last found TB to the head of the list */
     if (likely(*ptb1)) {
         *ptb1 = tb->phys_hash_next;
-        tb->phys_hash_next = tb_phys_hash[h];
-        tb_phys_hash[h] = tb;
+#if defined(CONFIG_2nd_CCACHE) //sina
+		if(second_ccache_flag){
+			tb->phys_hash_next = tb_phys_2hash[h];
+			tb_phys_2hash[h] = tb;
+		}
+		else{
+			tb->phys_hash_next = tb_phys_hash[h];
+			tb_phys_hash[h] = tb;
+		}
+#else
+		tb->phys_hash_next = tb_phys_hash[h];
+		tb_phys_hash[h] = tb;
+#endif
     }
     /* we add the TB in the virtual pc hash table */
+#if defined(CONFIG_2nd_CCACHE) //sina
+	if(second_ccache_flag){
+		env->tb_jmp_2cache[tb_jmp_cache_hash_func(pc)] = tb;
+	}
+	else{
+		env->tb_jmp_cache[tb_jmp_cache_hash_func(pc)] = tb;
+	}
+#else
     env->tb_jmp_cache[tb_jmp_cache_hash_func(pc)] = tb;
+#endif
     return tb;
 }
 
@@ -146,7 +185,17 @@ static inline TranslationBlock *tb_find_fast(CPUState *env)
        always be the same before a given translated block
        is executed. */
     cpu_get_tb_cpu_state(env, &pc, &cs_base, &flags);
-    tb = env->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
+
+#if defined(CONFIG_2nd_CCACHE) //sina
+	if(second_ccache_flag){
+		tb = env->tb_jmp_2cache[tb_jmp_cache_hash_func(pc)];
+	}
+	else{
+		tb = env->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
+	}
+#else
+	tb = env->tb_jmp_cache[tb_jmp_cache_hash_func(pc)];
+#endif
     if (unlikely(!tb || tb->pc != pc || tb->cs_base != cs_base ||
                  tb->flags != flags)) {
         tb = tb_find_slow(env, pc, cs_base, flags);
@@ -188,7 +237,14 @@ int cpu_exec(CPUState *env)
     TranslationBlock *tb;
     uint8_t *tc_ptr;
     unsigned long next_tb;
+#ifdef CONFIG_TCG_TAINT
+	#if defined(CONFIG_2nd_CCACHE)
+    unsigned int lower_band;
+    unsigned int upper_band;
+    lower_band = register_taint_status_check_interval -1 - (register_taint_status_check_interval/smoother);
 
+	#endif
+#endif
     if (env->halted) {
         if (!cpu_has_work(env)) {
             return EXCP_HALTED;
@@ -234,7 +290,9 @@ int cpu_exec(CPUState *env)
 #error unsupported target CPU
 #endif
     env->exception_index = -1;
-
+#if defined(CONFIG_2nd_CCACHE) //sina
+	counter_reg_taint = 1;
+#endif
     /* prepare setjmp context for exception handling */
     for(;;) {
         if (setjmp(env->jmp_env) == 0) {
@@ -248,6 +306,22 @@ int cpu_exec(CPUState *env)
                     }
                     break;
                 } else {
+
+#if defined(CONFIG_2nd_CCACHE) //sina
+					if(env->exception_index==EXCP12_TNT){ //sina
+						if (ccache_debug){
+							DECAF_printf("Exception %d for code cache switch in cpu-exec.c:319, and a following switch in the next line!\n",env->exception_index);
+						}
+						second_ccache_flag = 1;
+						switch_code();
+						//do_interrupt(env);
+						env->exception_index = -1;
+						counter_reg_taint = 1;
+					}
+					else {
+#endif
+
+
 #if defined(CONFIG_USER_ONLY)
                     /* if user mode only, we simulate a fake exception
                        which will be handled outside the cpu execution
@@ -260,6 +334,10 @@ int cpu_exec(CPUState *env)
 #else
                     do_interrupt(env);
                     env->exception_index = -1;
+#if defined(CONFIG_2nd_CCACHE) //sina
+						}
+#endif
+
 #endif
                 }
             }
@@ -606,6 +684,26 @@ int cpu_exec(CPUState *env)
                 env->current_tb = NULL;
                 /* reset soft MMU for next block (it can currently
                    only be set by a memory fault) */
+#ifdef CONFIG_TCG_TAINT
+	#if defined(CONFIG_2nd_CCACHE) && defined(TARGET_I386) //sina: check the registers taint status, switch to the safe cache if all the statuses are cleared
+				if ( counter_reg_taint%register_taint_status_check_interval >=lower_band
+						&& second_ccache_flag){
+							target_ulong taint_status = check_registers_taint(env);
+							if(!taint_status){
+								if (ccache_debug){
+									DECAF_printf("status clean, back to no overhead mode in cpu_exec.c after %d blocks:706!\n",counter_reg_taint);
+								}
+								second_ccache_flag = 0;
+								//switch_code();
+								break; //sina: avoid patching blocks from different code caches
+							}
+						}
+	#endif
+#endif
+
+#if defined(CONFIG_2nd_CCACHE) //sina
+	counter_reg_taint++;
+#endif
             } /* for(;;) */
         } else {
             /* Reload env after longjmp - the compiler may have smashed all

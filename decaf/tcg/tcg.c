@@ -265,6 +265,9 @@ void tcg_context_init(TCGContext *s)
 
 void tcg_prologue_init(TCGContext *s)
 {
+	#ifdef CONFIG_2nd_CCACHE
+		DECAF_printf("Selective in tcg_prologue_init, line 271!\n"); //sina
+	#endif
     /* init global prologue and epilogue */
     s->code_buf = code_gen_prologue;
     s->code_ptr = s->code_buf;

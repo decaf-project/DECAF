@@ -147,7 +147,14 @@ void tlb_flush(CPUState *env, int flush_global);
 void tlb_set_page(CPUState *env, target_ulong vaddr,
                   target_phys_addr_t paddr, int prot,
                   int mmu_idx, target_ulong size);
+
+#if defined(CONFIG_2nd_CCACHE) //sina
+	void switch_code();
+
 #endif
+
+#endif
+
 
 #define CODE_GEN_ALIGN           16 /* must be >= of the size of a icache line */
 
@@ -269,6 +276,10 @@ void tb_link_page(TranslationBlock *tb,
 void tb_phys_invalidate(TranslationBlock *tb, tb_page_addr_t page_addr);
 
 extern TranslationBlock *tb_phys_hash[CODE_GEN_PHYS_HASH_SIZE];
+
+#if defined(CONFIG_2nd_CCACHE) //sina
+	extern TranslationBlock *tb_phys_2hash[CODE_GEN_PHYS_HASH_SIZE];
+#endif
 
 #if defined(USE_DIRECT_JUMP)
 

@@ -24,7 +24,9 @@
 #include "cpu-common.h"
 //#include "taintcheck.h" /* AWH */
 //#include "taintcheck_opt.h" /* AWH */
-
+#if defined(CONFIG_2nd_CCACHE) //sina
+	extern target_ulong check_registers_taint(CPUState *env);
+#endif
 /* some important defines:
  *
  * WORDS_ALIGNED : if defined, the host cpu can only make word aligned

@@ -116,6 +116,8 @@ enable_vmi="yes"
 tcg_taint="no"
 #AWH - TCG IR logging off by default
 tcg_ir_log="no"
+#Sina - 2nd code cache disabled by default
+second_code_cache="no"
 bluez=""
 brlapi=""
 curl=""
@@ -825,6 +827,11 @@ for opt do
   ;;
   --disable-tcg-llvm) tcg_llvm="no"
   ;;
+  # Sina - 2nd code cache support
+  --enable-2nd-ccache) second_code_cache="yes"
+  ;;
+  --disable-2nd-ccache) second_code_cache="no"
+  ;;
   # AWH - VMI support
   --enable-vmi) enable_vmi="yes"
   ;;
@@ -1135,6 +1142,9 @@ echo "  --enable-tcg-ir-log      enable TCG IR logging buffers"
 # AWH - TCG-to-LLVM translation
 echo "  --disable-tcg-llvm       disable TCG-to-LLVM translation (default)"
 echo "  --enable-tcg-llvm        enable TCG-to-LLVM translation"
+#sina end code cache
+echo "  --disable-2nd-ccache     disable 2nd code cache optimization"
+echo "  --enable-2nd-ccache      enable 2nd code cache optimization"
 # AWH - VMI enable
 echo "  --disable-vmi            disable VMI support"
 echo "  --enable-vmi             enable VMI support (default)"
@@ -2943,6 +2953,8 @@ echo "enable TCG taint  $tcg_taint"
 echo "enable IR logging $tcg_ir_log"
 #AWH - TCG LLVM
 echo "enable TCG LLVM   $tcg_llvm"
+#AWH - Sina
+echo "enable optimization  $second_code_cache"
 # AWH - VMI
 echo "enable VMI        $enable_vmi"
 
@@ -2994,6 +3006,10 @@ fi
 #AWH - TCG LLVM
 if test "$tcg_llvm" = "yes" ; then
   echo "CONFIG_TCG_LLVM=y" >> $config_host_mak
+fi
+#AWH - 2nd code cache optimization
+if test "$second_code_cache" = "yes" ; then
+  echo "CONFIG_2nd_CCACHE=y" >> $config_host_mak
 fi
 #AWH - TCG tainting
 if test "$tcg_taint" = "yes" ; then

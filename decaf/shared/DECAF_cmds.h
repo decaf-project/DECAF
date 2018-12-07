@@ -35,7 +35,9 @@ extern "C"
 void do_guest_ps(Monitor *mon);
 void do_guest_modules(Monitor *mon, const QDict *qdict);
 void do_toggle_kvm(Monitor *mon, const QDict *qdict);
-
+#ifdef CONFIG_2nd_CCACHE //sina
+void do_2cache_debug(Monitor *mon, const QDict *qdict);
+#endif
 void do_print_modules(Monitor *mon);
 void print_loaded_modules(CPUState *env);
 

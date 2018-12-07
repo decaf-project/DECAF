@@ -63,6 +63,10 @@
 #include "shared/tainting/taint_memory.h"
 #endif
 
+#ifdef CONFIG_2nd_CCACHE
+extern int ccache_debug; //sina
+#endif
+
 //#define DEBUG_TB_INVALIDATE
 //#define DEBUG_FLUSH
 //#define DEBUG_TLB
@@ -97,10 +101,16 @@ uint64_t *gDECAF_gen_opparam_buf;
 /* AWH static */ TranslationBlock *tbs;
 /* AWH static int */ uint32_t code_gen_max_blocks;
 TranslationBlock *tb_phys_hash[CODE_GEN_PHYS_HASH_SIZE];
+#if defined(CONFIG_2nd_CCACHE) //sina
+TranslationBlock *tb_phys_2hash[CODE_GEN_PHYS_HASH_SIZE];
+#endif
 static int nb_tbs;
 /* any access to the tbs or the page table must use this lock */
 spinlock_t tb_lock = SPIN_LOCK_UNLOCKED;
-
+#if defined(CONFIG_2nd_CCACHE) && defined(CONFIG_TCG_TAINT) //sina
+	int second_ccache_flag = 0; //sina
+	int num_switches_happend = 0;
+#endif
 #if defined(__arm__) || defined(__sparc_v9__)
 /* The prologue must be reachable with a direct jump. ARM and Sparc64
  have limited branch ranges (possibly also PPC) so place it in a
@@ -807,7 +817,15 @@ void tb_flush(CPUState *env1)
         memset (env->tb_jmp_cache, 0, TB_JMP_CACHE_SIZE * sizeof (void *));
     }
 
+	#if defined(CONFIG_2nd_CCACHE) //sina: invalidating second virtual code cache
+	for(env = first_cpu; env != NULL; env = env->next_cpu) {
+		memset (env->tb_jmp_2cache, 0, TB_JMP_CACHE_SIZE * sizeof (void *));
+	}
+	#endif
     memset (tb_phys_hash, 0, CODE_GEN_PHYS_HASH_SIZE * sizeof (void *));
+	#if defined(CONFIG_2nd_CCACHE) //sina: invalidating second physical code cache
+	memset (tb_phys_2hash, 0, CODE_GEN_PHYS_HASH_SIZE * sizeof (void *));
+	#endif
     page_flush_tb();
 
     code_gen_ptr = code_gen_buffer;
@@ -928,13 +946,30 @@ void tb_phys_invalidate(TranslationBlock *tb, tb_page_addr_t page_addr)
     PageDesc *p;
     unsigned int h, n1;
     tb_page_addr_t phys_pc;
+#if defined(CONFIG_2nd_CCACHE) //sina
+    TranslationBlock *tb1_temp;
+#endif
     TranslationBlock *tb1, *tb2;
 
     /* remove the TB from the hash list */
     phys_pc = tb->page_addr[0] + (tb->pc & ~TARGET_PAGE_MASK);
     h = tb_phys_hash_func(phys_pc);
+
+	#if defined(CONFIG_2nd_CCACHE) //sina
+    tb1_temp = *(&tb_phys_hash[h]);
+    if (tb1_temp){
+        tb_remove(&tb_phys_hash[h], tb,
+                  offsetof(TranslationBlock, phys_hash_next));
+    }
+    if(*(&tb_phys_2hash[h])){
+        //DECAF_printf("in tb_phys_invalidate, NEW phy table branch pointer %p exec.c:1067!\n",&tb_phys_2hash[h]);
+        tb_remove(&tb_phys_2hash[h], tb,
+                  offsetof(TranslationBlock, phys_hash_next));
+    }
+	#else
     tb_remove(&tb_phys_hash[h], tb,
               offsetof(TranslationBlock, phys_hash_next));
+	#endif
 
     /* remove the TB from the page list */
     if (tb->page_addr[0] != page_addr) {
@@ -956,6 +991,13 @@ void tb_phys_invalidate(TranslationBlock *tb, tb_page_addr_t page_addr)
         if (env->tb_jmp_cache[h] == tb)
             env->tb_jmp_cache[h] = NULL;
     }
+
+	#if defined(CONFIG_2nd_CCACHE)
+	for(env = first_cpu; env != NULL; env = env->next_cpu) {
+		if (env->tb_jmp_2cache[h] == tb)
+			env->tb_jmp_2cache[h] = NULL;
+	}
+	#endif
 
     /* suppress this TB from the two jump lists */
     tb_jmp_remove(tb, 0);
@@ -1070,6 +1112,15 @@ TranslationBlock *tb_gen_code(CPUState *env,
     tb_link_page(tb, phys_pc, phys_page2);
     return tb;
 }
+
+	#if defined(CONFIG_2nd_CCACHE) //sina
+	void switch_code()
+	{
+		if (ccache_debug){
+			DECAF_printf("Switching code in switch_code function to %p in exec.c:1144!\n");
+		}
+	}
+	#endif
 
 /* invalidate all TBs which intersect with the target physical page
    starting in range [start;end[. NOTE: start and end must refer to
@@ -1340,7 +1391,16 @@ void tb_link_page(TranslationBlock *tb,
     mmap_lock();
     /* add in the physical hash table */
     h = tb_phys_hash_func(phys_pc);
-    ptb = &tb_phys_hash[h];
+#if defined(CONFIG_2nd_CCACHE)
+	if(second_ccache_flag){
+		ptb = &tb_phys_2hash[h];
+	}
+	else{
+		ptb = &tb_phys_hash[h];
+	}
+#else
+	ptb = &tb_phys_hash[h];
+#endif
     tb->phys_hash_next = *ptb;
     *ptb = tb;
 
@@ -2026,12 +2086,30 @@ static inline void tlb_flush_jmp_cache(CPUState *env, target_ulong addr)
     /* Discard jump cache entries for any tb which might potentially
        overlap the flushed page.  */
     i = tb_jmp_cache_hash_page(addr - TARGET_PAGE_SIZE);
-    memset (&env->tb_jmp_cache[i], 0,
-            TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+#if defined(CONFIG_2nd_CCACHE) //sina:
+		memset (&env->tb_jmp_2cache[i], 0,
+				TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+		memset (&env->tb_jmp_cache[i], 0,
+				TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+#else
+	memset (&env->tb_jmp_cache[i], 0,
+			TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+#endif
 
     i = tb_jmp_cache_hash_page(addr);
-    memset (&env->tb_jmp_cache[i], 0,
-            TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+#if defined(CONFIG_2nd_CCACHE)
+	//if(second_ccache_flag){
+		memset (&env->tb_jmp_2cache[i], 0,
+				TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+	//}
+	//else{
+		memset (&env->tb_jmp_cache[i], 0,
+				TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+	//}
+#else
+	memset (&env->tb_jmp_cache[i], 0,
+			TB_JMP_PAGE_SIZE * sizeof(TranslationBlock *));
+#endif
 }
 
 static CPUTLBEntry s_cputlb_empty_entry = {
@@ -2062,7 +2140,9 @@ void tlb_flush(CPUState *env, int flush_global)
     }
 
     memset (env->tb_jmp_cache, 0, TB_JMP_CACHE_SIZE * sizeof (void *));
-
+#if defined(CONFIG_2nd_CCACHE) //sina
+	memset (env->tb_jmp_2cache, 0, TB_JMP_CACHE_SIZE * sizeof (void *));
+#endif
     env->tlb_flush_addr = -1;
     env->tlb_flush_mask = 0;
     tlb_flush_count++;
