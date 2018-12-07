@@ -27,12 +27,11 @@
 /* Get rid of some implicit function declaration warnings */
 #include "tainting/taint_memory.h"
 
-#ifdef CONFIG_2nd_CCACHE //sina
-	TranslationBlock *tb_find_pc(unsigned long pc_ptr);
-	int cpu_restore_state(struct TranslationBlock *tb, CPUState *env, unsigned long searched_pc);
-	TranslationBlock *tb;
-	extern int ccache_debug; //sina
-#endif
+//#ifdef CONFIG_2nd_CCACHE //sina
+//	TranslationBlock *tb_find_pc(unsigned long pc_ptr);
+//	int cpu_restore_state(struct TranslationBlock *tb, CPUState *env, unsigned long searched_pc);
+//	extern int ccache_debug; //sina
+//#endif
 
 static DATA_TYPE glue(glue(taint_slow_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
                                                         int mmu_idx,
@@ -41,6 +40,9 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(target_phys_addr_t physaddr,
                                               target_ulong addr,
                                               void *retaddr)
 {
+#ifdef CONFIG_2nd_CCACHE //sina
+	TranslationBlock *tb_temp;
+#endif
     DATA_TYPE res;
     int index;
     index = (physaddr >> IO_MEM_SHIFT) & (IO_MEM_NB_ENTRIES - 1);
@@ -70,9 +72,9 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(target_phys_addr_t physaddr,
 			DECAF_printf("Taint tag for memory GVA=0x%x, HVA=0x%x not clean: %d in __taint_ldb_raw_paddr, taint_memory.c:188!\n", addr, physaddr,env->tempidx);
 		}
 		env->exception_index = EXCP12_TNT; //sina: longjmp works neater in comparison to raise_exception because the latter passes the exception to guest.
-		tb = tb_find_pc((unsigned long)retaddr);
-		if (tb) {
-			cpu_restore_state(tb, env, (unsigned long)retaddr);
+		tb_temp = tb_find_pc((unsigned long)retaddr);
+		if (tb_temp) {
+			cpu_restore_state(tb_temp, env, (unsigned long)retaddr);
 		}
 		cpu_single_env->current_tb = NULL;
 		longjmp(env->jmp_env, 1);
