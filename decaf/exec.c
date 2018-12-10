@@ -63,10 +63,6 @@
 #include "shared/tainting/taint_memory.h"
 #endif
 
-#ifdef CONFIG_2nd_CCACHE
-extern int ccache_debug; //sina
-#endif
-
 //#define DEBUG_TB_INVALIDATE
 //#define DEBUG_FLUSH
 //#define DEBUG_TLB
@@ -873,6 +869,29 @@ static void tb_page_check(void)
 
 #endif
 
+
+#if defined(CONFIG_2nd_CCACHE) //sina: invalidating second virtual code cache
+// custom invalidatation of TB for DECAF selective propagation implementation
+static inline void tb_remove(TranslationBlock **ptb, TranslationBlock *tb,
+                             int next_offset)
+{
+    TranslationBlock *tb1;
+    TranslationBlock **tb2 = ptb; //sina: changed
+    for(;;) {
+        tb1 = *tb2;
+        if (tb1 == tb) {
+            *tb2 = *(TranslationBlock **)((char *)tb1 + next_offset);
+            ptb = tb2;
+            break;
+        }
+        else if(tb1==0x0){ //sina: stopping when we reach an uninitialized tb pointer.
+        	break;
+        }
+        tb2 = (TranslationBlock **)((char *)tb1 + next_offset);
+    }
+    ptb = tb2;
+}
+#else
 /* invalidate one TB */
 static inline void tb_remove(TranslationBlock **ptb, TranslationBlock *tb,
                              int next_offset)
@@ -887,6 +906,9 @@ static inline void tb_remove(TranslationBlock **ptb, TranslationBlock *tb,
         ptb = (TranslationBlock **)((char *)tb1 + next_offset);
     }
 }
+#endif
+
+
 
 static inline void tb_page_remove(TranslationBlock **ptb, TranslationBlock *tb)
 {
