@@ -4112,7 +4112,9 @@ void cpu_physical_memory_rw(target_phys_addr_t addr, uint8_t *buf,
                 memcpy(ptr, buf, l);
 
 #ifdef CONFIG_TCG_TAINT
-                taint_mem(addr1, l, zero_mem);
+            	if (taint_tracking_enabled) {
+            		taint_mem(addr1, l, zero_mem);
+            	}
 #endif
 
                 if (!cpu_physical_memory_is_dirty(addr1)) {
