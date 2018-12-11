@@ -4881,8 +4881,10 @@ static inline void stl_phys_internal(target_phys_addr_t addr, uint32_t val,
         }
 
 #ifdef CONFIG_TCG_TAINT
-        cpu_single_env->tempidx = 0;
-        __taint_stl_raw_paddr(addr1, 0);
+    	if (taint_tracking_enabled) {
+            cpu_single_env->tempidx = 0;
+            __taint_stl_raw_paddr(addr1, 0);
+    	}
 #endif
 
         if (!cpu_physical_memory_is_dirty(addr1)) {
