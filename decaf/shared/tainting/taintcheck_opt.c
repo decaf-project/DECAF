@@ -159,7 +159,9 @@ void taintcheck_chk_hdwrite(const ram_addr_t paddr, const int size, const int64_
     //We assume size is multiple of 512, because this function is used in DMA, and paddr is also aligned.
     int i;
     uint8_t taint[512];
-
+	if (!taint_tracking_enabled) {
+		return ;
+	}
     for (i = 0; i < size; i += 512) {
         taint_mem_check(paddr+i, 512, taint);
         taintcheck_taint_disk(taint, sect_num + i/512, 0, 512, s);
@@ -171,7 +173,9 @@ void taintcheck_chk_hdread(const ram_addr_t paddr, const int size, const int64_t
     //We assume size is multiple of 512, because this function is used in DMA, and paddr is also aligned.
 	int i;
     uint8_t taint[512];
-
+	if (!taint_tracking_enabled) {
+		return ;
+	}
 	for (i = 0; i < size; i += 512) {
         taintcheck_disk_check(taint, sect_num + i/512, 0, size, s);
         taint_mem(paddr+i, 512, taint);
