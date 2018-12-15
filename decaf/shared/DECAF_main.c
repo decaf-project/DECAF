@@ -656,13 +656,27 @@ void DECAF_nic_send(const uint32_t addr, const int size, const uint8_t * buf) {
 
 void DECAF_nic_out(const uint32_t addr, const int size) {
 #ifdef CONFIG_TCG_TAINT
-	taintcheck_nic_writebuf(addr, size, (uint8_t *) &(cpu_single_env->tempidx));
+	CPUState *env = cpu_single_env ? cpu_single_env : first_cpu;
+	taintcheck_nic_writebuf(addr, size, (uint8_t *) &(env->tempidx));
 #endif
 }
 
 void DECAF_nic_in(const uint32_t addr, const int size) {
 #ifdef CONFIG_TCG_TAINT
-	taintcheck_nic_readbuf(addr, size, (uint8_t *) &(cpu_single_env->tempidx));
+	CPUState *env = cpu_single_env ? cpu_single_env : first_cpu;
+	taintcheck_nic_readbuf(addr, size, (uint8_t *) &(env->tempidx));
+#if defined(CONFIG_2nd_CCACHE) && defined(TARGET_I386) //sina
+	if (taint_tracking_enabled) {
+		if (!second_ccache_flag && env->tempidx){
+			if (ccache_debug){
+				DECAF_printf("Status not clean: %d in DECAF_nic_in, DECAF_main.c:671!\n",env->tempidx);
+			}
+			env->tempidx = 0;
+			env->exception_index = EXCP12_TNT; //sina: longjmp works neater in comparison to raise_exception because the latter passes the exception to guest.
+			longjmp(env->jmp_env, 1);
+		}
+	}
+#endif
 #endif
 }
 /*
@@ -765,7 +779,7 @@ void taint_reg(CPUState* env, unsigned int reg){
 		longjmp(env->jmp_env, 1);
 	}
 #endif
-#endif CONFIG_TCG_TAINT
+#endif //CONFIG_TCG_TAINT
 }
 
 #endif
