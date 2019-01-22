@@ -232,8 +232,10 @@ void *io_mem_opaque[IO_MEM_NB_ENTRIES];
 static char io_mem_used[IO_MEM_NB_ENTRIES];
 static int io_mem_watch;
 
+#ifdef CONFIG_opt_SMEM
 #ifdef CONFIG_TCG_TAINT
 static int io_mem_taint;
+#endif
 #endif
 
 #endif
@@ -2473,6 +2475,7 @@ void tlb_set_page(CPUState *env, target_ulong vaddr,
         }
     }
 
+#ifdef CONFIG_opt_SMEM
 #ifdef CONFIG_TCG_TAINT
     /*What if this page is notdirty and/or watchpoint at the same time?
       io_mem_taint has the lowest priority, to avoid breaking the funtionality.
@@ -2486,7 +2489,7 @@ void tlb_set_page(CPUState *env, target_ulong vaddr,
         //printf("tlb_set_page: iotlb=%0lx address=%0x\n", iotlb, address);
     }
 #endif
-
+#endif
 
     index = (vaddr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     env->iotlb[mmu_idx][index] = iotlb - vaddr;
@@ -4084,12 +4087,15 @@ static void io_mem_init(void)
                                           watch_mem_write, NULL,
                                           DEVICE_NATIVE_ENDIAN);
 
+#ifdef CONFIG_opt_SMEM
 #ifdef CONFIG_TCG_TAINT
     io_mem_taint = cpu_register_io_memory(taint_mem_read,
                                           taint_mem_write, NULL,
                                           DEVICE_NATIVE_ENDIAN);
 #endif
+#endif
 }
+
 
 static void memory_map_init(void)
 {

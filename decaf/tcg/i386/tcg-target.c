@@ -1152,11 +1152,17 @@ extern TCGv tempidx, tempidx2;
    hold a guest address.
 
    Second argument register is clobbered.  */
-
+#ifdef CONFIG_opt_SMEM
 static inline void tcg_out_tlb_load(TCGContext *s, int addrlo_idx,
                                     int mem_index, int s_bits,
                                     const TCGArg *args,
                                     uint8_t **label_ptr, int which, int is_store)
+#else
+static inline void tcg_out_tlb_load(TCGContext *s, int addrlo_idx,
+                                    int mem_index, int s_bits,
+                                    const TCGArg *args,
+                                    uint8_t **label_ptr, int which)
+#endif
 {
     const int addrlo = args[addrlo_idx];
     const int r0 = tcg_target_call_iarg_regs[0];
@@ -1172,6 +1178,7 @@ static inline void tcg_out_tlb_load(TCGContext *s, int addrlo_idx,
     tcg_out_mov(s, type, r1, addrlo);
     tcg_out_mov(s, type, r0, addrlo);
 
+#ifdef CONFIG_opt_SMEM
 #ifdef CONFIG_TCG_TAINT
     //This is a bit awkward to put this piece of code here. The reason is the above two lines stores virtual address into
     //tcg_target_call_iarg_regs. The code in tcg_out_(taint_)qemu_ld/st asssumes this has been done. So for TLB Miss case,
@@ -1197,6 +1204,7 @@ static inline void tcg_out_tlb_load(TCGContext *s, int addrlo_idx,
         label_ptr[2] = s->code_ptr;
         s->code_ptr++;
     }
+#endif
 #endif
 
     tcg_out_shifti(s, SHIFT_SHR + rexw, r1,
@@ -1340,8 +1348,13 @@ static void tcg_out_qemu_ld(TCGContext *s, const TCGArg *args,
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc & 3;
 
+#ifdef CONFIG_opt_SMEM
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_read), 0);
+#else
+    tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
+                     label_ptr, offsetof(CPUTLBEntry, addr_read));
+#endif
 
     /* TLB Hit.  */
     /* AWH - Before we call the functionality in the function
@@ -1551,8 +1564,14 @@ static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args,
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc;
 
+#ifdef CONFIG_opt_SMEM
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_write), 1);
+#else
+    tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
+                     label_ptr, offsetof(CPUTLBEntry, addr_write));
+#endif
+
 
 #ifdef CONFIG_MEM_WRITE_CB
     /* TLB Hit.  */
@@ -1701,11 +1720,16 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     s_bits = opc;
 
 
+#ifdef CONFIG_opt_SMEM
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_write), 1);
+#else
+    tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
+                     label_ptr, offsetof(CPUTLBEntry, addr_write));
+#endif
     /* TLB Hit.  */
 
-#if 0
+#ifndef CONFIG_opt_SMEM
     tcg_out_push(s, data_reg); // Store for call to qemu_st_direct() below
     tcg_out_push(s, tcg_target_call_iarg_regs[0]); // Same
     tcg_out_mov(s, TCG_TYPE_I32,
@@ -1743,7 +1767,11 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
 
     /* jmp label2 */
     tcg_out8(s, OPC_JMP_short);
+#ifdef CONFIG_opt_SMEM
     label_ptr[3] = s->code_ptr;
+#else
+    label_ptr[2] = s->code_ptr;
+#endif
     s->code_ptr++;
 
     /* TLB Miss.  */
@@ -1753,7 +1781,9 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     if (TARGET_LONG_BITS > TCG_TARGET_REG_BITS) {
         *label_ptr[1] = s->code_ptr - label_ptr[1] - 1;
     }
+#ifdef CONFIG_opt_SMEM
     *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
+#endif
 
     /* XXX: move that code at the end of the TB */
     /* TCG_TARGET_REG_BITS == 64 case in x86_op_defs[] */
@@ -1807,9 +1837,13 @@ static void tcg_out_taint_qemu_st(TCGContext *s, const TCGArg *args, int opc)
     } else if (stack_adjust != 0) {
         tcg_out_addi(s, TCG_REG_CALL_STACK, stack_adjust);
     }
-
     /* label2: */
+
+#ifdef CONFIG_opt_SMEM
     *label_ptr[3] = s->code_ptr - label_ptr[3] - 1;
+#else
+    *label_ptr[2] = s->code_ptr - label_ptr[2] - 1;
+#endif
 
 }
 
@@ -1830,14 +1864,52 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     mem_index = args[addrlo_idx + 1 + (TARGET_LONG_BITS > TCG_TARGET_REG_BITS)];
     s_bits = opc & 3;
 
+#ifdef CONFIG_opt_SMEM //sina
     tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
                      label_ptr, offsetof(CPUTLBEntry, addr_read), 0);
+#else
+    tcg_out_tlb_load(s, addrlo_idx, mem_index, s_bits, args,
+                     label_ptr, offsetof(CPUTLBEntry, addr_read));
+
+	if (s_bits == 3)
+		tcg_out_push(s, data_reg2);
+	tcg_out_push(s, data_reg);
+	tcg_out_push(s, tcg_target_call_iarg_regs[0]);
+    tcg_out_push(s, tcg_target_call_iarg_regs[1]);
+	tcg_out_mov(s, TCG_TYPE_I32,
+	  tcg_target_call_iarg_regs[1], args[addrlo_idx]);
+	  switch (s_bits) {
+	  case 0:
+	  case 0 | 4:
+	      tcg_out_calli(s, (tcg_target_long)taint_ldb_cb);
+		  break;
+	  case 1:
+	  case 1 | 4:
+	     tcg_out_calli(s, (tcg_target_long)taint_ldw_cb);
+		 break;
+	  case 2:
+	     tcg_out_calli(s, (tcg_target_long)taint_ldl_cb);
+		 break;
+	  case 3:
+	     tcg_out_calli(s, (tcg_target_long)taint_ldq_cb);
+		 break;
+      default:
+	     tcg_abort();
+	   }
+	tcg_out_pop(s, tcg_target_call_iarg_regs[1]);
+    tcg_out_pop(s, tcg_target_call_iarg_regs[0]);
+    tcg_out_pop(s, data_reg);
+	if (s_bits == 3)
+      tcg_out_pop(s, data_reg2);
+
+#endif
 
     /* TLB Hit.  */
 
     tcg_out_qemu_ld_direct(s, data_reg, data_reg2,
                            tcg_target_call_iarg_regs[0], 0, opc);
 
+#ifdef CONFIG_opt_SMEM
     //TLB Hit means the related page is not tainted (otherwise, it will go through io_mem_taint).
     //So we can skip checking shadow memory and simply set taint (stored in args[1]) as zero.
     tcg_out_movi(s, TCG_TYPE_TL, TCG_REG_EAX, 0);
@@ -1860,6 +1932,7 @@ static void tcg_out_taint_qemu_ld(TCGContext *s, const TCGArg *args, int opc)
     default:
         tcg_abort();
     }
+#endif
 
     //TODO: call memory read callback 
 

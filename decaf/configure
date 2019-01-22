@@ -118,6 +118,7 @@ tcg_taint="no"
 tcg_ir_log="no"
 #Sina - 2nd code cache disabled by default
 second_code_cache="no"
+opt_shadow_memory="no"
 bluez=""
 brlapi=""
 curl=""
@@ -832,6 +833,10 @@ for opt do
   ;;
   --disable-2nd-ccache) second_code_cache="no"
   ;;
+  --enable-opt-smem) opt_shadow_memory="yes"
+  ;;
+  --disable-opt-smem) opt_shadow_memory="no"
+  ;;
   # AWH - VMI support
   --enable-vmi) enable_vmi="yes"
   ;;
@@ -1142,9 +1147,12 @@ echo "  --enable-tcg-ir-log      enable TCG IR logging buffers"
 # AWH - TCG-to-LLVM translation
 echo "  --disable-tcg-llvm       disable TCG-to-LLVM translation (default)"
 echo "  --enable-tcg-llvm        enable TCG-to-LLVM translation"
-#sina end code cache
+#sina 2nd code cache
 echo "  --disable-2nd-ccache     disable 2nd code cache optimization"
 echo "  --enable-2nd-ccache      enable 2nd code cache optimization"
+#sina optimize shadow memory operations
+echo "  --disable-opt-smem     disable shadow memory optimization"
+echo "  --enable-opt-smem      enable shadow memory optimization"
 # AWH - VMI enable
 echo "  --disable-vmi            disable VMI support"
 echo "  --enable-vmi             enable VMI support (default)"
@@ -2953,8 +2961,10 @@ echo "enable TCG taint  $tcg_taint"
 echo "enable IR logging $tcg_ir_log"
 #AWH - TCG LLVM
 echo "enable TCG LLVM   $tcg_llvm"
-#AWH - Sina
-echo "enable optimization  $second_code_cache"
+#Sina - 2nd code cache
+echo "enable propagation optimization  $second_code_cache"
+#Sina - shadow memory optimization
+echo "enable shadow memory optimization  $opt_shadow_memory"
 # AWH - VMI
 echo "enable VMI        $enable_vmi"
 
@@ -3007,9 +3017,13 @@ fi
 if test "$tcg_llvm" = "yes" ; then
   echo "CONFIG_TCG_LLVM=y" >> $config_host_mak
 fi
-#AWH - 2nd code cache optimization
+#Sina - 2nd code cache optimization
 if test "$second_code_cache" = "yes" ; then
   echo "CONFIG_2nd_CCACHE=y" >> $config_host_mak
+fi
+#Sina - shadow memory optimization
+if test "$opt_shadow_memory" = "yes" ; then
+  echo "CONFIG_opt_SMEM=y" >> $config_host_mak
 fi
 #AWH - TCG tainting
 if test "$tcg_taint" = "yes" ; then

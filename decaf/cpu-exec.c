@@ -691,7 +691,9 @@ int cpu_exec(CPUState *env)
 							target_ulong taint_status = check_registers_taint(env);
 							if(!taint_status){
 								if (ccache_debug){
-									DECAF_printf("status clean, back to no overhead mode in cpu_exec.c after %d blocks:706!\n",counter_reg_taint);
+									DECAF_printf("status clean, back to no overhead mode in cpu_exec.c:706 after %d blocks!\n",counter_reg_taint);
+									DECAF_printf("these many tainted bytes: %u \n",calc_tainted_bytes());
+									counter_reg_taint = 0;
 								}
 								second_ccache_flag = 0;
 								//switch_code();

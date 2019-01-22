@@ -3026,13 +3026,13 @@ int retVal;
 #if defined(CONFIG_2nd_CCACHE)
 	if(second_ccache_flag){
 		if (ccache_debug){
-			DECAF_printf("Full instrumentation by calling gen_taintcheck_insn in tcg_taint.c:3136!\n");
+//			DECAF_printf("Full instrumentation by calling gen_taintcheck_insn in tcg_taint.c:3136!\n");
 		}
 		retVal = gen_taintcheck_insn(search_pc);
 	}
 	else{
 		if (ccache_debug){
-			DECAF_printf("qemu_ld only instrumentation by calling gen_taintcheck_insn_ld in tcg_taint.c:3146!\n");
+//			DECAF_printf("qemu_ld only instrumentation by calling gen_taintcheck_insn_ld in tcg_taint.c:3146!\n");
 		}
 		retVal = gen_taintcheck_insn_ld(search_pc);
 	}

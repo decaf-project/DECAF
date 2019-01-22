@@ -265,6 +265,7 @@ static void free_taint_memory_page_table(void) {
   free_pools();
 }
 
+#ifdef CONFIG_opt_SMEM
 int is_physial_page_tainted(ram_addr_t addr)
 {
     unsigned int middle_node_index;
@@ -283,7 +284,7 @@ int is_physial_page_tainted(ram_addr_t addr)
     leaf_node = taint_memory_page_table[middle_node_index]->leaf[leaf_node_index];
     return (leaf_node != NULL);
 }
-
+#endif
 
 
 void REGPARM __taint_ldb_raw_paddr(ram_addr_t addr,gva_t vaddr)
