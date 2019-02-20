@@ -1,3 +1,3 @@
 # DECAF
 A fork of DECAF Optimized with selective taint propagation idea.
-configure with --enable-2nd-ccache and then compile.
+configure with --enable-2nd-ccache and then compile. See the Wiki page for more details.
