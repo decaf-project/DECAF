@@ -1,7 +1,7 @@
 # Elastic DECAF
 A fork of DECAF Optimized with elastic taint propagation and elastic shadow memory access idea.
 
-configure with --enable-2nd-ccache and then compile.
+configure with --enable-2nd-ccache and --enable-opt-smem, and then compile.
 
 DECAF primarily aims to provide transparent dynamic malware analysis functionality. To this end, DECAF provides the following systematic mechanisms for binary analysis:
 DECAF primarily aims to provide transparent dynamic malware analysis functionality. To this end, DECAF provides the following systematic mechanisms for binary analysis:
