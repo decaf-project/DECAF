@@ -96,6 +96,9 @@ static TCGv taint_cpu_regs[CPU_NB_REGS];
 static TCGv /*taint_cpu_A0,*/ taint_cpu_cc_src, taint_cpu_cc_dst, taint_cpu_cc_tmp;
 static TCGv eip_taint;
 // AWH - Now in shared/DECAF_tcg_taint.c static TCGv tempidx, tempidx2;
+#ifdef CONFIG_2nd_CCACHE //sina
+	extern int second_ccache_flag;
+#endif
 #endif /* CONFIG_TCG_TAINT */
 
 /* local temps */
@@ -8369,6 +8372,24 @@ void gen_intermediate_code(CPUState *env, TranslationBlock *tb)
 {
     gen_intermediate_code_internal(env, tb, 0);
 }
+
+#if defined(CONFIG_2nd_CCACHE) && (defined(TARGET_I386) || defined(TARGET_X86_64)) //sina: check the registers taint status
+
+target_ulong check_registers_taint(CPUState *env) {
+	//sina check architecture independent registers
+	target_ulong taint_status = 0;
+	taint_status = env->taint_cc_src | env->taint_cc_dst | env->taint_cc_tmp | env->eip_taint | env->taint_regs[R_EAX] | env->taint_regs[R_ECX] | env->taint_regs[R_EDX] | env->taint_regs[R_EBX] | env->taint_regs[R_ESI] | env->taint_regs[R_EDI];
+
+	#ifdef TARGET_X86_64 //sina: X86_64 has more registers
+		taint_status |= env->taint_regs[8] | env->taint_regs[9] | env->taint_regs[10] | env->taint_regs[11] | env->taint_regs[12] | env->taint_regs[13] | env->taint_regs[14] | env->taint_regs[15];
+	#else
+        taint_status |= env->taint_regs[R_ESP] | env->taint_regs[R_EBP];
+	#endif
+    //DECAF_printf("register taint status check logic in check_registers_taint **%ld**,translate.c:8437!\n", taint_status);
+	return taint_status;
+}
+
+#endif
 
 void gen_intermediate_code_pc(CPUState *env, TranslationBlock *tb)
 {

@@ -27,6 +27,12 @@
 /* Get rid of some implicit function declaration warnings */
 #include "tainting/taint_memory.h"
 
+//#ifdef CONFIG_2nd_CCACHE //sina
+//	TranslationBlock *tb_find_pc(unsigned long pc_ptr);
+//	int cpu_restore_state(struct TranslationBlock *tb, CPUState *env, unsigned long searched_pc);
+//	extern int ccache_debug; //sina
+//#endif
+
 static DATA_TYPE glue(glue(taint_slow_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
                                                         int mmu_idx,
                                                         void *retaddr);
@@ -34,6 +40,9 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(target_phys_addr_t physaddr,
                                               target_ulong addr,
                                               void *retaddr)
 {
+#ifdef CONFIG_2nd_CCACHE //sina
+	TranslationBlock *tb_temp;
+#endif
     DATA_TYPE res;
     int index;
     index = (physaddr >> IO_MEM_SHIFT) & (IO_MEM_NB_ENTRIES - 1);
@@ -43,7 +52,11 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(target_phys_addr_t physaddr,
             && !can_do_io(env)) {
         cpu_io_recompile(env, retaddr);
     }
+#if !defined(CONFIG_opt_SMEM)
+    env->tempidx = 0;
+#endif
     env->mem_io_vaddr = addr;
+
 #if SHIFT <= 2
     res = io_mem_read[index][SHIFT](io_mem_opaque[index], physaddr);
 #else
@@ -55,7 +68,24 @@ static inline DATA_TYPE glue(taint_io_read, SUFFIX)(target_phys_addr_t physaddr,
     res |= (uint64_t)io_mem_read[index][2](io_mem_opaque[index], physaddr + 4) << 32;
 #endif
 #endif /* SHIFT > 2 */
+
+#if defined(CONFIG_2nd_CCACHE) && defined(TARGET_I386)//sina
+	if (!second_ccache_flag && env->tempidx){
+		if(ccache_debug){
+			DECAF_printf("Taint tag for memory GVA=0x%x, HVA=0x%x not clean: %d in __taint_ldb_raw_paddr, taint_memory.c:188!\n", addr, physaddr,env->tempidx);
+		}
+		env->exception_index = EXCP12_TNT; //sina: longjmp works neater in comparison to raise_exception because the latter passes the exception to guest.
+		tb_temp = tb_find_pc((unsigned long)retaddr);
+		if (tb_temp) {
+			cpu_restore_state(tb_temp, env, (unsigned long)retaddr);
+		}
+		cpu_single_env->current_tb = NULL;
+		longjmp(env->jmp_env, 1);
+	}
+#endif
+
     return res;
+
 }
 
 /* handle all cases except unaligned access which span two pages */
@@ -69,10 +99,12 @@ DATA_TYPE REGPARM glue(glue(__taint_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
     unsigned long addend;
     void *retaddr;
 
+#ifdef CONFIG_opt_SMEM
     //Set the taint to zero. Then if we read from a tainted page, it will go through taint_io_read function, which later goes into taint_mem_read
     env->tempidx = 0;
 #if ((TCG_TARGET_REG_BITS == 32) && (DATA_SIZE == 8))
     env->tempidx2 = 0;
+#endif
 #endif
 
     /* test if there is match for unaligned or IO access */
@@ -107,6 +139,9 @@ DATA_TYPE REGPARM glue(glue(__taint_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
 #endif
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
+#ifndef CONFIG_opt_SMEM
+            glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+#endif
 
 #if !defined(SOFTMMU_CODE_ACCESS) && defined(CONFIG_MEM_READ_CB)
             if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))// host vitual addr+addend
@@ -196,6 +231,9 @@ static DATA_TYPE glue(glue(taint_slow_ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
             /* unaligned/aligned access in the same page */
             addend = env->tlb_table[mmu_idx][index].addend;
             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
+#ifndef CONFIG_opt_SMEM
+            glue(glue(__taint_ld, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+#endif
 
 #if !defined(SOFTMMU_CODE_ACCESS) && defined(CONFIG_MEM_READ_CB)
             if(DECAF_is_callback_needed(DECAF_MEM_READ_CB))
@@ -283,6 +321,10 @@ static inline void glue(taint_io_write, SUFFIX)(target_phys_addr_t physaddr,
     //end
 #endif
 #endif /* SHIFT > 2 */
+#ifndef CONFIG_opt_SMEM
+    if (index == (IO_MEM_NOTDIRTY>>IO_MEM_SHIFT))
+      glue(glue(__taint_st, SUFFIX), _raw_paddr)(physaddr,addr);
+#endif
 }
 
 void REGPARM glue(glue(__taint_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
@@ -324,6 +366,7 @@ void REGPARM glue(glue(__taint_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
             addend = env->tlb_table[mmu_idx][index].addend;
             glue(glue(st, SUFFIX), _raw)((uint8_t *)(long)(addr+addend), val);
 
+#ifdef CONFIG_opt_SMEM
             //Since tainted pages are marked in io_mem_taint, we have a fast path:
             //If taint is zero, and it is not accessing io_mem_taint, we don't need to update shadow memory
             if (unlikely(env->tempidx
@@ -335,7 +378,9 @@ void REGPARM glue(glue(__taint_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
                 //We need to taint it in the shadow memory, in which the corresponding TLB entry will also be marked as io_mem_taint
                 glue(glue(__taint_st, SUFFIX), _raw)((void *)(addr+addend), addr);
             }
-
+#else
+            glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+#endif
 
             //Hu-Mem write callback
 #ifdef CONFIG_MEM_WRITE_CB
@@ -408,6 +453,7 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
             /* aligned/unaligned access in the same page */
             addend = env->tlb_table[mmu_idx][index].addend;
             glue(glue(st, SUFFIX), _raw)((uint8_t *)(long)(addr+addend), val);
+#ifdef CONFIG_opt_SMEM
             //Since tainted pages are marked in io_mem_taint, we have a fast path:
             //If taint is zero, and it is not accessing io_mem_taint, we don't need to update shadow memory
             if (unlikely(env->tempidx
@@ -419,6 +465,9 @@ static void glue(glue(taint_slow_st, SUFFIX), MMUSUFFIX)(target_ulong addr,
                 //We need to taint it in the shadow memory, in which the corresponding TLB entry will also be marked as io_mem_taint
                 glue(glue(__taint_st, SUFFIX), _raw)((void *)(addr+addend), addr);
             }
+#else
+            glue(glue(__taint_st, SUFFIX), _raw)((unsigned long)(addr+addend),addr);
+#endif
 
             //Hu-Mem read callback
 #ifdef CONFIG_MEM_WRITE_CB

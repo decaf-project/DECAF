@@ -13,8 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#ifdef CONFIG_TCG_TAINT
 #include "shared/tainting/taintcheck_opt.h" // AWH
 #include "shared/tainting/tainting.h"
+#endif
 #include "DECAF_main.h"
 #include "DECAF_target.h"
 #include "DECAF_callback.h"

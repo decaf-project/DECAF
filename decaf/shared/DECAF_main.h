@@ -23,6 +23,10 @@ http://code.google.com/p/decaf-platform/
  *  are in the target directory in DECAF_main_x86.h and .c for example
  */
 
+#if defined(CONFIG_2nd_CCACHE) //sina
+	#define EXCP12_TNT	39
+	extern int second_ccache_flag;
+#endif
 
 #include "qemu-common.h"
 #include "monitor.h"

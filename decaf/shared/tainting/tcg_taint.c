@@ -29,6 +29,11 @@ extern uint32_t gen_opc_condexec_bits[OPC_BUF_SIZE];
 #endif /* TARGET_I386 */
 #endif /* CONFIG_TCG_TAINT */
 
+#if defined(CONFIG_2nd_CCACHE) //sina
+extern int second_ccache_flag;
+extern int ccache_debug;
+#endif
+
 uint16_t *gen_old_opc_ptr;
 TCGArg *gen_old_opparam_ptr;
 
@@ -135,6 +140,385 @@ static void DUMMY_TAINT(int nb_oargs, int nb_args)
 static uint8_t gen_old_liveness_metadata[OPC_BUF_SIZE];
 static void build_liveness_metadata(TCGContext *s);
 #endif /* USE_TCG_OPTIMIZATIONS */
+
+#ifdef CONFIG_2nd_CCACHE
+
+static inline int gen_taintcheck_insn_ld(int search_pc) ///sina: This function instruments only Qemu load for the no-overhead code cache
+{
+#ifdef CONFIG_TCG_TAINT
+  /* Opcode and parameter buffers */
+  static uint16_t gen_old_opc_buf[OPC_BUF_SIZE];
+  static TCGArg gen_old_opparam_buf[OPPARAM_BUF_SIZE];
+  /* Metadata buffers for "search_pc" TBs */
+  static target_ulong gen_old_opc_pc[OPC_BUF_SIZE];
+  static uint8_t gen_old_opc_instr_start[OPC_BUF_SIZE];
+  static uint16_t gen_old_opc_icount[OPC_BUF_SIZE];
+#if defined(TARGET_I386)
+  static uint8_t gen_old_opc_cc_op[OPC_BUF_SIZE];
+#if 0 // AWH - in helper_i386_check.h
+  /* For INB, INW, INL helper functions */
+  int in_helper_func = 0;
+  /* For OUTB, OUTW, OUTL helper functions */
+  int out_helper_func = 0;
+  /* For CMPXCHG helper function */
+  int cmpxchg_helper_func = 0;
+#endif // AWH
+#elif defined(TARGET_ARM)
+  static uint32_t gen_old_opc_condexec_bits[OPC_BUF_SIZE];
+#endif /* TARGET check */
+  int metabuffer_offset = 0;
+
+  int nb_opc = gen_opc_ptr - gen_old_opc_ptr;
+  int return_lj = -1;
+
+  int nb_args=0;
+  int opc_index=0, opparam_index=0;
+  int i=0/*, x=0*/;
+  uint16_t opc=0;
+  int nb_oargs=0, nb_iargs=0, nb_cargs=0;
+  TCGv arg0, arg1, arg2, arg3, arg4, arg5;
+  TCGv t0, t1, t2, t3, t4, t_zero;
+#if defined(TARGET_I386)
+  TCGv arg6, t5, t6;
+#endif /* TARGET check */
+  TCGv orig0, orig1, orig2, orig3, orig4, orig5;
+
+  /* Copy all of the existing ops/parms into a new buffer to back them up. */
+  memcpy(gen_old_opc_buf, gen_old_opc_ptr, sizeof(uint16_t)*(nb_opc)); //sina: it seems that gen_old_opc_ptr holds the opcodes
+  memcpy(gen_old_opparam_buf, gen_old_opparam_ptr, sizeof(TCGArg)* (gen_opparam_ptr - gen_old_opparam_ptr)); //sina: It seems that gen_opparam_ptr and gen_old_opparam_ptr have the arguments and parameters for an operation
+                                                                                                            //gen_opparam_ptr just holds the index that implicitly corresponds to a variables. The allocation is by calling tcg_temp_new_internal that internally uses TCGContext data structure to track the last index number
+
+  /* If we're inserting taint IR into a searchable TB, copy all of the
+     existing metadata for the TB into a new buffer to back them up. */
+  if (search_pc) {
+    /* Figure out where we're starting in the metabuffers */
+    metabuffer_offset = gen_old_opc_ptr - gen_opc_buf;
+
+    /* Make our backup copies of the metadata buffers */
+    memcpy(gen_old_opc_pc, (gen_opc_pc + metabuffer_offset), sizeof(target_ulong)*(nb_opc));
+    memcpy(gen_old_opc_instr_start, (gen_opc_instr_start + metabuffer_offset), sizeof(uint8_t)*(nb_opc));
+    memcpy(gen_old_opc_icount, (gen_opc_icount + metabuffer_offset), sizeof(uint16_t)*(nb_opc));
+#if defined(TARGET_I386)
+    memcpy(gen_old_opc_cc_op, (gen_opc_cc_op + metabuffer_offset), sizeof(uint8_t)*(nb_opc));
+#elif defined(TARGET_ARM)
+    memcpy(gen_old_opc_condexec_bits, (gen_opc_condexec_bits + metabuffer_offset), sizeof(uint32_t)*(nb_opc));
+#endif /* TARGET check */
+
+    memset(gen_opc_instr_start + metabuffer_offset, 0, sizeof(uint8_t) * (OPC_BUF_SIZE - metabuffer_offset));
+  }
+
+  /* Reset the ops/parms buffers */
+  gen_opc_ptr = gen_old_opc_ptr;
+  gen_opparam_ptr = gen_old_opparam_ptr;
+
+#if defined(LOG_TAINTED_EIP)
+  /* Allocate our temps for logging taint */
+  for (i=0; i < MAX_TAINT_LOG_TEMPS; i++)
+#if TCG_TARGET_REG_BITS == 32
+    taint_log_temps[i] = tcg_temp_new_i32();
+#else
+    taint_log_temps[i] = tcg_temp_new_i64();
+#endif /* TCG_TARGET_REG_BITS */
+#endif /* LOG_ check */
+
+  /* Copy and instrument the opcodes that need taint tracking */
+  while(opc_index < nb_opc) { //sina: note that nb_opc holds the number of operands
+    /* If needed, copy all of the appropriate metadata */
+    if (search_pc && (gen_old_opc_instr_start[opc_index] == 1)) {
+      return_lj = gen_opc_ptr - gen_opc_buf;
+      gen_opc_pc[return_lj] = gen_old_opc_pc[opc_index];
+      gen_opc_instr_start[return_lj] = 1;
+      gen_opc_icount[return_lj] = gen_old_opc_icount[opc_index];
+#if defined(TARGET_I386)
+      gen_opc_cc_op[return_lj] = gen_old_opc_cc_op[opc_index];
+#elif defined(TARGET_ARM)
+      gen_opc_condexec_bits[return_lj] = gen_old_opc_condexec_bits[opc_index];
+#endif /* TARGET check */
+    }
+
+    /* Copy the opcode to be instrumented */
+    opc = *(gen_opc_ptr++) = gen_old_opc_buf[opc_index++];
+
+    /* Determine the number and type of arguments for the opcode */
+    if (opc == INDEX_op_call) {
+      TCGArg arg = gen_old_opparam_buf[opparam_index];
+      nb_oargs = arg >> 16;
+      nb_iargs = arg & 0xffff;
+      nb_cargs = tcg_op_defs[opc].nb_cargs;
+      nb_args = nb_oargs + nb_iargs + nb_cargs + 1;
+    } else if (opc == INDEX_op_nopn) {
+      nb_args = nb_cargs = gen_old_opparam_buf[opparam_index];
+      nb_oargs = nb_iargs = 0;
+    } else {
+      nb_args = tcg_op_defs[opc].nb_args;
+      nb_oargs = tcg_op_defs[opc].nb_oargs;
+      nb_iargs = tcg_op_defs[opc].nb_iargs;
+      nb_cargs = tcg_op_defs[opc].nb_cargs;
+    }
+
+    /* Copy the appropriate number of arguments for the opcode */
+    for(i=0; i<nb_args; i++)
+      *(gen_opparam_ptr++) = gen_old_opparam_buf[opparam_index++];
+
+    /* Copy the current gen_opc_ptr.  After we instrument this IR,
+       we compare the copy of gen_opc_ptr against its current value.
+       If it has increased, that means we inserted additional IR and,
+       if this is a "search_pc" TB, that means we know how many extra
+       entries we need to put in the metadata buffers to keep
+       everything in sync. */
+    gen_old_opc_ptr = gen_opc_ptr; //sina: note that this tells us how many instrcutions (opcodes) are added since the last time.
+
+    switch(opc)
+    {
+
+      case INDEX_op_qemu_ld8u:
+      case INDEX_op_qemu_ld8s:
+      case INDEX_op_qemu_ld16u:
+      case INDEX_op_qemu_ld16s:
+#if TCG_TARGET_REG_BITS == 64
+      case INDEX_op_qemu_ld32u:
+      case INDEX_op_qemu_ld32s:
+#endif /* TCG_TARGET_REG_BITS == 64 */
+      case INDEX_op_qemu_ld32:
+        // TARGET_REG_BITS = 64 OR (TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32)
+        if (nb_iargs == 1) arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+        // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 64
+        else tcg_abort(); // Not supported
+        if (arg0) {
+          /* Patch qemu_ld* opcode into taint_qemu_ld* */
+          gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
+          orig0 = gen_opparam_ptr[-3];
+
+          /* Are we doing pointer tainting? */
+          if (taint_load_pointers_enabled) {
+            arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
+        //    int addr = gen_opparam_ptr[-2];
+            if (arg1) {
+
+#if (TCG_TARGET_REG_BITS == 64)
+                t0 = tcg_temp_new_i64();
+                t1 = tcg_temp_new_i64();
+                t2 = tcg_temp_new_i64();
+                t3 = tcg_temp_new_i64();
+
+                /* Load taint from tempidx */
+                tcg_gen_ld32u_tl(t3, cpu_env, offsetof(OurCPUState,tempidx));
+
+#ifndef TAINT_NEW_POINTER //more selective pointer tainting
+                /* Check for pointer taint */
+                t_zero = tcg_temp_new_i64();
+                tcg_gen_movi_i64(t_zero, 0);
+                tcg_gen_setcond_i64(TCG_COND_NE, t2, arg1, t_zero);
+#else
+                t4 = tcg_temp_new_i64();
+                tcg_gen_movi_i64(t2, 0xffff0000);
+                tcg_gen_and_i64(t0, arg1, t2);//t0 = H_taint
+                tcg_gen_movi_i64(t2, 0);
+                tcg_gen_setcond_i64(TCG_COND_EQ, t1, t0, t2);  //t1=(H_taint==0) cond1
+                tcg_gen_setcond_i64(TCG_COND_NE, t4, arg1, t2);  //t4=(P_taint!=0) cond2
+                tcg_gen_and_i64(t2, t1, t4); //t2 = cond1 & cond2
+#endif
+                tcg_gen_neg_i64(t0, t2);
+
+                /* Combine pointer and tempidx taint */
+                tcg_gen_or_i64(arg0, t0, t3);
+
+#else
+              t0 = tcg_temp_new_i32();
+              t1 = tcg_temp_new_i32();
+              t2 = tcg_temp_new_i32();
+              t3 = tcg_temp_new_i32();
+              /* Load taint from tempidx */
+              tcg_gen_ld_i32(t3, cpu_env, offsetof(OurCPUState,tempidx));
+              /* Check for pointer taint */
+#ifndef TAINT_NEW_POINTER
+              t_zero = tcg_temp_new_i32();
+              tcg_gen_movi_i32(t_zero, 0);
+              tcg_gen_setcond_i32(TCG_COND_NE, t2, arg1, t_zero);
+#else
+              t4 = tcg_temp_new_i32();
+              tcg_gen_movi_i32(t2, 0xffff0000); //??
+              tcg_gen_and_i32(t0, arg1, t2);//t0 = H_taint
+              tcg_gen_movi_i32(t2, 0);
+              tcg_gen_setcond_i32(TCG_COND_EQ, t1, t0, t2);  //t1=(H_taint==0) cond1
+              tcg_gen_setcond_i32(TCG_COND_NE, t4, arg1, t2);  //t4=(P_taint!=0) cond2
+              tcg_gen_and_i32(t2, t1, t4); //t2 = cond1 & cond2
+#endif
+              tcg_gen_neg_i32(t0, t2);
+              /* Combine pointer and tempidx taint */
+              tcg_gen_or_i32(arg0, t0, t3);
+#endif /* TARGET_REG_BITS */
+            } else
+              /* Patch in opcode to load taint from tempidx */
+              tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+          } else
+            /* Patch in opcode to load taint from tempidx */
+            tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+        }
+        break;
+
+      case INDEX_op_qemu_ld64:
+#if 1 // AWH - FIXME: 64-bit memory ops may cause corruption
+        DUMMY_TAINT(nb_oargs, nb_args);
+#else
+        // TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32
+        if ((nb_oargs == 2) && (nb_iargs == 1)) {
+          arg0 = find_shadow_arg(gen_opparam_ptr[-4]); // Taint of low DWORD
+          arg1 = find_shadow_arg(gen_opparam_ptr[-3]); // Taint of hi DWORD
+          if (arg0 || arg1) {
+            gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
+            if (taint_load_pointers_enabled) {
+              arg2 = find_shadow_arg(gen_opparam_ptr[-2]);
+              if (arg2) {
+                t0 = tcg_temp_new_i32();
+                t1 = tcg_temp_new_i32();
+                t2 = tcg_temp_new_i32();
+                t3 = tcg_temp_new_i32();
+
+                /* Load taint from tempidx */
+                tcg_gen_ld_i32(t2, cpu_env, offsetof(OurCPUState,tempidx));
+                tcg_gen_ld_i32(t3, cpu_env, offsetof(OurCPUState, tempidx2));
+
+                /* Check for pointer taint */
+                t_zero = tcg_temp_new_i32();
+                tcg_gen_movi_i32(t_zero, 0);
+                tcg_gen_setcond_i32(TCG_COND_NE, t1, arg2, t_zero);
+                tcg_gen_neg_i32(t0, t1);
+
+                /* Combine pointer and tempidx taint */
+                if (arg0)
+                  tcg_gen_or_i32(arg0, t0, t2);
+                if (arg1)
+                  tcg_gen_or_i32(arg1, t0, t3);
+
+              } else {
+                /* Patch in opcode to load taint from tempidx */
+                if (arg0)
+                  tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+                if (arg1)
+                  tcg_gen_ld_i32(arg1, cpu_env, offsetof(OurCPUState,tempidx2));
+              }
+            }  /* taint_pointers_enabled */
+            else {
+              /* Patch in opcode to load taint from tempidx */
+              if (arg0)
+                tcg_gen_ld32u_tl(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+              if (arg1)
+                tcg_gen_ld32u_tl(arg1, cpu_env, offsetof(OurCPUState,tempidx2));
+            } /* taint_pointers_enabled */
+          }
+        // TARGET_REG_BITS = 64, TARGET_LONG_BITS = 64
+        } else if ((nb_oargs ==1) && (nb_iargs == 1)) {
+          arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+          if (arg0) {
+            gen_opc_ptr[-1] += (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
+            if (taint_load_pointers_enabled) {
+              arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
+              if (arg1) {
+                t0 = tcg_temp_new_i64();
+                t1 = tcg_temp_new_i64();
+                t2 = tcg_temp_new_i64();
+                t3 = tcg_temp_new_i64();
+
+                /* Load taint from tempidx */
+                tcg_gen_ld_i64(t3, cpu_env, offsetof(OurCPUState,tempidx));
+
+                /* Check for pointer taint */
+                t_zero = tcg_temp_new_i64();
+                tcg_gen_movi_i64(t_zero, 0);
+                tcg_gen_setcond_i64(TCG_COND_NE, t2, arg1, t_zero);
+                tcg_gen_neg_i64(t0, t2);
+
+                /* Combine pointer and tempidx taint */
+                tcg_gen_or_i64(arg0, t0, t3);
+              } else
+                /* Patch in opcode to load taint from tempidx */
+                tcg_gen_ld_i64(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+            } else
+              /* Patch in opcode to load taint from tempidx */
+              tcg_gen_ld_i64(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+          }
+        // TARGET_REG_BITS = 64, TARGET_LONG_BITS = 32
+        } else
+          tcg_abort();
+#endif // FIXME
+        break;
+
+#if 1 // AWH - DEBUG
+      case INDEX_op_qemu_st32:
+        //DUMMY_TAINT(nb_oargs, nb_args);
+        //break;
+
+      case INDEX_op_qemu_st8:
+      case INDEX_op_qemu_st16:
+#else
+      case INDEX_op_qemu_st8:
+      case INDEX_op_qemu_st16:
+      case INDEX_op_qemu_st32:
+#endif // AWH
+        // TARGET_REG_BITS = 64 OR (TARGET_REG_BITS = 32, TARGET_LONG_BITS = 32)
+        if (nb_iargs == 2) {
+          arg0 = find_shadow_arg(gen_opparam_ptr[-3]);
+          arg1 = find_shadow_arg(gen_opparam_ptr[-2]);
+          if (arg0) {
+            /* Save the qemu_st* parameters */
+            int mem_index = gen_opparam_ptr[-1];
+            int addr = gen_opparam_ptr[-2];
+            int ret = gen_opparam_ptr[-3];
+            int ir = gen_opc_ptr[-1];
+            /* Back up to insert a new IR on top of the qemu_st*  */
+            gen_opc_ptr--;
+            gen_opparam_ptr -= 3;
+
+            if (taint_store_pointers_enabled) {
+
+#if (TCG_TARGET_REG_BITS == 64)
+
+                /* sina: Propagate only zero in the fast mode. This mitigates over-tainting */
+                t_zero = tcg_temp_new_i64();
+                tcg_gen_movi_i64(t_zero, 0);
+                tcg_gen_st32_tl(t_zero, cpu_env, offsetof(OurCPUState,tempidx));
+#else
+                /* sina: Propagate only zero in the fast mode. This mitigates over-tainting */
+                t_zero = tcg_temp_new_i32();
+                tcg_gen_movi_i32(t_zero, 0);
+                tcg_gen_st32_tl(t_zero, cpu_env, offsetof(OurCPUState,tempidx));
+#endif /* TARGET_REG_BITS */
+
+            } else {
+                /* sina: Propagate only zero in the fast mode. This mitigates over-tainting */
+                t_zero = tcg_temp_new_i32();
+                tcg_gen_movi_i32(t_zero, 0);
+                tcg_gen_st32_tl(t_zero, cpu_env, offsetof(OurCPUState,tempidx));
+            }
+
+            /* Insert the taint_qemu_st* IR */
+            gen_opc_ptr++;
+            gen_opparam_ptr += 3;
+            gen_opc_ptr[-1] = ir + (INDEX_op_taint_qemu_ld8u - INDEX_op_qemu_ld8u);
+            gen_opparam_ptr[-1] = mem_index;
+            gen_opparam_ptr[-2] = addr;
+            gen_opparam_ptr[-3] = ret;
+          }
+        } else
+          tcg_abort();
+        break;
+
+      case INDEX_op_qemu_st64:
+        break;
+
+      default:
+        break;
+    } /* End switch */
+  } /* End taint while loop */
+
+  return return_lj;
+#else
+  return 0;
+#endif /* CONFIG_TCG_TAINT */
+}
+
+#endif /* CONFIG_2nd_CCACHE */
 
 static inline int gen_taintcheck_insn(int search_pc)
 {
@@ -2639,7 +3023,23 @@ int retVal;
         qemu_log("\n");
     }
 
-    retVal = gen_taintcheck_insn(search_pc);
+#if defined(CONFIG_2nd_CCACHE)
+	if(second_ccache_flag){
+		if (ccache_debug){
+//			DECAF_printf("Full instrumentation by calling gen_taintcheck_insn in tcg_taint.c:3136!\n");
+		}
+		retVal = gen_taintcheck_insn(search_pc);
+	}
+	else{
+		if (ccache_debug){
+//			DECAF_printf("qemu_ld only instrumentation by calling gen_taintcheck_insn_ld in tcg_taint.c:3146!\n");
+		}
+		retVal = gen_taintcheck_insn_ld(search_pc);
+	}
+#else
+	retVal = gen_taintcheck_insn(search_pc);
+#endif
+
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP))) {
         qemu_log("OP after taint instrumentation\n");
         tcg_dump_ops(&tcg_ctx, logfile);

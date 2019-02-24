@@ -284,3 +284,4 @@ void taintcheck_nic_cleanbuf(const uint32_t addr, const int size)
 }
 
 #endif
+
