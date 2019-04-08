@@ -23,7 +23,7 @@ For debian like users (etc. Ubuntu or Debian), you can follow this step to build
 Install dependencies.
 
 ```shell
-sudo apt-get install -y libsdl1.2-dev zlib1g-dev libglib2.0-dev libbfd-dev build-essential binutils qemu libboost-dev git lib tool autoconf xorg-dev
+sudo apt-get install -y libsdl1.2-dev zlib1g-dev libglib2.0-dev libbfd-dev build-essential binutils qemu libboost-dev git libtool autoconf xorg-dev
 ```
 
 #### Step 2
@@ -43,9 +43,9 @@ export DECAF_PATH=`pwd`
 Configure the sleuthkit library.
 
 ```shell
-cd ${DECAF_PATH}/decaf/shared/sleuthkit
+cd ${DECAF_PATH}/shared/sleuthkit
 rm ./config/ltmain.sh
-ln -s /usr/share/libtool/build-aux/ltmain.sh ./config/ltmain.sh
+libtoolize
 autoconf
 ./configure
 make
