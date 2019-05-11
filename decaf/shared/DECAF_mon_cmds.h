@@ -71,20 +71,22 @@ http://code.google.com/p/decaf-platform/
         .help       = "Turn off taint tracking",
         .mhandler.cmd_new = do_disable_tainting,
 },
-{
+//TODO: Implement this command
+/*{
         .name       = "taint_nic_on",
         .args_type  = "",
         .params     = "",
         .help       = "Turn on tainting of all data coming from the NE2000 NIC",
         .mhandler.cmd_new = do_taint_nic_on,
-},
-{
+},*/
+//TODO: Implement this command
+/*{
         .name       = "taint_nic_off",
         .args_type  = "",
         .params     = "",
         .help       = "Turn off tainting of all data coming from the NE2000 NIC",
         .mhandler.cmd_new = do_taint_nic_off,
-},
+},*/
 {
         .name       = "taint_mem_usage",
         .args_type  = "",
