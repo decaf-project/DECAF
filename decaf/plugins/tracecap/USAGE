@@ -19,7 +19,7 @@ Instructions for collecting a trace using tracecap
      b) in a Linux image: (qemu) linux_ps
 
 4. Start tracing the victim process.
-(qemu) <pid_of_victim_process> <trace_filename>
+(qemu) trace <pid_of_victim_process> <trace_filename>
 
 5. After the experiment, stop tracing and collect the trace.
 (qemu) trace_stop
