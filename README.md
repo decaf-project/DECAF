@@ -52,7 +52,7 @@ To reduce runtime overhead, the instrumentation code is inserted into the transl
 [](#help-documents)Help Documents
 ---------------------------------
 
-Please refer to [our wiki page](./wiki) for help documents.
+Please refer to [our wiki page](../../wiki) for help documents.
 
 [](#branch-notification)Branch Notification
 -------------------------------------------
