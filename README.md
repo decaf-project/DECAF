@@ -4,7 +4,7 @@
 DECAF (short for Dynamic Executable Code Analysis Framework) is a binary analysis platform based on QEMU. This is also the home of the DroidScope dynamic Android malware analysis platform. DroidScope is now an extension to DECAF.
 
 DECAF++, the new version of DECAF, taint analysis is around 2X faster making it the fastest, to the best of our knowledge, whole-system dynamic taint analysis framework. This results in a much better usability imposing only 4% overhead (SPEC CPU2006) when no suspicious (tainted) input exists. Even under heavy taint analysis workloads, DECAF++ has a much better performance, around 25% faster on nbench, because of its elasticity. DECAF++ elasticity makes it a very suitable case for security analysis tasks that would selectively analyze the input e.g. Intrusion Detection Systems (IDS) that can filter out benign traffic. For further technical details, see our RAID 2019 paper. To activate the optimizations, see our [DECAF++ wiki](../../wiki/DECAF--plus-plus) page.
-![](./docs/CPUSPEC_notaint_new.pdf)
+![](./docs/CPUSPEC_notaint_new.pdf?raw=true)
 
 [](#publications)PUBLICATIONS
 -----------------------------
