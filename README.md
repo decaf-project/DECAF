@@ -1,5 +1,5 @@
 
-[![Build Status](https://camo.githubusercontent.com/ffefc913763fd87bb3c55a76f4c3a2e15c57f250/68747470733a2f2f7472617669732d63692e6f72672f7379637572656c61622f44454341462e7376673f6272616e63683d6d6173746572)](https://travis-ci.org/sycurelab/DECAF)
+[![Build Status](https://travis-ci.org/sycurelab/DECAF.svg?branch=master)](https://travis-ci.org/sycurelab/DECAF)
 
 ## DECAF
 DECAF (short for Dynamic Executable Code Analysis Framework) is a binary analysis platform based on QEMU. This is also the home of the DroidScope dynamic Android malware analysis platform. DroidScope is now an extension to DECAF.
