@@ -153,12 +153,26 @@ typedef struct CPUWatchpoint {
     QTAILQ_ENTRY(CPUWatchpoint) entry;
 } CPUWatchpoint;
 
+#if defined(CONFIG_2nd_CCACHE)
+	#define swtch_ccache	\
+		int exception_switch_cache;
+#else
+	#define swtch_ccache
+#endif
+
 #ifdef CONFIG_TCG_TAINT
 #define CPU_TEMP_BUF_NLONGS 1024
 // AWH - Was 256
 #else
 #define CPU_TEMP_BUF_NLONGS 128
 #endif /* CONFIG_TCG_TAINT */
+#if defined(CONFIG_2nd_CCACHE)
+#define TB_SECOND_JUMP \
+    /* sina */  														 \
+	struct TranslationBlock *tb_jmp_2cache[TB_JMP_CACHE_SIZE];
+#else
+#define TB_SECOND_JUMP
+#endif
 #define CPU_COMMON                                                      \
     struct TranslationBlock *current_tb; /* currently executing TB  */  \
     /* soft mmu support */                                              \
@@ -174,6 +188,7 @@ typedef struct CPUWatchpoint {
     volatile sig_atomic_t exit_request;                                 \
     CPU_COMMON_TLB                                                      \
     struct TranslationBlock *tb_jmp_cache[TB_JMP_CACHE_SIZE];           \
+    TB_SECOND_JUMP														\
     /* buffer for temporaries in the code generator */                  \
     long temp_buf[CPU_TEMP_BUF_NLONGS];                                 \
                                                                         \

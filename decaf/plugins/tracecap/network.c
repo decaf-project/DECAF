@@ -393,7 +393,10 @@ void tracing_nic_recv(DECAF_Callback_Params* params)
 		}
 		if (len2) {
 			record.taintBytes[0].origin = tracing_get_tcp_origin(conn_id);
-
+			DECAF_printf("Received new TCP data: %010u %s:%d-->%s:%d (%d)\n",
+					record.taintBytes[0].origin, inet_ntoa(iph->ip_src),
+					ntohs(tcph->th_sport), inet_ntoa(iph->ip_dst),
+					ntohs(tcph->th_dport), len2);
 			if (tracenetlog) {
 				fprintf(tracenetlog,
 						"Received new TCP data: %010u %s:%d-->%s:%d (%d)\n",
@@ -411,7 +414,10 @@ void tracing_nic_recv(DECAF_Callback_Params* params)
 		hlen = 34 + 8;
 		if (len2) {
 			record.taintBytes[0].origin = tracing_get_udp_origin(conn_id);
-
+			DECAF_printf("Received new UDP data: %010u %s:%d-->%s:%d (%d)\n",
+					record.taintBytes[0].origin, inet_ntoa(iph->ip_src),
+					ntohs(udph->uh_sport), inet_ntoa(iph->ip_dst),
+					ntohs(udph->uh_dport), len2);
 			/* Log received data */
 			if (tracenetlog) {
 				fprintf(tracenetlog,
@@ -446,6 +452,9 @@ void tracing_nic_recv(DECAF_Callback_Params* params)
 
 						uint8_t taint = 0xff;
 						taintcheck_nic_writebuf(index + hlen + offset, 1, &taint);
+//						DECAF_printf( "N %010u %04u \n",
+//								record.taintBytes[0].origin,
+//								record.taintBytes[0].offset);
 #endif
 						if (tracenetlog) {
 							uint8_t *dataPtr = buf + hlen + offset;
@@ -465,6 +474,9 @@ void tracing_nic_recv(DECAF_Callback_Params* params)
 #ifdef CONFIG_TCG_TAINT
 					uint8_t taint = 0xff;
 					taintcheck_nic_writebuf(index + offset, 1, &taint);
+//					DECAF_printf( "N %010u %04u \n",
+//							record.taintBytes[0].origin,
+//							record.taintBytes[0].offset);
 #endif
 					if (tracenetlog) {
 						uint8_t *dataPtr = buf + hlen + offset;

@@ -113,4 +113,13 @@ http://code.google.com/p/decaf-platform/
         .help       = "Turn on/off tainting of pointers (load) (store)",
         .mhandler.cmd_new = do_taint_pointers,
 },
+#ifdef CONFIG_2nd_CCACHE
+{
+        .name       = "2cache_debug", //sina
+        .args_type  = "status:b",
+        .params     = "on|off",
+        .help       = "Turn on/off 2nd code cache debug information",
+        .mhandler.cmd_new = do_2cache_debug,
+},
+#endif
 #endif /* CONFIG_TCG_TAINT */

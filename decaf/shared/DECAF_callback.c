@@ -420,6 +420,82 @@ invalid_handle:
 //end - Aravind
 
 
+//sina: start
+#if defined(CONFIG_2nd_CCACHE)
+DECAF_Handle DECAF_registerMatchBlockEndCallback( //for the nbench plugin
+    DECAF_callback_func_t cb_func,
+    int *cb_cond,
+    gva_t from,
+    gva_t to)
+{
+
+	callback_struct_t * cb_struct = (callback_struct_t *)g_malloc(sizeof(callback_struct_t));
+  if (cb_struct == NULL)
+  {
+    return (DECAF_NULL_HANDLE);
+  }
+
+  //pre-populate the info
+  cb_struct->callback = cb_func;
+  cb_struct->enabled = cb_cond;
+  cb_struct->from = from;
+  cb_struct->to = to;
+  cb_struct->ocb_type = OCB_CONST;
+
+  if ( (from == INV_ADDR) && (to == INV_ADDR) )
+  {
+	  return DECAF_NULL_HANDLE;
+  }
+  else if (to == INV_ADDR) //this means only looking at the FROM list
+  {
+    if (pOBEFromPageTable == NULL)
+    {
+      g_free(cb_struct);
+      return(DECAF_NULL_HANDLE);
+    }
+
+    if (CountingHashtable_add(pOBEFromPageTable, from & TARGET_PAGE_MASK) == 1)
+    {
+    	DECAF_flushTranslationCache(PAGE_LEVEL,from);
+    }
+  }
+  else if (from == INV_ADDR)
+    //this is tricky, because it involves flushing the WHOLE cache
+  {
+    if (pOBEToPageTable == NULL)
+    {
+      g_free(cb_struct);
+      return(DECAF_NULL_HANDLE);
+    }
+
+    if (CountingHashtable_add(pOBEToPageTable, to & TARGET_PAGE_MASK) == 1)
+    {
+      DECAF_flushTranslationCache(ALL_CACHE,0);
+    }
+  }
+  else
+  {
+    if (pOBEPageMap == NULL)
+    {
+      g_free(cb_struct);
+      return(DECAF_NULL_HANDLE);
+    }
+
+    //if we are here then that means we need the hashmap
+    if (CountingHashmap_add(pOBEPageMap, from & TARGET_PAGE_MASK, to & TARGET_PAGE_MASK) == 1)
+    {
+	    DECAF_flushTranslationCache(PAGE_LEVEL,from);
+    }
+  }
+
+  //insert into the list
+  LIST_INSERT_HEAD(&callback_list_heads[DECAF_BLOCK_END_CB], cb_struct, link);
+  return ((DECAF_Handle)cb_struct);
+}
+
+//sina: end
+#endif
+
 
 DECAF_Handle DECAF_registerOptimizedBlockEndCallback(
 		DECAF_callback_func_t cb_func,
