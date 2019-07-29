@@ -298,10 +298,6 @@ static inline int gen_taintcheck_insn_ld(int search_pc) ///sina: This function i
                 t0 = tcg_temp_new_i64();
                 t1 = tcg_temp_new_i64();
                 t2 = tcg_temp_new_i64();
-                t3 = tcg_temp_new_i64();
-
-                /* Load taint from tempidx */
-                tcg_gen_ld32u_tl(t3, cpu_env, offsetof(OurCPUState,tempidx));
 
 #ifndef TAINT_NEW_POINTER //more selective pointer tainting
                 /* Check for pointer taint */
@@ -320,15 +316,12 @@ static inline int gen_taintcheck_insn_ld(int search_pc) ///sina: This function i
                 tcg_gen_neg_i64(t0, t2);
 
                 /* Combine pointer and tempidx taint */
-                tcg_gen_or_i64(arg0, t0, t3);
+                tcg_gen_or_i64(arg0, t0, tempidx);
 
 #else
               t0 = tcg_temp_new_i32();
               t1 = tcg_temp_new_i32();
               t2 = tcg_temp_new_i32();
-              t3 = tcg_temp_new_i32();
-              /* Load taint from tempidx */
-              tcg_gen_ld_i32(t3, cpu_env, offsetof(OurCPUState,tempidx));
               /* Check for pointer taint */
 #ifndef TAINT_NEW_POINTER
               t_zero = tcg_temp_new_i32();
@@ -345,14 +338,14 @@ static inline int gen_taintcheck_insn_ld(int search_pc) ///sina: This function i
 #endif
               tcg_gen_neg_i32(t0, t2);
               /* Combine pointer and tempidx taint */
-              tcg_gen_or_i32(arg0, t0, t3);
+              tcg_gen_or_i32(arg0, t0, tempidx);
 #endif /* TARGET_REG_BITS */
             } else
               /* Patch in opcode to load taint from tempidx */
-              tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+              tcg_gen_mov_tl(arg0, tempidx);
           } else
             /* Patch in opcode to load taint from tempidx */
-            tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+            tcg_gen_mov_tl(arg0, tempidx);
         }
         break;
 
@@ -891,10 +884,6 @@ static inline int gen_taintcheck_insn(int search_pc)
               t0 = tcg_temp_new_i64();
               t1 = tcg_temp_new_i64();
               t2 = tcg_temp_new_i64();
-              t3 = tcg_temp_new_i64();
-
-              /* Load taint from tempidx */
-              tcg_gen_ld32u_tl(t3, cpu_env, offsetof(OurCPUState,tempidx));
 
 #ifndef TAINT_NEW_POINTER //more selective pointer tainting
               /* Check for pointer taint */
@@ -913,15 +902,12 @@ static inline int gen_taintcheck_insn(int search_pc)
               tcg_gen_neg_i64(t0, t2);
 
               /* Combine pointer and tempidx taint */
-              tcg_gen_or_i64(arg0, t0, t3);
+              tcg_gen_or_i64(arg0, t0, tempidx);
 
 #else
               t0 = tcg_temp_new_i32();
               t1 = tcg_temp_new_i32();
               t2 = tcg_temp_new_i32();
-              t3 = tcg_temp_new_i32();
-              /* Load taint from tempidx */
-              tcg_gen_ld_i32(t3, cpu_env, offsetof(OurCPUState,tempidx));
               /* Check for pointer taint */
 #ifndef TAINT_NEW_POINTER
               t_zero = tcg_temp_new_i32();
@@ -938,14 +924,14 @@ static inline int gen_taintcheck_insn(int search_pc)
 #endif
               tcg_gen_neg_i32(t0, t2);
               /* Combine pointer and tempidx taint */
-              tcg_gen_or_i32(arg0, t0, t3);
+              tcg_gen_or_i32(arg0, t0, tempidx);
 #endif /* TARGET_REG_BITS */
             } else
               /* Patch in opcode to load taint from tempidx */
-              tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+              tcg_gen_mov_tl(arg0, tempidx);
           } else
             /* Patch in opcode to load taint from tempidx */
-            tcg_gen_ld_i32(arg0, cpu_env, offsetof(OurCPUState,tempidx));
+            tcg_gen_mov_tl(arg0, tempidx);
         }
         break;
 
