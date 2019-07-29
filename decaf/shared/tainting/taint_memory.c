@@ -47,8 +47,8 @@ uint32_t leaf_nodes_in_use = 0;
 
 tbitpage_leaf_pool_t leaf_pool;
 tbitpage_middle_pool_t middle_pool;
-const uint32_t LEAF_ADDRESS_MASK = (2 << BITPAGE_LEAF_BITS) - 1;
-const uint32_t MIDDLE_ADDRESS_MASK = (2 << BITPAGE_MIDDLE_BITS) - 1;
+const uint32_t LEAF_ADDRESS_MASK = (1 << BITPAGE_LEAF_BITS) - 1;
+const uint32_t MIDDLE_ADDRESS_MASK = (1 << BITPAGE_MIDDLE_BITS) - 1;
 
 static inline tbitpage_leaf_t *read_leaf_node_i32(uint32_t address) {
   unsigned int middle_node_index = address >> (BITPAGE_LEAF_BITS + BITPAGE_MIDDLE_BITS);
@@ -208,12 +208,12 @@ void garbage_collect_taint(int flag) {
     middle_node = taint_memory_page_table[middle_index];
     if (middle_node) {
       free_middle = 1;
-      for (leaf_index = 0; leaf_index < (2 << BITPAGE_MIDDLE_BITS); leaf_index++) {
+      for (leaf_index = 0; leaf_index < (1 << BITPAGE_MIDDLE_BITS); leaf_index++) {
         leaf_node = middle_node->leaf[leaf_index];
         if (leaf_node) {
           free_leaf = 1;
           // Take the byte array elements of the leaf node four at a time
-          for (i = 0; i < (2 << (BITPAGE_LEAF_BITS-2)); i++) {
+          for (i = 0; i < (1 << (BITPAGE_LEAF_BITS-2)); i++) {
             if ( *(((uint32_t *)leaf_node->bitmap) + i) ) {
               free_leaf = 0;
               free_middle = 0;
@@ -244,7 +244,7 @@ static void empty_taint_memory_page_table(void) {
   for (middle_index = 0; middle_index < taint_memory_page_table_root_size; middle_index++) {
     middle_node = taint_memory_page_table[middle_index];
     if (middle_node) {
-      for (leaf_index = 0; leaf_index < (2 << BITPAGE_MIDDLE_BITS); leaf_index++) {
+      for (leaf_index = 0; leaf_index < (1 << BITPAGE_MIDDLE_BITS); leaf_index++) {
         leaf_node = middle_node->leaf[leaf_index];
         if (leaf_node) {
           g_free(leaf_node);
@@ -637,12 +637,12 @@ void REGPARM taint_mem(ram_addr_t addr, int size, uint8_t *taint)
 	uint32_t i, offset, len = 0;
     tbitpage_leaf_t *leaf_node = NULL;
     int is_tainted;
-    uint8_t zero_mem[2 << BITPAGE_LEAF_BITS];
+    uint8_t zero_mem[1 << BITPAGE_LEAF_BITS];
 
     bzero(zero_mem, sizeof(zero_mem)); //TODO: would be nice to zero it only once.
     for (i=0; i<size; i+=len) {
 		offset = (addr + i) & LEAF_ADDRESS_MASK;
-		len = min( (2<<BITPAGE_LEAF_BITS) - offset, size - i);
+		len = min( (1<<BITPAGE_LEAF_BITS) - offset, size - i);
         is_tainted = (memcmp(taint+i, zero_mem, len)!=0);
 
         //the name of this function is a little misleading.
@@ -664,7 +664,7 @@ void REGPARM taint_mem_check(ram_addr_t addr, uint32_t size, uint8_t * taint)
   	bzero(taint, size);
     for (i=0; i<size; i+=len) {
         offset = (addr + i) & LEAF_ADDRESS_MASK;
-        len = min((2<<BITPAGE_LEAF_BITS) - offset, size - i);
+        len = min((1<<BITPAGE_LEAF_BITS) - offset, size - i);
         leaf_node = read_leaf_node_i32(addr + i);
         if(leaf_node) {
             memcpy(taint+i, &leaf_node->bitmap[offset], len);
@@ -686,11 +686,11 @@ uint32_t calc_tainted_bytes(void){
 			middle_index++) {
 		middle_node = taint_memory_page_table[middle_index];
 		if (middle_node) {
-			for (leaf_index = 0; leaf_index < (2 << BITPAGE_MIDDLE_BITS);
+			for (leaf_index = 0; leaf_index < (1 << BITPAGE_MIDDLE_BITS);
 					leaf_index++) {
 				leaf_node = middle_node->leaf[leaf_index];
 				if (leaf_node) {
-					for (i = 0; i < (2 << BITPAGE_LEAF_BITS); i++) {
+					for (i = 0; i < (1 << BITPAGE_LEAF_BITS); i++) {
 						if (leaf_node->bitmap[i])
 							tainted_bytes++;
 					}
