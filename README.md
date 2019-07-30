@@ -59,7 +59,4 @@ To reduce runtime overhead, the instrumentation code is inserted into the transl
 
 Please refer to [our wiki page](../../wiki) for help documents.
 
-[](#branch-notification)Branch Notification
--------------------------------------------
 
-If you want to retrieve DroidScope or dockerfile, please checkout to DroidScope or docker branch.
