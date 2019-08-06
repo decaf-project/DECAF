@@ -20,6 +20,7 @@ env:
   - Cmd="./configure --enable-vmi --disable-tcg-taint"
   - Cmd="./configure --enable-vmi --enable-tcg-taint"
   - Cmd="./configure --enable-vmi --enable-tcg-taint --enable-tcg-ir-log"
+  - Cmd="./configure --enable-tcg-taint --enable-2nd-ccache --enable-opt-smem"
 
 script:
  - $Cmd && make && make distclean && reset
