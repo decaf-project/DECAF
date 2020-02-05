@@ -17,7 +17,19 @@ DECAF++, the new version of DECAF, taint analysis is around 2X faster making it 
 3.  Lok Kwong Yan, Andrew Henderson, Xunchao Hu, Heng Yin, and Stephen McCamant?.On soundness and precision of dynamic taint analysis. Technical Report SYR-EECS-2014-04, Syracuse University, January 2014.
     
 4.  DroidScope: Seamlessly Reconstructing OS and Dalvik Semantic Views for Dynamic Android Malware Analysis", Lok-Kwong Yan and Heng Yin, in the 21st USENIX Security Symposium, Bellevue, WA, August 8-10, 2012.
+
+[](#systems)Select Academic Systems Using DECAF
+-----------------------------
+1.  Luo, L., Fu, Y., Wu, D., Zhu, S., & Liu, P. (2016, June). Repackage-proofing android apps. In 2016 46th Annual IEEE/IFIP International Conference on Dependable Systems and Networks (DSN) (pp. 550-561). IEEE.
+
+2.  Wei, J., Yan, L. K., & Hakim, M. A. (2015, December). Mose: Live migration based on-the-fly software emulation. In Proceedings of the 31st Annual Computer Security Applications Conference (ACSAC) (pp. 221-230).
     
+3.  Carmony, C., Hu, X., Yin, H., Bhaskar, A.V., & Zhang, M. (2016). Extract Me If You Can: Abusing PDF Parsers in Malware Detectors. In Proceedings of 2016 Network and Distributed System Security Symposium (NDSS).
+    
+4.  Feng, Q., Prakash, A., Yin, H., & Lin, Z. (2014, December). Mace: High-coverage and robust memory analysis for commodity operating systems. In Proceedings of the 30th annual computer security applications conference (pp. 196-205)
+    
+5.  Alwabel, A., Shi, H., Bartlett, G., & Mirkovic, J. (2014). Safe and automated live malware experimentation on public testbeds. In 7th Workshop on Cyber Security Experimentation and Test (CSET'14).
+
 
 [](#introduction)Introduction
 -----------------------------
@@ -58,5 +70,6 @@ To reduce runtime overhead, the instrumentation code is inserted into the transl
 ---------------------------------
 
 Please refer to [our wiki page](../../wiki) for help documents.
+
 
 
