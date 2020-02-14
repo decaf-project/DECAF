@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <sys/time.h>
+#include <sys/sysmacros.h>
 #include <utime.h>
 #include <sys/resource.h>
 #include "hw/virtio.h"
