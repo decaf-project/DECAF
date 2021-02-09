@@ -1,5 +1,5 @@
 
-[![Build Status](https://travis-ci.org/sycurelab/DECAF.svg?branch=master)](https://travis-ci.org/sycurelab/DECAF)
+[![Build Status](https://www.travis-ci.com/enlighten5/DECAF.svg?branch=master)](https://www.travis-ci.com/github/enlighten5/DECAF)
 
 ## DECAF
 DECAF (short for Dynamic Executable Code Analysis Framework) is a binary analysis platform based on QEMU. 
